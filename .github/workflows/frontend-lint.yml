@@ -1,0 +1,33 @@
+name: Frontend · Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  frontend-lint:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - 'pnpm-lock.yaml'
+
+      - if: steps.filter.outputs.frontend == 'true'
+        uses: ./.github/actions/setup
+
+      - if: steps.filter.outputs.frontend == 'true'
+        name: Lint
+        run: pnpm --filter frontend --if-present lint

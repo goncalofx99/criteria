@@ -1,0 +1,38 @@
+name: Backend · Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  backend-test:
+    name: Backend Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'server/**'
+              - 'pnpm-lock.yaml'
+
+      - if: steps.filter.outputs.backend == 'true'
+        uses: ./.github/actions/setup
+
+      - if: steps.filter.outputs.backend == 'true'
+        name: Unit tests
+        run: pnpm --filter server test
+
+      - if: steps.filter.outputs.backend == 'true' && github.event_name == 'pull_request'
+        name: Coverage
+        run: pnpm --filter server test -- --coverage
+        continue-on-error: true

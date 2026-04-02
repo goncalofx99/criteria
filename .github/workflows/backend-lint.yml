@@ -1,0 +1,33 @@
+name: Backend · Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  backend-lint:
+    name: Backend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'server/**'
+              - 'pnpm-lock.yaml'
+
+      - if: steps.filter.outputs.backend == 'true'
+        uses: ./.github/actions/setup
+
+      - if: steps.filter.outputs.backend == 'true'
+        name: Lint
+        run: pnpm --filter server lint

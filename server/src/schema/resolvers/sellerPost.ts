@@ -1,24 +1,11 @@
 import { GraphQLError } from 'graphql'
-import { eq, desc, and } from 'drizzle-orm'
+import { eq, desc } from 'drizzle-orm'
 import { sellerPosts, users } from '../../db/schema.js'
+import { validate, createSellerPostSchema, updateSellerPostSchema } from '../../lib/validate.js'
 import type { Context } from '../../context.js'
 import type { SellerPost } from '../../db/schema.js'
 
-type CreateSellerPostInput = {
-  title: string
-  description?: string
-  locationText: string
-  lat: number
-  lng: number
-  propertyType: 'apartment' | 'house' | 'land' | 'commercial'
-  price: number
-  bedrooms: number
-  bathrooms: number
-  areaSqm?: number
-  images?: string[]
-}
-
-type UpdateSellerPostInput = Partial<CreateSellerPostInput>
+const MAX_PAGE_SIZE = 50
 
 function requireAuth(ctx: Context) {
   if (!ctx.userId) {
@@ -38,21 +25,25 @@ function requireOwnership(post: SellerPost, userId: string) {
 }
 
 export const sellerPostResolvers = {
-  // Resolve nested seller field from sellerId
   SellerPost: {
     seller: (post: SellerPost, _: unknown, ctx: Context) =>
       ctx.db.query.users.findFirst({
         where: eq(users.id, post.sellerId),
       }),
+    // Drizzle returns numeric as string — coerce for GraphQL Float
     price: (post: SellerPost) => Number(post.price),
   },
 
   Query: {
-    sellerPosts: (_: unknown, { limit = 20, offset = 0 }: { limit?: number; offset?: number }, ctx: Context) =>
+    sellerPosts: (
+      _: unknown,
+      { limit = 20, offset = 0 }: { limit?: number; offset?: number },
+      ctx: Context
+    ) =>
       ctx.db.query.sellerPosts.findMany({
         where: (sp, { eq }) => eq(sp.isActive, true),
         orderBy: (sp) => desc(sp.createdAt),
-        limit,
+        limit: Math.min(limit, MAX_PAGE_SIZE),
         offset,
       }),
 
@@ -73,26 +64,27 @@ export const sellerPostResolvers = {
   Mutation: {
     createSellerPost: async (
       _: unknown,
-      { input }: { input: CreateSellerPostInput },
+      { input }: { input: unknown },
       ctx: Context
     ) => {
       const userId = requireAuth(ctx)
+      const data = validate(createSellerPostSchema, input)
 
       const [post] = await ctx.db
         .insert(sellerPosts)
         .values({
           sellerId: userId,
-          title: input.title,
-          description: input.description ?? null,
-          locationText: input.locationText,
-          lat: input.lat,
-          lng: input.lng,
-          propertyType: input.propertyType,
-          price: String(input.price),
-          bedrooms: input.bedrooms,
-          bathrooms: input.bathrooms,
-          areaSqm: input.areaSqm ?? null,
-          images: input.images ?? [],
+          title: data.title,
+          description: data.description ?? null,
+          locationText: data.locationText,
+          lat: data.lat,
+          lng: data.lng,
+          propertyType: data.propertyType,
+          price: String(data.price),
+          bedrooms: data.bedrooms,
+          bathrooms: data.bathrooms,
+          areaSqm: data.areaSqm ?? null,
+          images: data.images ?? [],
         })
         .returning()
 
@@ -101,10 +93,11 @@ export const sellerPostResolvers = {
 
     updateSellerPost: async (
       _: unknown,
-      { id, input }: { id: string; input: UpdateSellerPostInput },
+      { id, input }: { id: string; input: unknown },
       ctx: Context
     ) => {
       const userId = requireAuth(ctx)
+      const data = validate(updateSellerPostSchema, input)
 
       const existing = await ctx.db.query.sellerPosts.findFirst({
         where: (sp, { eq }) => eq(sp.id, id),
@@ -112,20 +105,18 @@ export const sellerPostResolvers = {
       if (!existing) throw new GraphQLError('Post not found', { extensions: { code: 'NOT_FOUND' } })
       requireOwnership(existing, userId)
 
-      const updates: Partial<typeof sellerPosts.$inferInsert> = {
-        updatedAt: new Date(),
-      }
-      if (input.title !== undefined) updates.title = input.title
-      if (input.description !== undefined) updates.description = input.description
-      if (input.locationText !== undefined) updates.locationText = input.locationText
-      if (input.lat !== undefined) updates.lat = input.lat
-      if (input.lng !== undefined) updates.lng = input.lng
-      if (input.propertyType !== undefined) updates.propertyType = input.propertyType
-      if (input.price !== undefined) updates.price = String(input.price)
-      if (input.bedrooms !== undefined) updates.bedrooms = input.bedrooms
-      if (input.bathrooms !== undefined) updates.bathrooms = input.bathrooms
-      if (input.areaSqm !== undefined) updates.areaSqm = input.areaSqm
-      if (input.images !== undefined) updates.images = input.images
+      const updates: Partial<typeof sellerPosts.$inferInsert> = { updatedAt: new Date() }
+      if (data.title !== undefined) updates.title = data.title
+      if (data.description !== undefined) updates.description = data.description
+      if (data.locationText !== undefined) updates.locationText = data.locationText
+      if (data.lat !== undefined) updates.lat = data.lat
+      if (data.lng !== undefined) updates.lng = data.lng
+      if (data.propertyType !== undefined) updates.propertyType = data.propertyType
+      if (data.price !== undefined) updates.price = String(data.price)
+      if (data.bedrooms !== undefined) updates.bedrooms = data.bedrooms
+      if (data.bathrooms !== undefined) updates.bathrooms = data.bathrooms
+      if (data.areaSqm !== undefined) updates.areaSqm = data.areaSqm
+      if (data.images !== undefined) updates.images = data.images
 
       const [updated] = await ctx.db
         .update(sellerPosts)

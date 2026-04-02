@@ -107,6 +107,47 @@ export const buyerPosts = pgTable('buyer_posts', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
+// ─── Conversations ────────────────────────────────────────────────────────────
+// A conversation is always between one buyer and one seller.
+// It originates from either a buyer post (seller reached out) or
+// a seller post (buyer reached out) — never both, never neither.
+// The unique constraint prevents duplicate conversations about the same post.
+
+export const conversations = pgTable('conversations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+
+  // Exactly one of these must be set (enforced in application logic)
+  buyerPostId: uuid('buyer_post_id').references(() => buyerPosts.id, {
+    onDelete: 'set null',
+  }),
+  sellerPostId: uuid('seller_post_id').references(() => sellerPosts.id, {
+    onDelete: 'set null',
+  }),
+
+  buyerId: uuid('buyer_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  sellerId: uuid('seller_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
+// ─── Messages ─────────────────────────────────────────────────────────────────
+
+export const messages = pgTable('messages', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  conversationId: uuid('conversation_id')
+    .notNull()
+    .references(() => conversations.id, { onDelete: 'cascade' }),
+  senderId: uuid('sender_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect
@@ -115,3 +156,7 @@ export type SellerPost = typeof sellerPosts.$inferSelect
 export type NewSellerPost = typeof sellerPosts.$inferInsert
 export type BuyerPost = typeof buyerPosts.$inferSelect
 export type NewBuyerPost = typeof buyerPosts.$inferInsert
+export type Conversation = typeof conversations.$inferSelect
+export type NewConversation = typeof conversations.$inferInsert
+export type Message = typeof messages.$inferSelect
+export type NewMessage = typeof messages.$inferInsert
