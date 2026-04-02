@@ -2,6 +2,7 @@ import { GraphQLError } from 'graphql'
 import { eq, or, and, desc } from 'drizzle-orm'
 import { conversations, messages, users, buyerPosts, sellerPosts } from '../../db/schema.js'
 import { validate, startConversationSchema, sendMessageSchema } from '../../lib/validate.js'
+import { pubsub, EVENTS } from '../../lib/pubsub.js'
 import type { Context } from '../../context.js'
 import type { Conversation, Message } from '../../db/schema.js'
 
@@ -179,6 +180,11 @@ export const conversationResolvers = {
           body: data.body,
         })
         .returning()
+
+      // Publish to subscribers of this conversation
+      await pubsub.publish(`${EVENTS.MESSAGE_SENT}.${data.conversationId}`, {
+        messageSent: msg,
+      })
 
       return msg
     },
