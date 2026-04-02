@@ -1,23 +1,30 @@
 import 'dotenv/config'
 import './lib/env.js' // validates env vars — exits immediately if misconfigured
 import { ApolloServer, HeaderMap } from '@apollo/server'
+import { makeExecutableSchema } from '@graphql-tools/schema'
+import { WebSocketServer } from 'ws'
+import { useServer } from 'graphql-ws/use/ws'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
 import { serve } from '@hono/node-server'
+import type { Server } from 'http'
 import { env } from './lib/env.js'
 import { db } from './db/index.js'
-import { authMiddleware } from './middleware/auth.js'
+import { authMiddleware, verifyJwt } from './middleware/auth.js'
 import { rateLimitMiddleware } from './middleware/rateLimit.js'
 import { typeDefs } from './schema/typeDefs.js'
 import { resolvers } from './schema/resolvers/index.js'
 import type { Context } from './context.js'
 
+// ─── Executable schema (shared between Apollo HTTP and graphql-ws) ─────────────
+
+const schema = makeExecutableSchema({ typeDefs, resolvers })
+
 // ─── Apollo Server ────────────────────────────────────────────────────────────
 
 const apollo = new ApolloServer<Context>({
-  typeDefs,
-  resolvers,
+  schema,
 
   // Introspection exposes your full schema to anyone — disable in production.
   introspection: env.NODE_ENV !== 'production',
@@ -102,10 +109,33 @@ app.on(['GET', 'POST'], '/graphql', async (c) => {
   })
 })
 
-// ─── Start ────────────────────────────────────────────────────────────────────
+// ─── Start HTTP + WebSocket servers ──────────────────────────────────────────
 
-serve({ fetch: app.fetch, port: env.PORT })
+// serve() returns ServerType which includes Http2Server — cast to http.Server
+// since we know @hono/node-server uses plain HTTP by default.
+const httpServer = serve({ fetch: app.fetch, port: env.PORT }) as unknown as Server
+
+// Attach a WebSocket server to the same HTTP server for GraphQL subscriptions.
+// The client sends the auth token in connectionParams.authorization.
+const wss = new WebSocketServer({ server: httpServer })
+
+useServer(
+  {
+    schema,
+    context: async (wsCtx) => {
+      const authHeader = wsCtx.connectionParams?.authorization as string | undefined
+      let userId: string | null = null
+      if (authHeader?.startsWith('Bearer ')) {
+        userId = await verifyJwt(authHeader.slice(7))
+      }
+      return { db, userId }
+    },
+  },
+  wss
+)
+
 console.log(`🚀 Server ready at http://localhost:${env.PORT}/graphql`)
+console.log(`   WebSocket subscriptions at ws://localhost:${env.PORT}/graphql`)
 if (env.NODE_ENV === 'development') {
   console.log(`   Apollo Sandbox: http://localhost:${env.PORT}/graphql`)
 }

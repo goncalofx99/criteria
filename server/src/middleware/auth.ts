@@ -3,6 +3,17 @@ import { jwtVerify } from 'jose'
 
 type Variables = { userId: string | null }
 
+// Shared JWT verification — used by both the HTTP middleware and the WS subscription context.
+export async function verifyJwt(token: string): Promise<string | null> {
+  try {
+    const secret = new TextEncoder().encode(process.env.SUPABASE_JWT_SECRET)
+    const { payload } = await jwtVerify(token, secret)
+    return (payload.sub as string) ?? null
+  } catch {
+    return null
+  }
+}
+
 // Verifies the Supabase-issued JWT locally using the project's JWT secret.
 // Sets userId in Hono context — null when no valid token is present.
 // Resolvers are responsible for throwing if authentication is required.
@@ -15,17 +26,7 @@ export const authMiddleware = createMiddleware<{ Variables: Variables }>(
       return next()
     }
 
-    const token = authHeader.slice(7)
-
-    try {
-      const secret = new TextEncoder().encode(process.env.SUPABASE_JWT_SECRET)
-      const { payload } = await jwtVerify(token, secret)
-      c.set('userId', (payload.sub as string) ?? null)
-    } catch {
-      // Expired or invalid token — treat as unauthenticated
-      c.set('userId', null)
-    }
-
+    c.set('userId', await verifyJwt(authHeader.slice(7)))
     return next()
   }
 )

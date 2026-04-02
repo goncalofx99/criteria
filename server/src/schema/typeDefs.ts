@@ -184,6 +184,12 @@ export const typeDefs = `#graphql
     # Conversations — only the authenticated participant can query these
     myConversations: [Conversation!]!
     conversation(id: ID!): Conversation
+
+    # Matching — cross-direction discovery queries
+    # Given a seller listing, return all active buyer criteria it satisfies.
+    matchingBuyerPosts(sellerPostId: ID!): [BuyerPost!]!
+    # Given a buyer criteria post, return all active seller listings that match.
+    matchingSellerPosts(buyerPostId: ID!): [SellerPost!]!
   }
 
   # ─── Mutations ───────────────────────────────────────────────────────────────
@@ -205,5 +211,13 @@ export const typeDefs = `#graphql
     # Conversations — idempotent: returns existing if already started
     startConversation(input: StartConversationInput!): Conversation!
     sendMessage(conversationId: ID!, body: String!): Message!
+  }
+
+  # ─── Subscriptions ───────────────────────────────────────────────────────────
+
+  type Subscription {
+    # Real-time chat — fires whenever a new message is sent in this conversation.
+    # Only participants of the conversation will receive events (enforced server-side).
+    messageSent(conversationId: ID!): Message!
   }
 `
