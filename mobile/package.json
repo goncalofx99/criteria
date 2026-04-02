@@ -1,0 +1,9 @@
+{
+  "name": "mobile",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync",
+    "open:ios": "cap open ios",
+    "open:android": "cap open android"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "criteria",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter frontend dev\" \"pnpm --filter server dev\"",
+    "build": "pnpm --filter frontend build && pnpm --filter server build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

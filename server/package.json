@@ -1,0 +1,13 @@
+{
+  "name": "server",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "db:migrate": "drizzle-kit migrate",
+    "db:generate": "drizzle-kit generate"
+  }
+}
