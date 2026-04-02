@@ -1,0 +1,9 @@
+# Railway (Nixpacks) build configuration for the server.
+# Railway auto-detects pnpm via pnpm-lock.yaml and runs `pnpm install` in the
+# install phase — we only need to override build and start.
+
+[phases.build]
+cmds = ["pnpm --filter server build"]
+
+[start]
+cmd = "pnpm --filter server start"
