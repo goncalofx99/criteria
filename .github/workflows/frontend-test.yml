@@ -1,0 +1,42 @@
+name: Frontend · Test
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**', 'chore/**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend-unit-test:
+    name: Frontend Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Unit tests
+        run: pnpm --filter frontend --if-present test
+
+  # ── Future visual regression tests ─────────────────────────────────────────
+  # Uncomment and configure when Playwright / Chromatic is set up.
+  #
+  # frontend-visual-test:
+  #   name: Frontend Visual Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Run Chromatic
+  #       uses: chromaui/action@latest
+  #       with:
+  #         projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}

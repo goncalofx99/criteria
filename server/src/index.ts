@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import './lib/env.js' // validates env vars — exits immediately if misconfigured
-import { ApolloServer, HeaderMap, ApolloServerPlugin } from '@apollo/server'
+import { ApolloServer, HeaderMap } from '@apollo/server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
