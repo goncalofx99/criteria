@@ -21,7 +21,7 @@ let _jwks: ReturnType<typeof createRemoteJWKSet> | null = null
 function getJwks() {
   if (!_jwks) {
     _jwks = createRemoteJWKSet(
-      new URL(`${env.SUPABASE_URL}/.well-known/jwks.json`)
+      new URL(`${env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`)
     )
   }
   return _jwks
