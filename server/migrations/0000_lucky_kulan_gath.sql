@@ -58,7 +58,7 @@ CREATE TABLE "seller_posts" (
 --> statement-breakpoint
 CREATE TABLE "users" (
 	"id" uuid PRIMARY KEY NOT NULL,
-	"email" text NOT NULL,
+	"email" text NOT NULL, 
 	"full_name" text,
 	"avatar_url" text,
 	"role" "user_role" DEFAULT 'buyer' NOT NULL,
