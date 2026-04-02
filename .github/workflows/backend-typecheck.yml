@@ -7,7 +7,23 @@ on:
     branches: [main]
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'server/**'
+              - 'pnpm-lock.yaml'
+
   backend-typecheck:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     name: Backend Typecheck
     runs-on: ubuntu-latest
     steps:

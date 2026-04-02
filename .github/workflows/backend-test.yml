@@ -7,7 +7,23 @@ on:
     branches: [main]
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'server/**'
+              - 'pnpm-lock.yaml'
+
   backend-test:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     name: Backend Unit Tests
     runs-on: ubuntu-latest
     steps:
@@ -28,7 +44,6 @@ jobs:
       - name: Unit tests
         run: pnpm --filter server test
 
-      # Coverage report is posted as a PR comment (informational, not blocking)
       - name: Coverage
         if: github.event_name == 'pull_request'
         run: pnpm --filter server test -- --coverage

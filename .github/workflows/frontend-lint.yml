@@ -7,7 +7,23 @@ on:
     branches: [main]
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - 'pnpm-lock.yaml'
+
   frontend-lint:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     name: Frontend Lint
     runs-on: ubuntu-latest
     steps:
