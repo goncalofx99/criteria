@@ -2,7 +2,7 @@ name: Backend · Typecheck
 
 on:
   push:
-    branches: [main, 'feat/**', 'fix/**', 'chore/**']
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -11,12 +11,12 @@ permissions:
   pull-requests: read
 
 jobs:
-  changes:
+  backend-typecheck:
+    name: Backend Typecheck
     runs-on: ubuntu-latest
-    outputs:
-      backend: ${{ steps.filter.outputs.backend }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -25,25 +25,9 @@ jobs:
               - 'server/**'
               - 'pnpm-lock.yaml'
 
-  backend-typecheck:
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
-    name: Backend Typecheck
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - if: steps.filter.outputs.backend == 'true'
+        uses: ./.github/actions/setup
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: latest
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Typecheck
+      - if: steps.filter.outputs.backend == 'true'
+        name: Typecheck
         run: pnpm --filter server typecheck
