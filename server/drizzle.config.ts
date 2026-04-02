@@ -15,5 +15,6 @@ export default {
   dialect: 'postgresql',
   dbCredentials: {
     url: process.env.MIGRATION_URL ?? process.env.DATABASE_URL!,
+    ssl: true,
   },
 } satisfies Config
