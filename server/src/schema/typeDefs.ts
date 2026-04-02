@@ -17,7 +17,8 @@ export const typeDefs = `#graphql
 
   type User {
     id: ID!
-    email: String!
+    # Only returned for the authenticated user themselves — null for all others.
+    email: String
     fullName: String
     avatarUrl: String
     role: UserRole!
@@ -138,6 +139,32 @@ export const typeDefs = `#graphql
     areaSqmMin: Float
   }
 
+  # ─── Conversation & Messages ─────────────────────────────────────────────────
+
+  type Conversation {
+    id: ID!
+    # The post that originated this conversation (one will be null)
+    buyerPost: BuyerPost
+    sellerPost: SellerPost
+    buyer: User!
+    seller: User!
+    messages: [Message!]!
+    createdAt: String!
+  }
+
+  type Message {
+    id: ID!
+    sender: User!
+    body: String!
+    createdAt: String!
+  }
+
+  input StartConversationInput {
+    # Provide exactly one — seller initiates via buyerPostId, buyer via sellerPostId
+    buyerPostId: ID
+    sellerPostId: ID
+  }
+
   # ─── Queries ─────────────────────────────────────────────────────────────────
 
   type Query {
@@ -153,6 +180,10 @@ export const typeDefs = `#graphql
     buyerPosts(limit: Int, offset: Int): [BuyerPost!]!
     buyerPost(id: ID!): BuyerPost
     myBuyerPosts: [BuyerPost!]!
+
+    # Conversations — only the authenticated participant can query these
+    myConversations: [Conversation!]!
+    conversation(id: ID!): Conversation
   }
 
   # ─── Mutations ───────────────────────────────────────────────────────────────
@@ -170,5 +201,9 @@ export const typeDefs = `#graphql
     createBuyerPost(input: CreateBuyerPostInput!): BuyerPost!
     updateBuyerPost(id: ID!, input: UpdateBuyerPostInput!): BuyerPost!
     deactivateBuyerPost(id: ID!): BuyerPost!
+
+    # Conversations — idempotent: returns existing if already started
+    startConversation(input: StartConversationInput!): Conversation!
+    sendMessage(conversationId: ID!, body: String!): Message!
   }
 `

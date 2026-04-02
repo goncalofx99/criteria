@@ -1,14 +1,8 @@
 import { GraphQLError } from 'graphql'
-import { eq } from 'drizzle-orm'
 import { users } from '../../db/schema.js'
+import { validate, upsertUserSchema } from '../../lib/validate.js'
 import type { Context } from '../../context.js'
-
-type UpsertUserInput = {
-  email: string
-  fullName?: string
-  avatarUrl?: string
-  role?: 'buyer' | 'seller' | 'both'
-}
+import type { User } from '../../db/schema.js'
 
 function requireAuth(ctx: Context) {
   if (!ctx.userId) {
@@ -20,6 +14,13 @@ function requireAuth(ctx: Context) {
 }
 
 export const userResolvers = {
+  // Email is private — only the authenticated user sees their own.
+  // All other callers (e.g. viewing a post author) receive null.
+  User: {
+    email: (user: User, _: unknown, ctx: Context) =>
+      ctx.userId === user.id ? user.email : null,
+  },
+
   Query: {
     me: async (_: unknown, __: unknown, ctx: Context) => {
       if (!ctx.userId) return null
@@ -34,27 +35,28 @@ export const userResolvers = {
     // Inserts the user if new, updates profile info if returning.
     upsertUser: async (
       _: unknown,
-      { input }: { input: UpsertUserInput },
+      { input }: { input: unknown },
       ctx: Context
     ) => {
       const userId = requireAuth(ctx)
+      const data = validate(upsertUserSchema, input)
 
       const [user] = await ctx.db
         .insert(users)
         .values({
           id: userId,
-          email: input.email,
-          fullName: input.fullName ?? null,
-          avatarUrl: input.avatarUrl ?? null,
-          role: input.role ?? 'buyer',
+          email: data.email,
+          fullName: data.fullName ?? null,
+          avatarUrl: data.avatarUrl ?? null,
+          role: data.role ?? 'buyer',
         })
         .onConflictDoUpdate({
           target: users.id,
           set: {
-            email: input.email,
-            fullName: input.fullName ?? null,
-            avatarUrl: input.avatarUrl ?? null,
-            ...(input.role ? { role: input.role } : {}),
+            email: data.email,
+            fullName: data.fullName ?? null,
+            avatarUrl: data.avatarUrl ?? null,
+            ...(data.role ? { role: data.role } : {}),
             updatedAt: new Date(),
           },
         })

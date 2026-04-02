@@ -1,19 +1,74 @@
 import 'dotenv/config'
-import { ApolloServer, HeaderMap } from '@apollo/server'
+import './lib/env.js' // validates env vars — exits immediately if misconfigured
+import { ApolloServer, HeaderMap, ApolloServerPlugin } from '@apollo/server'
 import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import { secureHeaders } from 'hono/secure-headers'
 import { serve } from '@hono/node-server'
+import { env } from './lib/env.js'
 import { db } from './db/index.js'
 import { authMiddleware } from './middleware/auth.js'
+import { rateLimitMiddleware } from './middleware/rateLimit.js'
 import { typeDefs } from './schema/typeDefs.js'
 import { resolvers } from './schema/resolvers/index.js'
 import type { Context } from './context.js'
 
-const apollo = new ApolloServer<Context>({ typeDefs, resolvers })
+// ─── Apollo Server ────────────────────────────────────────────────────────────
+
+const apollo = new ApolloServer<Context>({
+  typeDefs,
+  resolvers,
+
+  // Introspection exposes your full schema to anyone — disable in production.
+  introspection: env.NODE_ENV !== 'production',
+
+  // Mask unexpected errors in production so internal details never leak.
+  // Known error codes (UNAUTHENTICATED, FORBIDDEN, etc.) are passed through.
+  formatError: (formattedError) => {
+    if (env.NODE_ENV === 'production') {
+      const safeCode = formattedError.extensions?.code as string | undefined
+      const safeCodes = ['UNAUTHENTICATED', 'FORBIDDEN', 'NOT_FOUND', 'BAD_USER_INPUT']
+      if (!safeCode || !safeCodes.includes(safeCode)) {
+        return {
+          message: 'Internal server error',
+          extensions: { code: 'INTERNAL_SERVER_ERROR' },
+        }
+      }
+    }
+    return formattedError
+  },
+})
+
 await apollo.start()
+
+// ─── Hono App ─────────────────────────────────────────────────────────────────
 
 const app = new Hono<{ Variables: { userId: string | null } }>()
 
+// Security headers (X-Content-Type-Options, X-Frame-Options, HSTS, etc.)
+app.use('*', secureHeaders())
+
+// CORS — lock down to the frontend origin in production
+app.use(
+  '*',
+  cors({
+    origin:
+      env.NODE_ENV === 'production' && env.FRONTEND_URL
+        ? env.FRONTEND_URL
+        : '*',
+    allowMethods: ['GET', 'POST', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 86400,
+  })
+)
+
+// Rate limiting — 60 req/min per IP in production, 500 in development
+app.use('*', rateLimitMiddleware)
+
+// JWT auth — sets userId on context (null if unauthenticated)
 app.use('*', authMiddleware)
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
 
 app.get('/health', (c) => c.json({ status: 'ok' }))
 
@@ -47,6 +102,10 @@ app.on(['GET', 'POST'], '/graphql', async (c) => {
   })
 })
 
-const port = Number(process.env.PORT ?? 4000)
-serve({ fetch: app.fetch, port })
-console.log(`🚀 Server ready at http://localhost:${port}/graphql`)
+// ─── Start ────────────────────────────────────────────────────────────────────
+
+serve({ fetch: app.fetch, port: env.PORT })
+console.log(`🚀 Server ready at http://localhost:${env.PORT}/graphql`)
+if (env.NODE_ENV === 'development') {
+  console.log(`   Apollo Sandbox: http://localhost:${env.PORT}/graphql`)
+}

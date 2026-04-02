@@ -21,7 +21,8 @@
     "graphql": "^16.10.0",
     "hono": "^4.7.5",
     "jose": "^5.10.0",
-    "postgres": "^3.4.5"
+    "postgres": "^3.4.5",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
