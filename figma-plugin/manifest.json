@@ -1,0 +1,7 @@
+{
+  "name": "CRITERIA Design System",
+  "id": "criteria-design-system-generator",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"]
+}
