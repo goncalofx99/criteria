@@ -87,6 +87,13 @@ export const buyerPostResolvers = {
           bedroomsMin: data.bedroomsMin,
           bathroomsMin: data.bathroomsMin,
           areaSqmMin: data.areaSqmMin ?? null,
+          yearBuiltMin: data.yearBuiltMin ?? null,
+          conditions: data.conditions ?? null,
+          floorMin: data.floorMin ?? null,
+          floorMax: data.floorMax ?? null,
+          requiresBalcony: data.requiresBalcony ?? null,
+          requiresCentralHeating: data.requiresCentralHeating ?? null,
+          requiredAmenities: data.requiredAmenities ?? [],
         })
         .returning()
 
@@ -120,6 +127,13 @@ export const buyerPostResolvers = {
       if (data.bedroomsMin !== undefined) updates.bedroomsMin = data.bedroomsMin
       if (data.bathroomsMin !== undefined) updates.bathroomsMin = data.bathroomsMin
       if (data.areaSqmMin !== undefined) updates.areaSqmMin = data.areaSqmMin
+      if (data.yearBuiltMin !== undefined) updates.yearBuiltMin = data.yearBuiltMin
+      if (data.conditions !== undefined) updates.conditions = data.conditions
+      if (data.floorMin !== undefined) updates.floorMin = data.floorMin
+      if (data.floorMax !== undefined) updates.floorMax = data.floorMax
+      if (data.requiresBalcony !== undefined) updates.requiresBalcony = data.requiresBalcony
+      if (data.requiresCentralHeating !== undefined) updates.requiresCentralHeating = data.requiresCentralHeating
+      if (data.requiredAmenities !== undefined) updates.requiredAmenities = data.requiredAmenities
 
       const [updated] = await ctx.db
         .update(buyerPosts)

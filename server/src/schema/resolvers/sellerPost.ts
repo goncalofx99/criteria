@@ -83,7 +83,14 @@ export const sellerPostResolvers = {
           price: String(data.price),
           bedrooms: data.bedrooms,
           bathrooms: data.bathrooms,
-          areaSqm: data.areaSqm ?? null,
+          areaSqm: data.areaSqm,
+          yearBuilt: data.yearBuilt,
+          condition: data.condition,
+          floor: data.floor ?? null,
+          totalFloors: data.totalFloors ?? null,
+          hasBalcony: data.hasBalcony,
+          hasCentralHeating: data.hasCentralHeating,
+          amenities: data.amenities ?? [],
           images: data.images ?? [],
         })
         .returning()
@@ -116,6 +123,13 @@ export const sellerPostResolvers = {
       if (data.bedrooms !== undefined) updates.bedrooms = data.bedrooms
       if (data.bathrooms !== undefined) updates.bathrooms = data.bathrooms
       if (data.areaSqm !== undefined) updates.areaSqm = data.areaSqm
+      if (data.yearBuilt !== undefined) updates.yearBuilt = data.yearBuilt
+      if (data.condition !== undefined) updates.condition = data.condition
+      if (data.floor !== undefined) updates.floor = data.floor
+      if (data.totalFloors !== undefined) updates.totalFloors = data.totalFloors
+      if (data.hasBalcony !== undefined) updates.hasBalcony = data.hasBalcony
+      if (data.hasCentralHeating !== undefined) updates.hasCentralHeating = data.hasCentralHeating
+      if (data.amenities !== undefined) updates.amenities = data.amenities
       if (data.images !== undefined) updates.images = data.images
 
       const [updated] = await ctx.db

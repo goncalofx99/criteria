@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@apollo/client'
 import { Building2, Search, LayoutGrid, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { UPSERT_USER } from '@/lib/gql'
+import { UPSERT_USER, GET_ME } from '@/lib/gql'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -53,6 +53,11 @@ export default function Onboarding() {
             avatarUrl: user.user_metadata?.avatar_url ?? null,
             role,
           },
+        },
+        update: (cache, { data }) => {
+          if (data?.upsertUser) {
+            cache.writeQuery({ query: GET_ME, data: { me: data.upsertUser } })
+          }
         },
       })
       navigate('/feed', { replace: true })

@@ -18,33 +18,44 @@ mobile/
 └── package.json
 ```
 
-### How dev vs prod loading works
+### How loading works
 
-- **Dev**: `mobile/dev.config.json` exists with a `serverUrl`. Capacitor loads that URL directly into the WebView. The Capacitor JS bridge is fully attached, native plugins (including `OAuthBridge`) work without any cross-origin caveats. This is the standard Capacitor dev pattern.
-- **Prod**: no `dev.config.json` (or no `serverUrl`). Capacitor falls back to `webDir` (the launcher) which is bundled as static assets and redirects to the deployed frontend.
+The **launcher** (`mobile/launcher/index.html`) is always the entry point. It's a small HTML page bundled into the app that shows a **PROD / DEV toggle** at runtime:
+
+- **PROD tab** → loads the deployed webapp from the `PROD_URL` constant in the launcher.
+- **DEV tab** → loads a URL the user types or picks from presets (iOS sim `localhost:5173`, Android emu `10.0.2.2:5173`, last LAN IP).
+
+The launcher persists the user's choice in localStorage. When **"Auto-connect on next launch"** is checked, the next app boot starts a 2-second countdown then redirects automatically — tap **Cancel** to stop it and stay on the launcher (e.g. to switch envs).
+
+`mobile/dev.config.json` is optional. If it has a `serverUrl`, that value is injected into the launcher's `DEFAULT_DEV_URL` constant at sync time, so the DEV input is pre-filled with your usual LAN IP.
+
+### Setting the production URL
+
+Edit `PROD_URL` in `mobile/launcher/index.html` to your deployed URL (e.g. `https://criteria.vercel.app`), then `npx cap sync`.
 
 ---
 
 ## Dev Workflow
 
-### 1. One-time per machine: set your dev URL
+### 1. One-time per machine: set your default DEV URL (optional)
 
 ```bash
 cp mobile/dev.config.example.json mobile/dev.config.json
-# Edit mobile/dev.config.json so serverUrl matches your LAN IP + port
+# Edit serverUrl to your LAN IP + port — pre-fills the launcher's DEV input
 ```
 
-When your IP changes (different network, new router DHCP lease, etc.), edit the file and re-run `npx cap sync`.
+When your IP changes (different network, new router DHCP lease, etc.), edit the file and re-run `npx cap sync`. You can also just type the URL into the launcher each time.
 
 ### 2. Start the frontend
 
 ```bash
-pnpm --filter frontend dev --host
+pnpm --filter frontend dev
+# vite is configured with --host, so it listens on both localhost and your LAN
 # → Local:    http://localhost:5173/
-# → Network:  http://192.168.x.x:5173/   ← use this in dev.config.json
+# → Network:  http://192.168.x.x:5173/   ← use this on real devices
 ```
 
-`--host` makes Vite listen on the LAN so the simulator/device can reach it. (Real devices and Android emulators need the LAN IP; iOS simulator on the same Mac can also use `http://localhost:5173`.)
+iOS simulator can use `localhost:5173`. Android emulator needs `10.0.2.2:5173`. Real devices need your Mac's LAN IP.
 
 ### 3. Sync Capacitor (after changing `dev.config.json`, `capacitor.config.ts`, or native plugins)
 
@@ -110,17 +121,12 @@ The Google OAuth client doesn't need any change — Google only sees Supabase's 
 ## Switching to Production
 
 1. Deploy the frontend (Vercel or similar).
-2. Either:
-   - **Option A (dev-machine builds)**: delete `mobile/dev.config.json` so Capacitor stops pointing at your dev server, then update `mobile/launcher/index.html`'s `PROD_URL` constant.
-   - **Option B (CI builds)**: ensure `dev.config.json` doesn't exist in CI's checkout (it's gitignored, so by default it won't), and update `mobile/launcher/index.html`'s `PROD_URL`.
-3. In `mobile/launcher/index.html`, set:
+2. Edit `PROD_URL` in `mobile/launcher/index.html` to the deployed URL.
+3. `npx cap sync && npx cap open ios` (or android), then build/archive as usual.
 
-   ```js
-   var DEV_MODE = false
-   var PROD_URL = 'https://criteria.vercel.app'
-   ```
+In the running app, tap the **PROD** tab and **Open production**. Enable **Auto-connect on next launch** so the next boot skips the launcher.
 
-4. `npx cap sync && npx cap open ios` (or android), then build/archive as usual.
+To switch back to dev later: kill and reopen the app (or wait for the auto-connect countdown and tap **Cancel**), then tap **DEV** and pick a URL.
 
 ---
 

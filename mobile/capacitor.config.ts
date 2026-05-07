@@ -6,14 +6,16 @@ import { join } from 'node:path'
  * Per-machine dev settings, gitignored, optional.
  *
  * Create `mobile/dev.config.json` like:
- * { "serverUrl": "http://localhost:5173" }
+ *   { "serverUrl": "http://192.168.x.x:5173" }   ← your default DEV URL
  *
- * The URL is injected into `launcher/index.html` at sync time as the default
- * value the launcher will pre-fill (and auto-connect to). The launcher
- * pre-flights the URL with a HEAD request before redirecting, so when Vite
- * isn't up the user sees a clear error instead of a blank screen.
+ * The launcher (mobile/launcher/index.html) is ALWAYS the entry point. It shows
+ * a PROD/DEV toggle:
+ *   - PROD → loads the deployed webapp (PROD_URL constant in the launcher).
+ *   - DEV  → user picks a URL from presets or types one.
  *
- * The launcher also persists whatever URL you last typed into localStorage.
+ * What this script does at sync time: injects `serverUrl` from dev.config.json
+ * into the launcher's `DEFAULT_DEV_URL` constant so the DEV input is pre-filled.
+ * Nothing else — the toggle UI lives entirely in the launcher.
  */
 interface DevConfig {
   serverUrl?: string
@@ -29,17 +31,17 @@ if (existsSync(devPath) && existsSync(launcherPath)) {
       const html = readFileSync(launcherPath, 'utf-8')
       const updated = html.replace(
         /var DEFAULT_DEV_URL = '[^']*'/,
-        `var DEFAULT_DEV_URL = '${dev.serverUrl}'`
+        `var DEFAULT_DEV_URL = '${dev.serverUrl.replace(/\/$/, '')}'`,
       )
       if (updated !== html) {
         writeFileSync(launcherPath, updated)
         // eslint-disable-next-line no-console
-        console.log(`[capacitor] Launcher default URL set to: ${dev.serverUrl}`)
+        console.log(`[capacitor] Launcher DEV default set to: ${dev.serverUrl}`)
       }
     }
   } catch (e) {
     // eslint-disable-next-line no-console
-    console.warn('[capacitor] Failed to apply dev.config.json:', e)
+    console.warn('[capacitor] Failed to read dev.config.json:', e)
   }
 }
 
@@ -49,6 +51,8 @@ const config: CapacitorConfig = {
   webDir: 'launcher',
 
   server: {
+    // No `url` here on purpose — the launcher decides which URL to load at
+    // runtime, so the user can switch between PROD and DEV without rebuilding.
     cleartext: true,
     allowNavigation: [
       '192.168.*.*',

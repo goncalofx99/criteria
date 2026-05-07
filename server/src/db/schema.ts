@@ -19,6 +19,13 @@ export const propertyTypeEnum = pgEnum('property_type', [
   'commercial',
 ])
 
+export const propertyConditionEnum = pgEnum('property_condition', [
+  'new',
+  'renovated',
+  'good',
+  'needs_renovation',
+])
+
 export const userRoleEnum = pgEnum('user_role', ['buyer', 'seller', 'both'])
 
 // ─── Users ────────────────────────────────────────────────────────────────────
@@ -61,6 +68,21 @@ export const sellerPosts = pgTable('seller_posts', {
   bathrooms: integer('bathrooms').notNull(), // matched against BuyerPost.bathroomsMin
   areaSqm: real('area_sqm'), // matched against BuyerPost.areaSqmMin / areaSqmMax
 
+  // ── Building details (added in v2) ───────────────────────────────────────
+  // yearBuilt nullable for legacy rows; new posts always provide it (validated).
+  yearBuilt: integer('year_built'),
+  condition: propertyConditionEnum('condition').notNull().default('good'),
+  // floor: 0 = ground (rés-do-chão), 1+ = upper, -1 = basement, null = N/A (houses, land)
+  floor: integer('floor'),
+  totalFloors: integer('total_floors'), // optional — for "3rd of 5" displays
+
+  // ── Required amenities (always answered yes/no on creation) ──────────────
+  hasBalcony: boolean('has_balcony').notNull().default(false),
+  hasCentralHeating: boolean('has_central_heating').notNull().default(false),
+
+  // ── Optional amenities (open list, e.g. ['pool', 'jacuzzi', 'parking']) ──
+  amenities: text('amenities').array().notNull().default([]),
+
   images: text('images').array().notNull().default([]),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -101,6 +123,18 @@ export const buyerPosts = pgTable('buyer_posts', {
   bedroomsMin: integer('bedrooms_min').notNull().default(0), // matches SellerPost.bedrooms
   bathroomsMin: integer('bathrooms_min').notNull().default(0), // matches SellerPost.bathrooms
   areaSqmMin: real('area_sqm_min'), // matches SellerPost.areaSqm (nullable = no preference)
+
+  // ── Optional preference filters (added in v2; null = no preference) ──────
+  yearBuiltMin: integer('year_built_min'),
+  // Acceptable conditions; null/empty = any.
+  conditions: text('conditions').array(),
+  floorMin: integer('floor_min'),
+  floorMax: integer('floor_max'),
+  // null = no preference, true = must have. We don't surface "must NOT have".
+  requiresBalcony: boolean('requires_balcony'),
+  requiresCentralHeating: boolean('requires_central_heating'),
+  // Optional amenities the buyer requires (must be present on the listing).
+  requiredAmenities: text('required_amenities').array().notNull().default([]),
 
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),

@@ -13,6 +13,13 @@ export const typeDefs = `#graphql
     commercial
   }
 
+  enum PropertyCondition {
+    new
+    renovated
+    good
+    needs_renovation
+  }
+
   # ─── Types ──────────────────────────────────────────────────────────────────
 
   type User {
@@ -41,6 +48,16 @@ export const typeDefs = `#graphql
     bedrooms: Int!
     bathrooms: Int!
     areaSqm: Float
+    # ── Building details ─────────────────────────────────────────────────────
+    yearBuilt: Int
+    condition: PropertyCondition!
+    floor: Int
+    totalFloors: Int
+    # ── Required amenities (always answered yes/no) ──────────────────────────
+    hasBalcony: Boolean!
+    hasCentralHeating: Boolean!
+    # ── Optional amenities (free-form list of canonical keys) ────────────────
+    amenities: [String!]!
     # ─────────────────────────────────────────────────────────────────────────
     images: [String!]!
     isActive: Boolean!
@@ -66,6 +83,14 @@ export const typeDefs = `#graphql
     bedroomsMin: Int!
     bathroomsMin: Int!
     areaSqmMin: Float       # null = no minimum preference
+    # ── Optional preference filters; null/empty = no preference ──────────────
+    yearBuiltMin: Int
+    conditions: [PropertyCondition!]
+    floorMin: Int
+    floorMax: Int
+    requiresBalcony: Boolean
+    requiresCentralHeating: Boolean
+    requiredAmenities: [String!]!
     # ─────────────────────────────────────────────────────────────────────────
     isActive: Boolean!
     createdAt: String!
@@ -91,7 +116,14 @@ export const typeDefs = `#graphql
     price: Float!
     bedrooms: Int!
     bathrooms: Int!
-    areaSqm: Float
+    areaSqm: Float!
+    yearBuilt: Int!
+    condition: PropertyCondition!
+    floor: Int
+    totalFloors: Int
+    hasBalcony: Boolean!
+    hasCentralHeating: Boolean!
+    amenities: [String!]
     images: [String!]
   }
 
@@ -106,6 +138,13 @@ export const typeDefs = `#graphql
     bedrooms: Int
     bathrooms: Int
     areaSqm: Float
+    yearBuilt: Int
+    condition: PropertyCondition
+    floor: Int
+    totalFloors: Int
+    hasBalcony: Boolean
+    hasCentralHeating: Boolean
+    amenities: [String!]
     images: [String!]
   }
 
@@ -122,6 +161,13 @@ export const typeDefs = `#graphql
     bedroomsMin: Int!
     bathroomsMin: Int!
     areaSqmMin: Float
+    yearBuiltMin: Int
+    conditions: [PropertyCondition!]
+    floorMin: Int
+    floorMax: Int
+    requiresBalcony: Boolean
+    requiresCentralHeating: Boolean
+    requiredAmenities: [String!]
   }
 
   input UpdateBuyerPostInput {
@@ -137,6 +183,13 @@ export const typeDefs = `#graphql
     bedroomsMin: Int
     bathroomsMin: Int
     areaSqmMin: Float
+    yearBuiltMin: Int
+    conditions: [PropertyCondition!]
+    floorMin: Int
+    floorMax: Int
+    requiresBalcony: Boolean
+    requiresCentralHeating: Boolean
+    requiredAmenities: [String!]
   }
 
   # ─── Conversation & Messages ─────────────────────────────────────────────────

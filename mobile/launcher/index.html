@@ -21,22 +21,88 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      gap: 24px;
-      padding: env(safe-area-inset-top, 0px) 24px env(safe-area-inset-bottom, 0px);
+      justify-content: flex-start;
+      gap: 28px;
+      padding: calc(env(safe-area-inset-top, 0px) + 48px) 24px calc(env(safe-area-inset-bottom, 0px) + 24px);
     }
 
     .logo { font-size: 28px; font-weight: 700; letter-spacing: 0.12em; color: #f5f0e8; }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.08);
+      width: 100%;
+      max-width: 320px;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,0.6);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 150ms ease, color 150ms ease;
+    }
+    .tab.active {
+      background: #f5f0e8;
+      color: #344e41;
+    }
 
     .panel {
       width: 100%;
       max-width: 420px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
+      animation: fadeIn 200ms ease;
+    }
+    .panel.hidden { display: none; }
+
+    .label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.45);
+      text-align: center;
+    }
+    .url {
+      font-size: 14px;
+      color: rgba(255,255,255,0.85);
+      text-align: center;
+      word-break: break-all;
+      line-height: 1.5;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+    }
+    .hint {
+      font-size: 12px;
+      color: rgba(255,255,255,0.45);
+      text-align: center;
+      line-height: 1.55;
     }
 
-    .panel input {
+    .presets { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+    .preset {
+      padding: 8px 12px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.85);
+      font-size: 12px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .preset:active { background: rgba(255,255,255,0.14); }
+
+    input[type="url"] {
       background: rgba(255,255,255,0.08);
       border: 1px solid rgba(255,255,255,0.18);
       border-radius: 10px;
@@ -47,8 +113,8 @@
       -webkit-appearance: none;
       width: 100%;
     }
-    .panel input::placeholder { color: rgba(255,255,255,0.3); }
-    .panel input:focus { border-color: rgba(255,255,255,0.4); }
+    input[type="url"]::placeholder { color: rgba(255,255,255,0.3); }
+    input[type="url"]:focus { border-color: rgba(255,255,255,0.4); }
 
     .btn {
       width: 100%;
@@ -58,34 +124,54 @@
       font-size: 15px;
       font-weight: 600;
       cursor: pointer;
+      margin-top: 4px;
     }
     .btn-primary { background: #f5f0e8; color: #344e41; }
-    .btn-tertiary {
-      background: transparent;
-      color: rgba(255,255,255,0.6);
+
+    #auto-area {
+      width: 100%;
+      max-width: 420px;
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+    .auto-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       font-size: 13px;
-      padding: 8px;
-      font-weight: 500;
+      color: rgba(255,255,255,0.7);
+    }
+    .auto-row input { width: 18px; height: 18px; accent-color: #f5f0e8; }
+
+    .countdown {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      font-size: 13px;
+      color: rgba(255,255,255,0.85);
+    }
+    .countdown.hidden { display: none; }
+    .cancel-btn {
+      padding: 6px 12px;
+      border: 1px solid rgba(255,255,255,0.25);
+      background: transparent;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
     }
 
-    .status { font-size: 13px; color: rgba(255,255,255,0.6); text-align: center; min-height: 18px; }
-    .status.error { color: #ffb4a8; }
-
-    .url { font-size: 12px; color: rgba(255,255,255,0.6); text-align: center; word-break: break-all; line-height: 1.5; }
-    .url b { color: rgba(255,255,255,0.9); font-weight: 500; }
-
-    .hint { font-size: 12px; color: rgba(255,255,255,0.4); text-align: center; max-width: 320px; line-height: 1.6; }
-    .hint code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-size: 11px; }
-
-    .spinner {
-      width: 24px; height: 24px; border-radius: 50%;
-      border: 2.5px solid rgba(255,255,255,0.2);
-      border-top-color: #f5f0e8;
-      animation: spin 0.7s linear infinite;
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -93,149 +179,178 @@
 <div id="screen">
   <div class="logo">CRITERIA</div>
 
-  <!-- View: connecting -->
-  <div id="view-connecting">
-    <div class="spinner" style="margin: 0 auto;"></div>
-    <p class="status" id="connecting-status" style="margin-top: 12px">Connecting…</p>
-    <p class="url" id="connecting-url"></p>
+  <div class="tabs" id="tabs">
+    <button class="tab" id="tab-prod">PROD</button>
+    <button class="tab" id="tab-dev">DEV</button>
   </div>
 
-  <!-- View: error / can't reach -->
-  <div id="view-error" class="panel hidden">
-    <p class="status error" id="error-status">Couldn't reach the dev server.</p>
-    <p class="url" id="error-url"></p>
-    <button class="btn btn-primary" onclick="retry()">Retry</button>
-    <button class="btn btn-tertiary" onclick="showEditor()">Change URL</button>
-    <p class="hint">
-      Run <code>pnpm --filter frontend dev --host</code> on your computer.
-    </p>
+  <!-- PROD panel -->
+  <div id="panel-prod" class="panel">
+    <p class="label">PRODUCTION</p>
+    <p class="url" id="prod-url-display"></p>
+    <button class="btn btn-primary" id="prod-connect">Open production</button>
   </div>
 
-  <!-- View: editor (no URL set, or user tapped Change URL) -->
-  <div id="view-editor" class="panel hidden">
-    <p class="status">Dev server URL</p>
+  <!-- DEV panel -->
+  <div id="panel-dev" class="panel hidden">
+    <p class="label">DEVELOPMENT</p>
+    <div class="presets" id="presets"></div>
     <input
-      id="url-input"
+      id="dev-url-input"
       type="url"
       inputmode="url"
       autocomplete="off"
       autocorrect="off"
       autocapitalize="none"
       spellcheck="false"
-      placeholder="http://localhost:5173"
+      placeholder="http://192.168.x.x:5173"
     />
-    <button class="btn btn-primary" onclick="connect()">Connect</button>
-    <button class="btn btn-tertiary" id="cancel-btn" onclick="returnToError()">Cancel</button>
+    <button class="btn btn-primary" id="dev-connect">Connect</button>
     <p class="hint">
-      iOS simulator can use <code>http://localhost:5173</code>.<br>
-      Android emulator: <code>http://10.0.2.2:5173</code>.<br>
-      Real devices: your Mac's LAN IP, e.g. <code>http://192.168.x.x:5173</code>.
+      iOS sim: <code style="background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px">localhost:5173</code> ·
+      Android emu: <code style="background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px">10.0.2.2:5173</code> ·
+      Real device: your Mac's LAN IP
     </p>
+  </div>
+
+  <!-- Auto-connect + countdown -->
+  <div id="auto-area">
+    <div id="countdown" class="countdown hidden">
+      <span>Connecting in <span id="countdown-num">2</span>s…</span>
+      <button class="cancel-btn" id="cancel-btn">Cancel</button>
+    </div>
+    <label class="auto-row">
+      <input type="checkbox" id="auto-toggle">
+      <span>Auto-connect on next launch</span>
+    </label>
   </div>
 </div>
 
 <script>
-  // Default URL injected by capacitor.config.ts at sync time from dev.config.json.
+  // ── Config (edited at sync time from dev.config.json) ───────────────────────
+  // Production URL — points to the deployed webapp.
+  // Set this to your real prod URL (e.g. https://criteria.vercel.app).
+  var PROD_URL = 'https://criteria.app'
+
+  // Default DEV URL, used as the initial value for the dev URL input.
+  // Overwritten at `npx cap sync` time from `mobile/dev.config.json`.
   var DEFAULT_DEV_URL = 'http://localhost:5173'
 
-  // Production URL (when DEV_MODE=false). Set this when shipping.
-  var DEV_MODE = true
-  var PROD_URL = ''
+  // Built-in DEV presets shown as quick-pick chips.
+  var DEV_PRESETS = [
+    { label: 'iOS sim',      url: 'http://localhost:5173' },
+    { label: 'Android emu',  url: 'http://10.0.2.2:5173' },
+  ]
 
-  var KEY = 'criteria_dev_url'
+  // ── Storage keys ────────────────────────────────────────────────────────────
+  var KEY_ENV  = 'criteria_env'        // 'prod' | 'dev'
+  var KEY_URL  = 'criteria_dev_url'    // last DEV URL chosen
+  var KEY_AUTO = 'criteria_auto'       // '1' | '0'
 
-  var connectingView = document.getElementById('view-connecting')
-  var errorView = document.getElementById('view-error')
-  var editorView = document.getElementById('view-editor')
-  var connectingUrlEl = document.getElementById('connecting-url')
-  var errorUrlEl = document.getElementById('error-url')
-  var errorStatusEl = document.getElementById('error-status')
-  var urlInput = document.getElementById('url-input')
-  var cancelBtn = document.getElementById('cancel-btn')
+  // ── DOM ─────────────────────────────────────────────────────────────────────
+  var tabProd       = document.getElementById('tab-prod')
+  var tabDev        = document.getElementById('tab-dev')
+  var panelProd     = document.getElementById('panel-prod')
+  var panelDev      = document.getElementById('panel-dev')
+  var prodUrlEl     = document.getElementById('prod-url-display')
+  var prodConnect   = document.getElementById('prod-connect')
+  var devInput      = document.getElementById('dev-url-input')
+  var devConnect    = document.getElementById('dev-connect')
+  var presetsEl     = document.getElementById('presets')
+  var autoToggle    = document.getElementById('auto-toggle')
+  var countdownEl   = document.getElementById('countdown')
+  var countdownNum  = document.getElementById('countdown-num')
+  var cancelBtn     = document.getElementById('cancel-btn')
 
-  var lastUrl = null
+  prodUrlEl.textContent = PROD_URL
 
-  function getSavedUrl() {
-    if (!DEV_MODE) return PROD_URL || null
-    return localStorage.getItem(KEY) || DEFAULT_DEV_URL || null
-  }
+  // ── State ───────────────────────────────────────────────────────────────────
+  var savedEnv  = localStorage.getItem(KEY_ENV) || 'prod'
+  var savedUrl  = localStorage.getItem(KEY_URL) || DEFAULT_DEV_URL
+  var autoOn    = localStorage.getItem(KEY_AUTO) === '1'
 
-  function show(view) {
-    connectingView.classList.add('hidden')
-    errorView.classList.add('hidden')
-    editorView.classList.add('hidden')
-    view.classList.remove('hidden')
-  }
+  devInput.value = savedUrl
+  autoToggle.checked = autoOn
+  setActiveTab(savedEnv)
 
-  function showConnecting(url) {
-    connectingUrlEl.innerHTML = '<b>' + escapeHtml(url) + '</b>'
-    show(connectingView)
-  }
-
-  function showError(url, msg) {
-    errorUrlEl.innerHTML = '<b>' + escapeHtml(url) + '</b>'
-    if (msg) errorStatusEl.textContent = msg
-    show(errorView)
-  }
-
-  function showEditor() {
-    cancelBtn.classList.toggle('hidden', !lastUrl)
-    urlInput.value = lastUrl || DEFAULT_DEV_URL
-    show(editorView)
-    setTimeout(function () { urlInput.focus() }, 100)
-  }
-
-  function returnToError() {
-    if (lastUrl) showError(lastUrl, 'Couldn’t reach the dev server.')
-    else show(errorView)
-  }
-
-  function connect() {
-    var val = urlInput.value.trim()
-    if (!val) return
-    if (!/^https?:\/\//i.test(val)) val = 'http://' + val
-    val = val.replace(/\/$/, '')
-    localStorage.setItem(KEY, val)
-    lastUrl = val
-    attempt(val)
-  }
-
-  function retry() {
-    if (lastUrl) attempt(lastUrl)
-  }
-
-  // Try a HEAD request before redirecting. If unreachable, show error.
-  function attempt(url) {
-    lastUrl = url
-    showConnecting(url)
-    var controller = new AbortController()
-    var timeout = setTimeout(function () { controller.abort() }, 4000)
-    fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal })
-      .then(function () {
-        clearTimeout(timeout)
-        // Cache-bust to defeat any WKWebView module caching.
-        var sep = url.indexOf('?') === -1 ? '?' : '&'
-        window.location.replace(url + sep + '_b=' + Date.now())
-      })
-      .catch(function () {
-        clearTimeout(timeout)
-        showError(url, 'Couldn’t reach the dev server.')
-      })
-  }
-
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"]/g, function (c) {
-      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]
+  // ── Presets ─────────────────────────────────────────────────────────────────
+  DEV_PRESETS.concat([{ label: 'Saved (' + DEFAULT_DEV_URL.replace(/^https?:\/\//, '') + ')', url: DEFAULT_DEV_URL }])
+    .filter(function (p, i, arr) {
+      return arr.findIndex(function (x) { return x.url === p.url }) === i
     })
+    .forEach(function (preset) {
+      var btn = document.createElement('button')
+      btn.className = 'preset'
+      btn.type = 'button'
+      btn.textContent = preset.label
+      btn.onclick = function () { devInput.value = preset.url }
+      presetsEl.appendChild(btn)
+    })
+
+  // ── Tabs ────────────────────────────────────────────────────────────────────
+  function setActiveTab(env) {
+    var isProd = env === 'prod'
+    tabProd.classList.toggle('active', isProd)
+    tabDev.classList.toggle('active', !isProd)
+    panelProd.classList.toggle('hidden', !isProd)
+    panelDev.classList.toggle('hidden', isProd)
+  }
+  tabProd.onclick = function () { cancelCountdown(); setActiveTab('prod') }
+  tabDev.onclick  = function () { cancelCountdown(); setActiveTab('dev') }
+
+  // ── Connect actions ─────────────────────────────────────────────────────────
+  function persistAuto() { localStorage.setItem(KEY_AUTO, autoToggle.checked ? '1' : '0') }
+  autoToggle.addEventListener('change', persistAuto)
+
+  function go(env, url) {
+    localStorage.setItem(KEY_ENV, env)
+    if (env === 'dev') localStorage.setItem(KEY_URL, url)
+    persistAuto()
+    // Cache-bust to defeat any WKWebView module caching.
+    var sep = url.indexOf('?') === -1 ? '?' : '&'
+    window.location.replace(url + sep + '_b=' + Date.now())
   }
 
-  // Boot
-  var initialUrl = getSavedUrl()
-  if (initialUrl) {
-    attempt(initialUrl)
-  } else {
-    showEditor()
+  prodConnect.onclick = function () {
+    cancelCountdown()
+    go('prod', PROD_URL)
   }
+  devConnect.onclick = function () {
+    cancelCountdown()
+    var url = devInput.value.trim()
+    if (!url) return
+    if (!/^https?:\/\//i.test(url)) url = 'http://' + url
+    url = url.replace(/\/$/, '')
+    go('dev', url)
+  }
+
+  // ── Auto-connect countdown ──────────────────────────────────────────────────
+  var countdownTimer = null
+  function startCountdown() {
+    var n = 2
+    countdownNum.textContent = String(n)
+    countdownEl.classList.remove('hidden')
+    countdownTimer = setInterval(function () {
+      n--
+      countdownNum.textContent = String(n)
+      if (n <= 0) {
+        clearInterval(countdownTimer); countdownTimer = null
+        countdownEl.classList.add('hidden')
+        if (savedEnv === 'prod') go('prod', PROD_URL)
+        else                     go('dev', savedUrl)
+      }
+    }, 1000)
+  }
+  function cancelCountdown() {
+    if (countdownTimer) {
+      clearInterval(countdownTimer); countdownTimer = null
+      countdownEl.classList.add('hidden')
+    }
+  }
+  cancelBtn.onclick = cancelCountdown
+
+  // Boot: if user opted in to auto-connect, start the 2-second countdown.
+  if (autoOn) startCountdown()
 </script>
 </body>
 </html>
