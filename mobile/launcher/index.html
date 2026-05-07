@@ -5,109 +5,52 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>CRITERIA</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 
-    html, body { height: 100%; background: #fafaf8; overflow: hidden; }
-
-    /* ── App iframe ── */
-    #app-frame {
-      position: fixed;
-      inset: 0;
-      width: 100%;
+    html, body {
       height: 100%;
-      border: none;
-      background: #fafaf8;
-    }
-
-    /* ── No-target screen (dev mode, no URL set) ── */
-    #no-target {
-      display: none;
-      position: fixed;
-      inset: 0;
       background: #344e41;
       color: #fff;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+      overflow: hidden;
     }
 
-    #no-target .logo { font-size: 26px; font-weight: 700; letter-spacing: 0.12em; color: #f5f0e8; }
-    #no-target .hint { font-size: 13px; color: rgba(255,255,255,0.5); }
-
-    /* ── Debug FAB ── */
-    #debug-fab {
-      display: none; /* shown only in DEV_MODE */
-      position: fixed;
-      right: 16px;
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      border: none;
-      background: rgba(0,0,0,0.45);
-      color: rgba(255,255,255,0.85);
-      font-size: 16px;
-      cursor: pointer;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      z-index: 9999;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    }
-
-    /* ── Debug panel ── */
-    #debug-panel {
-      display: none;
+    #screen {
       position: fixed;
       inset: 0;
-      z-index: 10000;
-      background: rgba(0,0,0,0.6);
-      align-items: flex-end;
-      justify-content: center;
-      padding-bottom: env(safe-area-inset-bottom, 0px);
-    }
-
-    .panel-sheet {
-      background: #1c1c1e;
-      border-radius: 16px 16px 0 0;
-      padding: 20px 20px calc(16px + env(safe-area-inset-bottom, 0px));
-      width: 100%;
-      max-width: 480px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: env(safe-area-inset-top, 0px) 24px env(safe-area-inset-bottom, 0px);
     }
 
-    .panel-title {
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.4);
-      text-align: center;
+    .logo { font-size: 28px; font-weight: 700; letter-spacing: 0.12em; color: #f5f0e8; }
+
+    .panel {
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
 
-    .panel-sheet input {
+    .panel input {
       background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
       border-radius: 10px;
       color: #fff;
       font-size: 15px;
-      padding: 12px 14px;
+      padding: 13px 14px;
       outline: none;
       -webkit-appearance: none;
       width: 100%;
     }
+    .panel input::placeholder { color: rgba(255,255,255,0.3); }
+    .panel input:focus { border-color: rgba(255,255,255,0.4); }
 
-    .panel-sheet input::placeholder { color: rgba(255,255,255,0.25); }
-    .panel-sheet input:focus { border-color: rgba(255,255,255,0.3); }
-
-    .panel-btn {
+    .btn {
       width: 100%;
       padding: 13px;
       border: none;
@@ -116,41 +59,61 @@
       font-weight: 600;
       cursor: pointer;
     }
-
-    .btn-connect { background: #f5f0e8; color: #344e41; }
-    .btn-clear   { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); font-size: 13px; padding: 10px; }
-    .btn-dismiss { background: transparent; color: rgba(255,255,255,0.35); font-size: 13px; padding: 8px; }
-
-    .current-target {
-      font-size: 11px;
-      color: rgba(255,255,255,0.3);
-      text-align: center;
-      word-break: break-all;
-      line-height: 1.5;
+    .btn-primary { background: #f5f0e8; color: #344e41; }
+    .btn-tertiary {
+      background: transparent;
+      color: rgba(255,255,255,0.6);
+      font-size: 13px;
+      padding: 8px;
+      font-weight: 500;
     }
 
-    .current-target b { color: rgba(255,255,255,0.6); font-weight: 500; }
+    .status { font-size: 13px; color: rgba(255,255,255,0.6); text-align: center; min-height: 18px; }
+    .status.error { color: #ffb4a8; }
+
+    .url { font-size: 12px; color: rgba(255,255,255,0.6); text-align: center; word-break: break-all; line-height: 1.5; }
+    .url b { color: rgba(255,255,255,0.9); font-weight: 500; }
+
+    .hint { font-size: 12px; color: rgba(255,255,255,0.4); text-align: center; max-width: 320px; line-height: 1.6; }
+    .hint code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+
+    .spinner {
+      width: 24px; height: 24px; border-radius: 50%;
+      border: 2.5px solid rgba(255,255,255,0.2);
+      border-top-color: #f5f0e8;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-<!-- App content (iframe fills screen) -->
-<iframe id="app-frame" src="" allowfullscreen></iframe>
-
-<!-- Shown when no URL is set -->
-<div id="no-target">
+<div id="screen">
   <div class="logo">CRITERIA</div>
-  <div class="hint">Tap ⚙ to set a dev URL</div>
-</div>
 
-<!-- Debug FAB (dev mode only) -->
-<button id="debug-fab" onclick="openPanel()">⚙</button>
+  <!-- View: connecting -->
+  <div id="view-connecting">
+    <div class="spinner" style="margin: 0 auto;"></div>
+    <p class="status" id="connecting-status" style="margin-top: 12px">Connecting…</p>
+    <p class="url" id="connecting-url"></p>
+  </div>
 
-<!-- Debug panel (bottom sheet) -->
-<div id="debug-panel" onclick="handleBackdropClick(event)">
-  <div class="panel-sheet">
-    <div class="panel-title">Dev Server</div>
-    <div class="current-target" id="current-display"></div>
+  <!-- View: error / can't reach -->
+  <div id="view-error" class="panel hidden">
+    <p class="status error" id="error-status">Couldn't reach the dev server.</p>
+    <p class="url" id="error-url"></p>
+    <button class="btn btn-primary" onclick="retry()">Retry</button>
+    <button class="btn btn-tertiary" onclick="showEditor()">Change URL</button>
+    <p class="hint">
+      Run <code>pnpm --filter frontend dev --host</code> on your computer.
+    </p>
+  </div>
+
+  <!-- View: editor (no URL set, or user tapped Change URL) -->
+  <div id="view-editor" class="panel hidden">
+    <p class="status">Dev server URL</p>
     <input
       id="url-input"
       type="url"
@@ -159,91 +122,119 @@
       autocorrect="off"
       autocapitalize="none"
       spellcheck="false"
-      placeholder="http://192.168.x.x:5173"
+      placeholder="http://localhost:5173"
     />
-    <button class="panel-btn btn-connect" onclick="connect()">Connect</button>
-    <button class="panel-btn btn-clear" onclick="clearUrl()">Disconnect</button>
-    <button class="panel-btn btn-dismiss" onclick="closePanel()">Cancel</button>
+    <button class="btn btn-primary" onclick="connect()">Connect</button>
+    <button class="btn btn-tertiary" id="cancel-btn" onclick="returnToError()">Cancel</button>
+    <p class="hint">
+      iOS simulator can use <code>http://localhost:5173</code>.<br>
+      Android emulator: <code>http://10.0.2.2:5173</code>.<br>
+      Real devices: your Mac's LAN IP, e.g. <code>http://192.168.x.x:5173</code>.
+    </p>
   </div>
 </div>
 
 <script>
-  var DEV_MODE = true   // ← set to false before publishing to production
-  var PROD_URL = ''     // ← set once deployed, e.g. 'https://criteria.vercel.app'
+  // Default URL injected by capacitor.config.ts at sync time from dev.config.json.
+  var DEFAULT_DEV_URL = 'http://localhost:5173'
+
+  // Production URL (when DEV_MODE=false). Set this when shipping.
+  var DEV_MODE = true
+  var PROD_URL = ''
+
   var KEY = 'criteria_dev_url'
 
-  var frame   = document.getElementById('app-frame')
-  var fab     = document.getElementById('debug-fab')
-  var panel   = document.getElementById('debug-panel')
-  var noTarget = document.getElementById('no-target')
+  var connectingView = document.getElementById('view-connecting')
+  var errorView = document.getElementById('view-error')
+  var editorView = document.getElementById('view-editor')
+  var connectingUrlEl = document.getElementById('connecting-url')
+  var errorUrlEl = document.getElementById('error-url')
+  var errorStatusEl = document.getElementById('error-status')
   var urlInput = document.getElementById('url-input')
+  var cancelBtn = document.getElementById('cancel-btn')
 
-  function getUrl() {
-    return DEV_MODE
-      ? (localStorage.getItem(KEY) || PROD_URL || null)
-      : PROD_URL || null
+  var lastUrl = null
+
+  function getSavedUrl() {
+    if (!DEV_MODE) return PROD_URL || null
+    return localStorage.getItem(KEY) || DEFAULT_DEV_URL || null
   }
 
-  function loadUrl(url) {
-    if (!url) {
-      frame.style.display = 'none'
-      noTarget.style.display = 'flex'
-      return
-    }
-    noTarget.style.display = 'none'
-    frame.style.display = 'block'
-    frame.src = url
+  function show(view) {
+    connectingView.classList.add('hidden')
+    errorView.classList.add('hidden')
+    editorView.classList.add('hidden')
+    view.classList.remove('hidden')
   }
 
-  function openPanel() {
-    var current = localStorage.getItem(KEY)
-    var display = document.getElementById('current-display')
-    if (current) {
-      display.innerHTML = 'Connected to <b>' + current + '</b>'
-      urlInput.value = current
-    } else if (PROD_URL) {
-      display.innerHTML = 'Using <b>production</b>'
-      urlInput.value = ''
-    } else {
-      display.innerHTML = 'No URL set'
-      urlInput.value = ''
-    }
-    panel.style.display = 'flex'
-    setTimeout(function () { urlInput.focus() }, 150)
+  function showConnecting(url) {
+    connectingUrlEl.innerHTML = '<b>' + escapeHtml(url) + '</b>'
+    show(connectingView)
   }
 
-  function closePanel() {
-    panel.style.display = 'none'
+  function showError(url, msg) {
+    errorUrlEl.innerHTML = '<b>' + escapeHtml(url) + '</b>'
+    if (msg) errorStatusEl.textContent = msg
+    show(errorView)
   }
 
-  function handleBackdropClick(e) {
-    if (e.target === panel) closePanel()
+  function showEditor() {
+    cancelBtn.classList.toggle('hidden', !lastUrl)
+    urlInput.value = lastUrl || DEFAULT_DEV_URL
+    show(editorView)
+    setTimeout(function () { urlInput.focus() }, 100)
+  }
+
+  function returnToError() {
+    if (lastUrl) showError(lastUrl, 'Couldn’t reach the dev server.')
+    else show(errorView)
   }
 
   function connect() {
     var val = urlInput.value.trim()
     if (!val) return
+    if (!/^https?:\/\//i.test(val)) val = 'http://' + val
+    val = val.replace(/\/$/, '')
     localStorage.setItem(KEY, val)
-    closePanel()
-    loadUrl(val)
+    lastUrl = val
+    attempt(val)
   }
 
-  function clearUrl() {
-    localStorage.removeItem(KEY)
-    closePanel()
-    loadUrl(PROD_URL || null)
+  function retry() {
+    if (lastUrl) attempt(lastUrl)
+  }
+
+  // Try a HEAD request before redirecting. If unreachable, show error.
+  function attempt(url) {
+    lastUrl = url
+    showConnecting(url)
+    var controller = new AbortController()
+    var timeout = setTimeout(function () { controller.abort() }, 4000)
+    fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal })
+      .then(function () {
+        clearTimeout(timeout)
+        // Cache-bust to defeat any WKWebView module caching.
+        var sep = url.indexOf('?') === -1 ? '?' : '&'
+        window.location.replace(url + sep + '_b=' + Date.now())
+      })
+      .catch(function () {
+        clearTimeout(timeout)
+        showError(url, 'Couldn’t reach the dev server.')
+      })
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]
+    })
   }
 
   // Boot
-  if (DEV_MODE) {
-    fab.style.display = 'flex'
-  }
-
-  if (!DEV_MODE && !PROD_URL) {
-    // Nothing to show — shouldn't happen in production
-    noTarget.style.display = 'flex'
+  var initialUrl = getSavedUrl()
+  if (initialUrl) {
+    attempt(initialUrl)
   } else {
-    loadUrl(getUrl())
+    showEditor()
   }
 </script>
 </body>

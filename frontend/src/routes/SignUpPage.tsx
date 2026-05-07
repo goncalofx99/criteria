@@ -161,7 +161,7 @@ export default function SignUpPage() {
   return (
     <div className="app-shell flex flex-col bg-background">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 pt-safe pt-4 pb-2">
+      <div className="web-content flex items-center justify-between px-4 pt-safe pt-4 pb-2">
         <Button variant="ghost" size="icon" onClick={back} className="rounded-full text-muted-foreground">
           <ChevronLeft className="h-5 w-5" />
         </Button>
@@ -170,7 +170,7 @@ export default function SignUpPage() {
       </div>
 
       {/* Step content */}
-      <div className="flex flex-1 flex-col px-6 pt-4 animate-slide-in-right">
+      <div className="web-content flex flex-1 flex-col px-6 pt-4 animate-slide-in-right">
         {step === 0 && <StepName form={form} set={set} />}
         {step === 1 && <StepAge form={form} set={set} />}
         {step === 2 && <StepRole form={form} set={set} />}
@@ -196,7 +196,7 @@ export default function SignUpPage() {
       </div>
 
       {/* Footer */}
-      <div className="px-6 pb-10 pb-safe space-y-3">
+      <div className="web-content px-6 pb-10 pb-safe space-y-3">
         {error && step < 4 && (
           <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive animate-fade-in">
             {error}
