@@ -117,9 +117,30 @@
   .mt-safe { margin-top: var(--safe-top); }
   .mb-safe { margin-bottom: var(--safe-bottom); }
 
-  /* App shell — centred mobile layout on desktop */
+  /* App shell.
+     - Native (Capacitor wrapper): always the mobile column (max-w-app).
+     - Web at narrow viewport: same mobile column.
+     - Web at md+ viewport: full-width — pages can opt into a wider layout
+       and add their own inner max-widths. */
   .app-shell {
     @apply mx-auto w-full max-w-app min-h-dvh relative;
+  }
+  @media (min-width: 768px) {
+    html.web .app-shell {
+      max-width: none;
+    }
+  }
+
+  /* Inner content wrapper for web pages that still want a centered
+     readable column on desktop (e.g. auth forms). On native and narrow web
+     this is just `w-full`; on wide web it's a centered max-width column. */
+  .web-content {
+    @apply w-full mx-auto;
+  }
+  @media (min-width: 768px) {
+    html.web .web-content {
+      max-width: 28rem; /* 448px — comfortable form column on desktop */
+    }
   }
 
   /* Typography helpers */

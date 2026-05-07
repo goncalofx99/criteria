@@ -65,12 +65,12 @@ export default function Onboarding() {
   return (
     <div className="app-shell flex flex-col bg-background">
       {/* Header */}
-      <div className="flex items-center justify-center px-4 pt-safe pt-6 pb-2">
+      <div className="web-content flex items-center justify-center px-4 pt-safe pt-6 pb-2">
         <StepIndicator current={step} total={2} />
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 flex-col px-6 pt-6 animate-slide-in-right">
+      <div className="web-content flex flex-1 flex-col px-6 pt-6 animate-slide-in-right">
         {step === 0 ? (
           <div className="space-y-6">
             <div>
@@ -138,7 +138,7 @@ export default function Onboarding() {
       </div>
 
       {/* Footer */}
-      <div className="px-6 pb-10 pb-safe">
+      <div className="web-content px-6 pb-10 pb-safe">
         <Button
           size="lg"
           className="w-full rounded-xl"
