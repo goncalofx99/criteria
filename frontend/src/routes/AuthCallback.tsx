@@ -4,7 +4,6 @@ import { useMutation } from '@apollo/client'
 import { Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { GET_ME, UPSERT_USER } from '@/lib/gql'
-import { apolloClient } from '@/lib/apollo'
 
 export default function AuthCallback() {
   const navigate = useNavigate()
@@ -25,9 +24,10 @@ export default function AuthCallback() {
 
       const { user } = session
 
-      // Upsert basic info from Google — role not set yet
       try {
-        await upsertUser({
+        // upsertUser returns the full user (including role) — no need to fetch
+        // it back with a separate GET_ME round-trip.
+        const { data } = await upsertUser({
           variables: {
             input: {
               email: user.email!,
@@ -35,20 +35,19 @@ export default function AuthCallback() {
               avatarUrl: user.user_metadata?.avatar_url ?? null,
             },
           },
+          // Seed the GET_ME cache so the destination page renders instantly
+          // without firing another network request.
+          update: (cache, { data }) => {
+            if (data?.upsertUser) {
+              cache.writeQuery({ query: GET_ME, data: { me: data.upsertUser } })
+            }
+          },
         })
+
+        const role = data?.upsertUser?.role
+        navigate(role ? '/feed' : '/onboarding', { replace: true })
       } catch (err) {
         console.error('upsertUser error:', err)
-      }
-
-      // Check if user already has a role via DB
-      try {
-        const { data } = await apolloClient.query({ query: GET_ME, fetchPolicy: 'network-only' })
-        if (data?.me?.role) {
-          navigate('/feed', { replace: true })
-        } else {
-          navigate('/onboarding', { replace: true })
-        }
-      } catch {
         navigate('/onboarding', { replace: true })
       }
     }

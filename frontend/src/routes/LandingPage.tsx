@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { warmUpBackend } from '@/lib/warmup'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
 import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons'
@@ -11,6 +12,7 @@ export default function LandingPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    warmUpBackend()
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) navigate('/feed', { replace: true })
       else setCheckingSession(false)

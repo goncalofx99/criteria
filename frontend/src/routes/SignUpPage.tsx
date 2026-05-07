@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation } from '@apollo/client'
 import { Building2, Search, LayoutGrid, Eye, EyeOff, Camera, ChevronLeft, Loader2, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { UPSERT_USER } from '@/lib/gql'
+import { UPSERT_USER, GET_ME } from '@/lib/gql'
+import { warmUpBackend } from '@/lib/warmup'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -47,6 +48,8 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null!) as React.RefObject<HTMLInputElement>
   const [upsertUser] = useMutation(UPSERT_USER)
+
+  useEffect(() => { warmUpBackend() }, [])
 
   function set<K extends keyof FormData>(key: K, value: FormData[K]) {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -128,7 +131,7 @@ export default function SignUpPage() {
         return
       }
 
-      // 4. Upsert user in our DB
+      // 4. Upsert user in our DB. Seed the me cache so /feed renders instantly.
       await upsertUser({
         variables: {
           input: {
@@ -137,6 +140,11 @@ export default function SignUpPage() {
             avatarUrl,
             role: form.role,
           },
+        },
+        update: (cache, { data }) => {
+          if (data?.upsertUser) {
+            cache.writeQuery({ query: GET_ME, data: { me: data.upsertUser } })
+          }
         },
       })
 
