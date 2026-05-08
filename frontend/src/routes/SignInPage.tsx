@@ -91,12 +91,16 @@ export default function SignInPage() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Password</Label>
-              <Link
-                to="/forgot-password"
+              <button
+                type="button"
+                onClick={() => {
+                  // TODO: implement forgot password flow
+                  alert('Please use Google sign-in or contact support to reset your password.')
+                }}
                 className="text-xs text-primary hover:underline underline-offset-4"
               >
                 Forgot password?
-              </Link>
+              </button>
             </div>
             <div className="relative">
               <Input

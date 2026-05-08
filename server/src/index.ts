@@ -15,6 +15,7 @@ import { authMiddleware, verifyJwt } from './middleware/auth.js'
 import { rateLimitMiddleware } from './middleware/rateLimit.js'
 import { typeDefs } from './schema/typeDefs.js'
 import { resolvers } from './schema/resolvers/index.js'
+import { createLoaders } from './lib/dataloaders.js'
 import type { Context } from './context.js'
 
 // ─── Executable schema (shared between Apollo HTTP and graphql-ws) ─────────────
@@ -31,11 +32,12 @@ const apollo = new ApolloServer<Context>({
 
   // Mask unexpected errors in production so internal details never leak.
   // Known error codes (UNAUTHENTICATED, FORBIDDEN, etc.) are passed through.
-  formatError: (formattedError) => {
+  formatError: (formattedError, error) => {
     if (env.NODE_ENV === 'production') {
       const safeCode = formattedError.extensions?.code as string | undefined
       const safeCodes = ['UNAUTHENTICATED', 'FORBIDDEN', 'NOT_FOUND', 'BAD_USER_INPUT']
       if (!safeCode || !safeCodes.includes(safeCode)) {
+        console.error('[GraphQL] Masked error:', error)
         return {
           message: 'Internal server error',
           extensions: { code: 'INTERNAL_SERVER_ERROR' },
@@ -80,7 +82,14 @@ app.use('*', authMiddleware)
 app.get('/health', (c) => c.json({ status: 'ok' }))
 
 app.on(['GET', 'POST'], '/graphql', async (c) => {
-  const body = c.req.method === 'POST' ? await c.req.json() : {}
+  let body = {}
+  if (c.req.method === 'POST') {
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ errors: [{ message: 'Invalid JSON in request body' }] }, 400)
+    }
+  }
 
   const headers = new HeaderMap()
   c.req.raw.headers.forEach((value, key) => headers.set(key, value))
@@ -92,7 +101,7 @@ app.on(['GET', 'POST'], '/graphql', async (c) => {
       search: new URL(c.req.url).search ?? '',
       body,
     },
-    context: async () => ({ db, userId: c.get('userId') }),
+    context: async () => ({ db, userId: c.get('userId'), loaders: createLoaders(db) }),
   })
 
   if (result.body.kind !== 'complete') {
@@ -128,7 +137,7 @@ useServer(
       if (authHeader?.startsWith('Bearer ')) {
         userId = await verifyJwt(authHeader.slice(7))
       }
-      return { db, userId }
+      return { db, userId, loaders: createLoaders(db) }
     },
   },
   wss

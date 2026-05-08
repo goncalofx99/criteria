@@ -32,11 +32,20 @@ export async function verifyJwt(token: string): Promise<string | null> {
   try {
     // Split into two explicit branches so TypeScript can resolve the correct
     // jwtVerify overload (Uint8Array vs JWTVerifyGetKey are incompatible in a union).
+    const verifyOptions = {
+      issuer: `${env.SUPABASE_URL}/auth/v1`,
+      audience: 'authenticated',
+    }
     const { payload } = env.SUPABASE_JWT_SECRET
-      ? await jwtVerify(token, new TextEncoder().encode(env.SUPABASE_JWT_SECRET))
-      : await jwtVerify(token, getJwks())
-    return (payload.sub as string) ?? null
-  } catch {
+      ? await jwtVerify(token, new TextEncoder().encode(env.SUPABASE_JWT_SECRET), verifyOptions)
+      : await jwtVerify(token, getJwks(), verifyOptions)
+    if (typeof payload.sub !== 'string') return null
+    return payload.sub
+  } catch (err) {
+    // Log verification failures in production for observability
+    if (env.NODE_ENV === 'production') {
+      console.warn('[Auth] JWT verification failed:', err instanceof Error ? err.message : err)
+    }
     return null
   }
 }

@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, and, gte, lte, type SQL } from 'drizzle-orm'
 import { buyerPosts, users } from '../../db/schema.js'
 import { validate, createBuyerPostSchema, updateBuyerPostSchema } from '../../lib/validate.js'
 import type { Context } from '../../context.js'
@@ -24,12 +24,22 @@ function requireOwnership(post: BuyerPost, userId: string) {
   }
 }
 
+async function requireBuyerRole(ctx: Context, userId: string) {
+  const user = await ctx.db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: { role: true },
+  })
+  if (!user || (user.role !== 'buyer' && user.role !== 'both')) {
+    throw new GraphQLError('Your account role does not allow posting criteria', {
+      extensions: { code: 'FORBIDDEN' },
+    })
+  }
+}
+
 export const buyerPostResolvers = {
   BuyerPost: {
     buyer: (post: BuyerPost, _: unknown, ctx: Context) =>
-      ctx.db.query.users.findFirst({
-        where: eq(users.id, post.buyerId),
-      }),
+      ctx.loaders.user.load(post.buyerId),
     // Drizzle returns numeric as string — coerce for GraphQL Float
     priceMin: (post: BuyerPost) => Number(post.priceMin),
     priceMax: (post: BuyerPost) => Number(post.priceMax),
@@ -38,20 +48,48 @@ export const buyerPostResolvers = {
   Query: {
     buyerPosts: (
       _: unknown,
-      { limit = 20, offset = 0 }: { limit?: number; offset?: number },
+      { limit = 20, offset = 0, filters }: {
+        limit?: number
+        offset?: number
+        filters?: {
+          propertyType?: string
+          budgetMin?: number
+          budgetMax?: number
+          bedroomsMin?: number
+          bathroomsMin?: number
+          radiusKmMax?: number
+        }
+      },
       ctx: Context
-    ) =>
-      ctx.db.query.buyerPosts.findMany({
-        where: (bp, { eq }) => eq(bp.isActive, true),
+    ) => {
+      const conditions: SQL[] = [eq(buyerPosts.isActive, true)]
+
+      if (filters) {
+        if (filters.propertyType) conditions.push(eq(buyerPosts.propertyType, filters.propertyType as typeof buyerPosts.propertyType.enumValues[number]))
+        // budgetMin: buyer's max budget must be >= this value
+        if (filters.budgetMin != null) conditions.push(gte(buyerPosts.priceMax, String(filters.budgetMin)))
+        // budgetMax: buyer's min budget must be <= this value
+        if (filters.budgetMax != null) conditions.push(lte(buyerPosts.priceMin, String(filters.budgetMax)))
+        if (filters.bedroomsMin != null) conditions.push(gte(buyerPosts.bedroomsMin, filters.bedroomsMin))
+        if (filters.bathroomsMin != null) conditions.push(gte(buyerPosts.bathroomsMin, filters.bathroomsMin))
+        if (filters.radiusKmMax != null) conditions.push(lte(buyerPosts.radiusKm, filters.radiusKmMax))
+      }
+
+      return ctx.db.query.buyerPosts.findMany({
+        where: and(...conditions),
         orderBy: (bp) => desc(bp.createdAt),
         limit: Math.min(limit, MAX_PAGE_SIZE),
         offset,
-      }),
+      })
+    },
 
-    buyerPost: (_: unknown, { id }: { id: string }, ctx: Context) =>
-      ctx.db.query.buyerPosts.findFirst({
+    buyerPost: async (_: unknown, { id }: { id: string }, ctx: Context) => {
+      const post = await ctx.db.query.buyerPosts.findFirst({
         where: (bp, { eq }) => eq(bp.id, id),
-      }),
+      })
+      if (post && !post.isActive && post.buyerId !== ctx.userId) return null
+      return post ?? null
+    },
 
     myBuyerPosts: (_: unknown, __: unknown, ctx: Context) => {
       const userId = requireAuth(ctx)
@@ -69,6 +107,7 @@ export const buyerPostResolvers = {
       ctx: Context
     ) => {
       const userId = requireAuth(ctx)
+      await requireBuyerRole(ctx, userId)
       const data = validate(createBuyerPostSchema, input)
 
       const [post] = await ctx.db

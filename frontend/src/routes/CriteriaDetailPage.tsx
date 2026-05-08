@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@apollo/client'
 import { ArrowLeft, BedDouble, Bath, Maximize2, MapPin, Loader2 } from 'lucide-react'
+import { LazyPostsMap } from '@/components/map/LazyPostsMap'
 import {
   GET_BUYER_POST,
   GET_BUYER_POSTS,
@@ -218,6 +219,22 @@ export default function CriteriaDetailPage() {
                   {post.description}
                 </p>
               )}
+
+              <section className="mt-5">
+                <p className="text-2xs font-medium uppercase tracking-widest text-muted-foreground mb-2">
+                  Search area
+                </p>
+                <LazyPostsMap
+                  criteria={[{
+                    id: post.id,
+                    lat: post.lat,
+                    lng: post.lng,
+                    radiusKm: post.radiusKm,
+                  }]}
+                  interactive={false}
+                  height={220}
+                />
+              </section>
             </div>
           </div>
         </article>

@@ -72,8 +72,8 @@ export const SELLER_POST_FIELDS = gql`
 
 export const GET_SELLER_POSTS = gql`
   ${SELLER_POST_FIELDS}
-  query SellerPosts($limit: Int, $offset: Int) {
-    sellerPosts(limit: $limit, offset: $offset) {
+  query SellerPosts($limit: Int, $offset: Int, $filters: SellerPostFilters) {
+    sellerPosts(limit: $limit, offset: $offset, filters: $filters) {
       ...SellerPostFields
     }
   }
@@ -160,8 +160,8 @@ export const BUYER_POST_FIELDS = gql`
 
 export const GET_BUYER_POSTS = gql`
   ${BUYER_POST_FIELDS}
-  query BuyerPosts($limit: Int, $offset: Int) {
-    buyerPosts(limit: $limit, offset: $offset) {
+  query BuyerPosts($limit: Int, $offset: Int, $filters: BuyerPostFilters) {
+    buyerPosts(limit: $limit, offset: $offset, filters: $filters) {
       ...BuyerPostFields
     }
   }

@@ -99,6 +99,32 @@ export const typeDefs = `#graphql
 
   # ─── Inputs ─────────────────────────────────────────────────────────────────
 
+  # Feed-level filters for seller posts (properties)
+  input SellerPostFilters {
+    propertyType: PropertyType
+    priceMin: Float
+    priceMax: Float
+    bedroomsMin: Int
+    bathroomsMin: Int
+    areaSqmMin: Float
+    areaSqmMax: Float
+    yearBuiltMin: Int
+    condition: [PropertyCondition!]
+    hasBalcony: Boolean
+    hasCentralHeating: Boolean
+    amenities: [String!]
+  }
+
+  # Feed-level filters for buyer posts (criteria)
+  input BuyerPostFilters {
+    propertyType: PropertyType
+    budgetMin: Float          # filter by buyer's priceMax >= budgetMin
+    budgetMax: Float          # filter by buyer's priceMin <= budgetMax
+    bedroomsMin: Int
+    bathroomsMin: Int
+    radiusKmMax: Float
+  }
+
   input UpsertUserInput {
     email: String!
     fullName: String
@@ -225,12 +251,12 @@ export const typeDefs = `#graphql
     me: User
 
     # Seller posts
-    sellerPosts(limit: Int, offset: Int): [SellerPost!]!
+    sellerPosts(limit: Int, offset: Int, filters: SellerPostFilters): [SellerPost!]!
     sellerPost(id: ID!): SellerPost
     mySellerPosts: [SellerPost!]!
 
     # Buyer posts
-    buyerPosts(limit: Int, offset: Int): [BuyerPost!]!
+    buyerPosts(limit: Int, offset: Int, filters: BuyerPostFilters): [BuyerPost!]!
     buyerPost(id: ID!): BuyerPost
     myBuyerPosts: [BuyerPost!]!
 

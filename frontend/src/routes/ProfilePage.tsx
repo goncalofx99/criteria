@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@apollo/client'
 import { LogOut, Loader2 } from 'lucide-react'
@@ -18,7 +18,14 @@ export default function ProfilePage() {
   const navigate = useNavigate()
   const { me, canCreateProperty, canCreateCriteria, loading: meLoading } = useMe()
   const [signingOut, setSigningOut] = useState(false)
-  const [tab, setTab] = useState<Tab>(canCreateProperty ? 'listings' : 'criteria')
+  const [tab, setTab] = useState<Tab | null>(null)
+
+  // Sync tab once role loads
+  useEffect(() => {
+    if (!meLoading && tab === null) {
+      setTab(canCreateProperty ? 'listings' : 'criteria')
+    }
+  }, [meLoading, canCreateProperty, tab])
 
   async function handleSignOut() {
     setSigningOut(true)
@@ -45,7 +52,7 @@ export default function ProfilePage() {
 
   const showBothTabs = canCreateProperty && canCreateCriteria
   const activeTab: Tab = showBothTabs
-    ? tab
+    ? (tab ?? 'listings')
     : canCreateProperty
       ? 'listings'
       : 'criteria'

@@ -34,12 +34,20 @@ export function SocialAuthButtons({ variant = 'compact', onAuthenticated, onErro
   async function handleApple() {
     setAppleLoading(true)
     try {
-      await signInWithAppleNative()
-      onAuthenticated?.()
+      if (isNative()) {
+        await signInWithAppleNative()
+        onAuthenticated?.()
+      } else {
+        // Web: use Supabase OAuth redirect (native bridge is not available on web)
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'apple',
+          options: { redirectTo: `${window.location.origin}/auth/callback` },
+        })
+        if (error) throw error
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Apple sign-in failed.'
       if (msg !== 'USER_CANCELLED') onError?.(msg)
-    } finally {
       setAppleLoading(false)
     }
   }

@@ -41,6 +41,11 @@ const validSellerPost = {
   price: 250_000,
   bedrooms: 2,
   bathrooms: 1,
+  areaSqm: 85,
+  yearBuilt: 2010,
+  condition: 'good' as const,
+  hasBalcony: true,
+  hasCentralHeating: false,
 }
 
 describe('createSellerPostSchema', () => {

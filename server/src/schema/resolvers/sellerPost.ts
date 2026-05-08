@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, and, gte, lte, inArray, arrayContains, type SQL } from 'drizzle-orm'
 import { sellerPosts, users } from '../../db/schema.js'
 import { validate, createSellerPostSchema, updateSellerPostSchema } from '../../lib/validate.js'
 import type { Context } from '../../context.js'
@@ -24,12 +24,22 @@ function requireOwnership(post: SellerPost, userId: string) {
   }
 }
 
+async function requireSellerRole(ctx: Context, userId: string) {
+  const user = await ctx.db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: { role: true },
+  })
+  if (!user || (user.role !== 'seller' && user.role !== 'both')) {
+    throw new GraphQLError('Your account role does not allow creating property listings', {
+      extensions: { code: 'FORBIDDEN' },
+    })
+  }
+}
+
 export const sellerPostResolvers = {
   SellerPost: {
     seller: (post: SellerPost, _: unknown, ctx: Context) =>
-      ctx.db.query.users.findFirst({
-        where: eq(users.id, post.sellerId),
-      }),
+      ctx.loaders.user.load(post.sellerId),
     // Drizzle returns numeric as string — coerce for GraphQL Float
     price: (post: SellerPost) => Number(post.price),
   },
@@ -37,20 +47,59 @@ export const sellerPostResolvers = {
   Query: {
     sellerPosts: (
       _: unknown,
-      { limit = 20, offset = 0 }: { limit?: number; offset?: number },
+      { limit = 20, offset = 0, filters }: {
+        limit?: number
+        offset?: number
+        filters?: {
+          propertyType?: string
+          priceMin?: number
+          priceMax?: number
+          bedroomsMin?: number
+          bathroomsMin?: number
+          areaSqmMin?: number
+          areaSqmMax?: number
+          yearBuiltMin?: number
+          condition?: string[]
+          hasBalcony?: boolean
+          hasCentralHeating?: boolean
+          amenities?: string[]
+        }
+      },
       ctx: Context
-    ) =>
-      ctx.db.query.sellerPosts.findMany({
-        where: (sp, { eq }) => eq(sp.isActive, true),
+    ) => {
+      const conditions: SQL[] = [eq(sellerPosts.isActive, true)]
+
+      if (filters) {
+        if (filters.propertyType) conditions.push(eq(sellerPosts.propertyType, filters.propertyType as typeof sellerPosts.propertyType.enumValues[number]))
+        if (filters.priceMin != null) conditions.push(gte(sellerPosts.price, String(filters.priceMin)))
+        if (filters.priceMax != null) conditions.push(lte(sellerPosts.price, String(filters.priceMax)))
+        if (filters.bedroomsMin != null) conditions.push(gte(sellerPosts.bedrooms, filters.bedroomsMin))
+        if (filters.bathroomsMin != null) conditions.push(gte(sellerPosts.bathrooms, filters.bathroomsMin))
+        if (filters.areaSqmMin != null) conditions.push(gte(sellerPosts.areaSqm, filters.areaSqmMin))
+        if (filters.areaSqmMax != null) conditions.push(lte(sellerPosts.areaSqm, filters.areaSqmMax))
+        if (filters.yearBuiltMin != null) conditions.push(gte(sellerPosts.yearBuilt, filters.yearBuiltMin))
+        if (filters.condition?.length) conditions.push(inArray(sellerPosts.condition, filters.condition as (typeof sellerPosts.condition.enumValues[number])[]))
+        if (filters.hasBalcony != null) conditions.push(eq(sellerPosts.hasBalcony, filters.hasBalcony))
+        if (filters.hasCentralHeating != null) conditions.push(eq(sellerPosts.hasCentralHeating, filters.hasCentralHeating))
+        if (filters.amenities?.length) conditions.push(arrayContains(sellerPosts.amenities, filters.amenities))
+      }
+
+      return ctx.db.query.sellerPosts.findMany({
+        where: and(...conditions),
         orderBy: (sp) => desc(sp.createdAt),
         limit: Math.min(limit, MAX_PAGE_SIZE),
         offset,
-      }),
+      })
+    },
 
-    sellerPost: (_: unknown, { id }: { id: string }, ctx: Context) =>
-      ctx.db.query.sellerPosts.findFirst({
+    sellerPost: async (_: unknown, { id }: { id: string }, ctx: Context) => {
+      const post = await ctx.db.query.sellerPosts.findFirst({
         where: (sp, { eq }) => eq(sp.id, id),
-      }),
+      })
+      // Hide inactive posts from non-owners
+      if (post && !post.isActive && post.sellerId !== ctx.userId) return null
+      return post ?? null
+    },
 
     mySellerPosts: (_: unknown, __: unknown, ctx: Context) => {
       const userId = requireAuth(ctx)
@@ -68,6 +117,7 @@ export const sellerPostResolvers = {
       ctx: Context
     ) => {
       const userId = requireAuth(ctx)
+      await requireSellerRole(ctx, userId)
       const data = validate(createSellerPostSchema, input)
 
       const [post] = await ctx.db

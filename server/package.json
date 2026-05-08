@@ -17,6 +17,7 @@
     "@apollo/server": "^4.11.3",
     "@graphql-tools/schema": "^10.0.31",
     "@hono/node-server": "^1.13.7",
+    "dataloader": "^2.2.3",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.41.0",
     "graphql": "^16.10.0",

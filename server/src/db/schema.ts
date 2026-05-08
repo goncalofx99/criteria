@@ -1,5 +1,7 @@
 import {
   boolean,
+  check,
+  index,
   integer,
   numeric,
   pgEnum,
@@ -7,8 +9,10 @@ import {
   real,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -33,7 +37,7 @@ export const userRoleEnum = pgEnum('user_role', ['buyer', 'seller', 'both'])
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey(), // same UUID as Supabase auth.users.id
-  email: text('email').notNull(),
+  email: text('email').notNull().unique(),
   fullName: text('full_name'),
   avatarUrl: text('avatar_url'),
   role: userRoleEnum('role').notNull().default('buyer'),
@@ -87,7 +91,12 @@ export const sellerPosts = pgTable('seller_posts', {
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
-})
+}, (t) => [
+  index('sp_seller_id_idx').on(t.sellerId),
+  index('sp_active_created_idx').on(t.isActive, t.createdAt),
+  index('sp_type_active_idx').on(t.propertyType, t.isActive),
+  index('sp_lat_lng_idx').on(t.lat, t.lng),
+])
 
 // ─── Buyer Posts (criteria / what-I-want listings) ───────────────────────────
 // What a buyer WANTS.
@@ -139,7 +148,12 @@ export const buyerPosts = pgTable('buyer_posts', {
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
-})
+}, (t) => [
+  index('bp_buyer_id_idx').on(t.buyerId),
+  index('bp_active_created_idx').on(t.isActive, t.createdAt),
+  index('bp_type_active_idx').on(t.propertyType, t.isActive),
+  index('bp_lat_lng_idx').on(t.lat, t.lng),
+])
 
 // ─── Conversations ────────────────────────────────────────────────────────────
 // A conversation is always between one buyer and one seller.
@@ -150,7 +164,7 @@ export const buyerPosts = pgTable('buyer_posts', {
 export const conversations = pgTable('conversations', {
   id: uuid('id').defaultRandom().primaryKey(),
 
-  // Exactly one of these must be set (enforced in application logic)
+  // Exactly one of these must be set (enforced by check constraint below)
   buyerPostId: uuid('buyer_post_id').references(() => buyerPosts.id, {
     onDelete: 'set null',
   }),
@@ -166,7 +180,13 @@ export const conversations = pgTable('conversations', {
     .references(() => users.id, { onDelete: 'cascade' }),
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+}, (t) => [
+  index('conv_buyer_id_idx').on(t.buyerId),
+  index('conv_seller_id_idx').on(t.sellerId),
+  uniqueIndex('conv_buyer_post_seller_idx').on(t.buyerPostId, t.sellerId),
+  uniqueIndex('conv_seller_post_buyer_idx').on(t.sellerPostId, t.buyerId),
+  check('one_post_set', sql`(buyer_post_id IS NOT NULL) != (seller_post_id IS NOT NULL)`),
+])
 
 // ─── Messages ─────────────────────────────────────────────────────────────────
 
@@ -180,7 +200,9 @@ export const messages = pgTable('messages', {
     .references(() => users.id, { onDelete: 'cascade' }),
   body: text('body').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+}, (t) => [
+  index('msg_conversation_created_idx').on(t.conversationId, t.createdAt),
+])
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

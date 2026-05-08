@@ -18,6 +18,9 @@ import {
   LocationPicker,
   CountPicker,
 } from './PropertyForm'
+import { AddressAutocomplete } from '@/components/map/AddressAutocomplete'
+import { LazyPostsMap } from '@/components/map/LazyPostsMap'
+import type { GeocodeResult } from '@/lib/geocoding'
 import { cn } from '@/lib/utils'
 
 export interface CriteriaFormValues {
@@ -172,7 +175,26 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
         </Field>
 
         <Field label="Preferred location" required>
-          <LocationPicker value={location} onChange={setLocation} />
+          <div className="space-y-3">
+            <LocationPicker value={location} onChange={setLocation} />
+            <AddressAutocomplete
+              value={location?.label ?? ''}
+              onPick={(r: GeocodeResult) => setLocation({ label: r.label, lat: r.lat, lng: r.lng })}
+              placeholder="Or type an address (e.g. Cascais)"
+            />
+            {location && Number(radiusKm) > 0 && (
+              <LazyPostsMap
+                criteria={[{
+                  id: 'preview',
+                  lat: location.lat,
+                  lng: location.lng,
+                  radiusKm: Math.max(1, Number(radiusKm) || 1),
+                }]}
+                interactive
+                height={220}
+              />
+            )}
+          </div>
         </Field>
 
         <Field label="Search radius (km)">

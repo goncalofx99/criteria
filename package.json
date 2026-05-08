@@ -1,6 +1,10 @@
 {
   "name": "criteria",
   "private": true,
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10"
+  },
   "scripts": {
     "dev": "concurrently \"pnpm --filter frontend dev\" \"pnpm --filter server dev\"",
     "build": "pnpm --filter frontend build && pnpm --filter server build",

@@ -1,3 +1,7 @@
+/* Leaflet base styles — required for tile + marker sizing/positioning.
+   `@import` must precede other CSS rules. */
+@import 'leaflet/dist/leaflet.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

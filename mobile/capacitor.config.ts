@@ -62,6 +62,10 @@ const config: CapacitorConfig = {
       '127.0.0.1',
       '*.vercel.app',
       '*.criteria.app',
+      // Map tiles + geocoding
+      'tile.openstreetmap.org',
+      '*.tile.openstreetmap.org',
+      'nominatim.openstreetmap.org',
     ],
   },
 

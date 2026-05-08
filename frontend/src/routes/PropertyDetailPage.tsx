@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@apollo/client'
 import { ArrowLeft, BedDouble, Bath, Maximize2, MapPin, Loader2, Calendar, Building, Check, X } from 'lucide-react'
+import { LazyPostsMap } from '@/components/map/LazyPostsMap'
 import {
   GET_SELLER_POST,
   GET_SELLER_POSTS,
@@ -127,7 +128,7 @@ export default function PropertyDetailPage() {
             <h2 className="mt-1 text-xl font-semibold text-foreground">{post.title}</h2>
             <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
               <MapPin size={14} className="text-muted-foreground/70" />
-              {post.locationText}
+              {isOwner ? post.locationText : approximateLocation(post.locationText)}
             </p>
 
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-foreground/80">
@@ -201,6 +202,19 @@ export default function PropertyDetailPage() {
               </p>
             )}
 
+            <section className="mt-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-primary mb-2">
+                {isOwner ? 'Location' : 'Approximate location'}
+              </h3>
+              <LazyPostsMap
+                {...(isOwner
+                  ? { pin: { lat: post.lat, lng: post.lng } }
+                  : { approximate: { lat: post.lat, lng: post.lng, radiusM: 500 } })}
+                interactive={false}
+                height={220}
+              />
+            </section>
+
             <div className="mt-6 flex items-center gap-3 rounded-xl border border-border bg-surface p-3">
               <div
                 className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-semibold text-white"
@@ -251,4 +265,9 @@ function DetailItem({
       </p>
     </div>
   )
+}
+
+function approximateLocation(full: string): string {
+  const parts = full.split(',').map(s => s.trim())
+  return parts.length > 1 ? parts.slice(1).join(', ') : parts[0]!
 }

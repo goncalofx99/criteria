@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import { eq, or, and, desc } from 'drizzle-orm'
-import { conversations, messages, users, buyerPosts, sellerPosts } from '../../db/schema.js'
+import { conversations, messages, buyerPosts, sellerPosts } from '../../db/schema.js'
 import { validate, startConversationSchema, sendMessageSchema } from '../../lib/validate.js'
 import { pubsub, EVENTS } from '../../lib/pubsub.js'
 import type { Context } from '../../context.js'
@@ -27,17 +27,13 @@ function requireParticipant(conversation: Conversation, userId: string) {
 export const conversationResolvers = {
   Conversation: {
     buyer: (c: Conversation, _: unknown, ctx: Context) =>
-      ctx.db.query.users.findFirst({ where: eq(users.id, c.buyerId) }),
+      ctx.loaders.user.load(c.buyerId),
     seller: (c: Conversation, _: unknown, ctx: Context) =>
-      ctx.db.query.users.findFirst({ where: eq(users.id, c.sellerId) }),
+      ctx.loaders.user.load(c.sellerId),
     buyerPost: (c: Conversation, _: unknown, ctx: Context) =>
-      c.buyerPostId
-        ? ctx.db.query.buyerPosts.findFirst({ where: eq(buyerPosts.id, c.buyerPostId) })
-        : null,
+      c.buyerPostId ? ctx.loaders.buyerPost.load(c.buyerPostId) : null,
     sellerPost: (c: Conversation, _: unknown, ctx: Context) =>
-      c.sellerPostId
-        ? ctx.db.query.sellerPosts.findFirst({ where: eq(sellerPosts.id, c.sellerPostId) })
-        : null,
+      c.sellerPostId ? ctx.loaders.sellerPost.load(c.sellerPostId) : null,
     messages: (c: Conversation, _: unknown, ctx: Context) =>
       ctx.db.query.messages.findMany({
         where: eq(messages.conversationId, c.id),
@@ -47,7 +43,7 @@ export const conversationResolvers = {
 
   Message: {
     sender: (m: Message, _: unknown, ctx: Context) =>
-      ctx.db.query.users.findFirst({ where: eq(users.id, m.senderId) }),
+      ctx.loaders.user.load(m.senderId),
   },
 
   Query: {

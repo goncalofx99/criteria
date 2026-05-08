@@ -12,6 +12,9 @@ import {
   PROPERTY_CONDITION_LABEL,
   type PropertyCondition,
 } from '@/lib/amenities'
+import { AddressAutocomplete } from '@/components/map/AddressAutocomplete'
+import { LazyPostsMap } from '@/components/map/LazyPostsMap'
+import type { GeocodeResult } from '@/lib/geocoding'
 import { cn } from '@/lib/utils'
 
 export interface PropertyFormValues {
@@ -159,7 +162,22 @@ export function PropertyForm({ initial, submitLabel, onSubmit }: PropertyFormPro
         </Field>
 
         <Field label="Location" required>
-          <LocationPicker value={location} onChange={setLocation} />
+          <div className="space-y-3">
+            <LocationPicker value={location} onChange={setLocation} />
+            <AddressAutocomplete
+              value={location?.label ?? ''}
+              onPick={(r: GeocodeResult) => setLocation({ label: r.label, lat: r.lat, lng: r.lng })}
+              placeholder="Or type an address (e.g. Rua Augusta 23, Lisboa)"
+            />
+            {location && (
+              <LazyPostsMap
+                pin={{ lat: location.lat, lng: location.lng, draggable: true }}
+                onPinDrag={(lat, lng) => setLocation({ ...location, lat, lng })}
+                interactive
+                height={220}
+              />
+            )}
+          </div>
         </Field>
       </Section>
 

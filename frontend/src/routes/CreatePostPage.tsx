@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@apollo/client'
 import { ArrowLeft, Building2, Search, Loader2, Check } from 'lucide-react'
@@ -22,8 +22,14 @@ type Mode = 'property' | 'criteria'
 export default function CreatePostPage() {
   const navigate = useNavigate()
   const { me, canCreateProperty, canCreateCriteria, loading: meLoading } = useMe()
-  const initialMode: Mode = canCreateProperty ? 'property' : 'criteria'
-  const [mode, setMode] = useState<Mode>(initialMode)
+  const [mode, setMode] = useState<Mode | null>(null)
+
+  // Sync mode once role loads, avoiding stale useState initial value
+  useEffect(() => {
+    if (!meLoading && mode === null) {
+      setMode(canCreateProperty ? 'property' : 'criteria')
+    }
+  }, [meLoading, canCreateProperty, mode])
   const [submitted, setSubmitted] = useState(false)
 
   const [createSellerPost] = useMutation(CREATE_SELLER_POST, {
@@ -65,7 +71,7 @@ export default function CreatePostPage() {
 
   const showToggle = canCreateProperty && canCreateCriteria
   const activeMode: Mode = showToggle
-    ? mode
+    ? (mode ?? 'property')
     : canCreateProperty
       ? 'property'
       : 'criteria'

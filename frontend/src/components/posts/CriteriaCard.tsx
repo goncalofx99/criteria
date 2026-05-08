@@ -7,6 +7,8 @@ export interface CriteriaCardData {
   id: string
   title: string
   locationText: string
+  lat: number
+  lng: number
   radiusKm: number
   propertyType: PropertyType
   priceMin: number
