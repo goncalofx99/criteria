@@ -232,7 +232,7 @@ export default function CriteriaDetailPage() {
                     radiusKm: post.radiusKm,
                   }]}
                   interactive={false}
-                  height={220}
+                  height="clamp(200px, 30vh, 360px)"
                 />
               </section>
             </div>

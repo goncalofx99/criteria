@@ -16,6 +16,14 @@ export function platform(): 'ios' | 'android' | 'web' {
   return p === 'ios' || p === 'android' ? p : 'web'
 }
 
+/**
+ * Check if a Capacitor plugin is actually available at runtime.
+ * When the WebView loads a remote URL, the native bridge may not inject plugins.
+ */
+function isPluginAvailable(name: string): boolean {
+  return Capacitor.isPluginAvailable(name)
+}
+
 // ─── iOS: Sign in with Apple (native ASAuthorizationAppleIDProvider) ────────
 
 interface AppleAuthResult {
@@ -71,9 +79,7 @@ export async function signInWithProviderNative(provider: Provider): Promise<void
   if (!data?.url) throw new Error('No OAuth URL returned')
 
   if (platform() === 'ios') {
-    // Defensive — we no longer expose Google on iOS (we use Sign in with Apple)
-    // but if this is called for some other provider on iOS, route through the
-    // ASWebAuthenticationSession bridge.
+    // iOS: route through ASWebAuthenticationSession (in-app sheet).
     const { callbackUrl } = await OAuthBridge.startSession({
       url: data.url,
       callbackScheme: NATIVE_CALLBACK_SCHEME,
@@ -82,7 +88,8 @@ export async function signInWithProviderNative(provider: Provider): Promise<void
     return
   }
 
-  // Android — Chrome Custom Tab + appUrlOpen listener handles the rest
+  // Android: open Chrome Custom Tab. The intent-filter on com.criteria.app://
+  // will bring the app back and fire the appUrlOpen event via the native bridge.
   await Browser.open({ url: data.url })
 }
 

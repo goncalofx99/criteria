@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StepIndicator } from '@/components/auth/StepIndicator'
 import { PasswordStrength, getPasswordChecks } from '@/components/auth/PasswordStrength'
+import { useKeyboardHeight } from '@/hooks/useKeyboardHeight'
 import { cn } from '@/lib/utils'
 
 type Role = 'buyer' | 'seller' | 'both'
@@ -48,6 +49,7 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null!) as React.RefObject<HTMLInputElement>
   const [upsertUser] = useMutation(UPSERT_USER)
+  const keyboardHeight = useKeyboardHeight()
 
   useEffect(() => { warmUpBackend() }, [])
 
@@ -204,7 +206,10 @@ export default function SignUpPage() {
       </div>
 
       {/* Footer */}
-      <div className="web-content px-6 pb-10 pb-safe space-y-3">
+      <div
+        className="web-content px-6 pb-10 pb-safe space-y-3 transition-transform duration-200"
+        style={keyboardHeight > 0 ? { transform: `translateY(-${keyboardHeight}px)` } : undefined}
+      >
         {error && step < 4 && (
           <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive animate-fade-in">
             {error}

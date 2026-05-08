@@ -166,3 +166,63 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
+
+/* ── Leaflet UI overrides ────────────────────────────────────────────────── */
+/* Match zoom controls, attribution, and popups to the app's design tokens. */
+
+.leaflet-control-zoom {
+  border: 1px solid hsl(var(--primary-200)) !important;
+  border-radius: 0.75rem !important;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;
+}
+
+.leaflet-control-zoom a {
+  background: hsl(var(--surface)) !important;
+  color: hsl(var(--primary)) !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  font-size: 16px !important;
+  border-bottom: 1px solid hsl(var(--primary-200)) !important;
+  transition: background-color 0.15s;
+}
+
+.leaflet-control-zoom a:last-child {
+  border-bottom: none !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: hsl(var(--primary-100)) !important;
+}
+
+/* Remove default blue outline on Leaflet containers */
+.leaflet-container:focus {
+  outline: none !important;
+}
+
+/* Popup styling */
+.leaflet-popup-content-wrapper {
+  border-radius: 0.75rem !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.leaflet-popup-tip {
+  box-shadow: none !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+
+/* Marker shadow removal (we use custom divIcons with their own shadows) */
+.criteria-marker {
+  background: transparent !important;
+  border: none !important;
+}

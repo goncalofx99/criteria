@@ -158,7 +158,7 @@ function StaticMapImage({ lat, lng, alt }: { lat: number; lng: number; alt: stri
   const shiftY = TILE_SIZE + pixelOffsetY
 
   const tileUrl = (x: number, y: number) =>
-    `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`
+    `https://a.basemaps.cartocdn.com/light_all/${zoom}/${x}/${y}.png`
 
   const tiles: { x: number; y: number }[] = []
   for (let dy = -1; dy <= 1; dy++) {

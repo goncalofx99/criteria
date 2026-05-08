@@ -14,35 +14,35 @@ const LISBON: [number, number] = [38.7223, -9.1393];
 const propertyIcon = L.divIcon({
   className: "criteria-marker",
   html: `<div style="
-    width:36px;height:36px;background:${PRIMARY};
-    border-radius:18px 18px 18px 4px;
+    width:38px;height:38px;background:${PRIMARY};
+    border-radius:19px 19px 19px 4px;
     display:flex;align-items:center;justify-content:center;
-    box-shadow:0 2px 8px rgba(0,0,0,0.2);border:2px solid white;
+    box-shadow:0 2px 6px rgba(52,78,65,0.35);border:2.5px solid white;
   ">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
       <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
       <polyline points="9 22 9 12 15 12 15 22"/>
     </svg>
   </div>`,
-  iconSize: [36, 36],
-  iconAnchor: [18, 36],
+  iconSize: [38, 38],
+  iconAnchor: [19, 38],
 });
 
 const criteriaIcon = L.divIcon({
   className: "criteria-marker",
   html: `<div style="
-    width:36px;height:36px;background:${CRITERIA_GREEN};
-    border-radius:18px 18px 18px 4px;
+    width:38px;height:38px;background:${CRITERIA_GREEN};
+    border-radius:19px 19px 19px 4px;
     display:flex;align-items:center;justify-content:center;
-    box-shadow:0 2px 8px rgba(0,0,0,0.2);border:2px solid white;
+    box-shadow:0 2px 6px rgba(90,128,96,0.35);border:2.5px solid white;
   ">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
       <circle cx="12" cy="7" r="4"/>
     </svg>
   </div>`,
-  iconSize: [36, 36],
-  iconAnchor: [18, 36],
+  iconSize: [38, 38],
+  iconAnchor: [19, 38],
 });
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ export default function PostsMap({
 
   return (
     <div
-      className="overflow-hidden rounded-xl border border-border z-0"
+      className="overflow-hidden rounded-2xl border border-primary-200 shadow-sm z-0"
       style={{ height, width: "100%" }}
     >
       <MapContainer
@@ -134,11 +134,10 @@ export default function PostsMap({
         doubleClickZoom={interactive}
         touchZoom={interactive}
         zoomControl={interactive}
-        attributionControl
+        attributionControl={false}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
 
         <FitBounds

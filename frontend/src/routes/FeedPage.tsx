@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@apollo/client'
-import { Loader2, List, Map as MapIcon, SlidersHorizontal } from 'lucide-react'
+import { Loader2, List, Map as MapIcon, SlidersHorizontal, ArrowUpDown } from 'lucide-react'
 import { GET_SELLER_POSTS, GET_BUYER_POSTS } from '@/lib/gql'
 import { PropertyCard, type PropertyCardData } from '@/components/posts/PropertyCard'
 import { CriteriaCard, type CriteriaCardData } from '@/components/posts/CriteriaCard'
@@ -14,6 +14,23 @@ import { cn } from '@/lib/utils'
 type Tab = 'properties' | 'criteria'
 type View = 'list' | 'map'
 
+type SortField = 'recency' | 'price' | 'areaSqm' | 'pricePerSqm'
+type SortDir = 'asc' | 'desc'
+interface SortOption { field: SortField; dir: SortDir }
+
+const SORT_OPTIONS: { value: string; label: string; field: SortField; dir: SortDir }[] = [
+  { value: 'recency-desc', label: 'Newest first',           field: 'recency',    dir: 'desc' },
+  { value: 'recency-asc',  label: 'Oldest first',           field: 'recency',    dir: 'asc' },
+  { value: 'price-asc',    label: 'Price: low to high',     field: 'price',      dir: 'asc' },
+  { value: 'price-desc',   label: 'Price: high to low',     field: 'price',      dir: 'desc' },
+  { value: 'areaSqm-desc', label: 'Area: largest first',    field: 'areaSqm',    dir: 'desc' },
+  { value: 'areaSqm-asc',  label: 'Area: smallest first',   field: 'areaSqm',    dir: 'asc' },
+  { value: 'pricePerSqm-asc',  label: 'Price/m²: low to high', field: 'pricePerSqm', dir: 'asc' },
+  { value: 'pricePerSqm-desc', label: 'Price/m²: high to low', field: 'pricePerSqm', dir: 'desc' },
+]
+
+const DEFAULT_SORT: SortOption = { field: 'recency', dir: 'desc' }
+
 const EMPTY_SELLER_FILTERS: SellerPostFilterValues = {}
 const EMPTY_BUYER_FILTERS: BuyerPostFilterValues = {}
 
@@ -24,36 +41,23 @@ export default function FeedPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [sellerFilters, setSellerFilters] = useState<SellerPostFilterValues>(EMPTY_SELLER_FILTERS)
   const [buyerFilters, setBuyerFilters] = useState<BuyerPostFilterValues>(EMPTY_BUYER_FILTERS)
+  const [sort, setSort] = useState<SortOption>(DEFAULT_SORT)
   const activeTab: Tab = canViewCriteria ? tab : 'properties'
 
   const activeFilterCount = activeTab === 'properties'
     ? countPropertyFilters(sellerFilters)
     : countCriteriaFilters(buyerFilters)
 
+  const handleSortChange = (value: string) => {
+    const opt = SORT_OPTIONS.find(o => o.value === value)
+    if (opt) setSort({ field: opt.field, dir: opt.dir })
+  }
+
   return (
     <div>
       <PageHeader>
-        <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
+        <div className="px-5 pt-4 pb-3">
           <h1 className="text-xl font-bold tracking-widest text-primary">CRITERIA</h1>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setShowFilters(v => !v)}
-              aria-label="Toggle filters"
-              className={cn(
-                'relative flex h-8 w-8 items-center justify-center rounded-md border border-border transition-colors',
-                showFilters ? 'bg-primary text-white border-primary' : 'text-muted-foreground',
-              )}
-            >
-              <SlidersHorizontal size={16} />
-              {activeFilterCount > 0 && (
-                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-            <ViewToggle view={view} onChange={setView} />
-          </div>
         </div>
 
         {canViewCriteria && (
@@ -72,6 +76,46 @@ export default function FeedPage() {
             </div>
           </div>
         )}
+
+        {/* Toolbar: filters + sort + view toggle */}
+        <div className="flex items-center justify-between gap-1.5 px-5 pb-3">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <button
+              type="button"
+              onClick={() => setShowFilters(v => !v)}
+              className={cn(
+                'relative inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors',
+                showFilters
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-border bg-surface text-foreground hover:bg-accent',
+              )}
+            >
+              <SlidersHorizontal size={15} />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+
+            {activeTab === 'properties' && (
+              <div className="relative inline-flex items-center rounded-xl border border-border bg-surface min-w-0">
+                <ArrowUpDown size={15} className="pointer-events-none absolute left-2.5 shrink-0 text-muted-foreground" />
+                <select
+                  value={`${sort.field}-${sort.dir}`}
+                  onChange={e => handleSortChange(e.target.value)}
+                  className="appearance-none bg-transparent py-2 pl-7 pr-5 text-[13px] font-medium text-foreground outline-none focus:outline-none focus:ring-0 cursor-pointer min-w-0 truncate"
+                >
+                  {SORT_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          <ViewToggle view={view} onChange={setView} />
+        </div>
       </PageHeader>
 
       <div className="px-5 py-4">
@@ -95,7 +139,7 @@ export default function FeedPage() {
         )}
 
         {activeTab === 'properties'
-          ? <Properties view={view} filters={sellerFilters} />
+          ? <Properties view={view} filters={sellerFilters} sort={sort} />
           : <Criteria view={view} filters={buyerFilters} />}
       </div>
     </div>
@@ -104,28 +148,28 @@ export default function FeedPage() {
 
 function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => void }) {
   return (
-    <div className="flex rounded-lg border border-border p-0.5">
+    <div className="flex shrink-0 rounded-xl border border-border p-0.5">
       <button
         type="button"
         onClick={() => onChange('list')}
         aria-label="List view"
         className={cn(
-          'flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+          'flex h-9 w-9 items-center justify-center rounded-lg transition-colors',
           view === 'list' ? 'bg-primary text-white' : 'text-muted-foreground',
         )}
       >
-        <List size={16} />
+        <List size={17} />
       </button>
       <button
         type="button"
         onClick={() => onChange('map')}
         aria-label="Map view"
         className={cn(
-          'flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+          'flex h-9 w-9 items-center justify-center rounded-lg transition-colors',
           view === 'map' ? 'bg-primary text-white' : 'text-muted-foreground',
         )}
       >
-        <MapIcon size={16} />
+        <MapIcon size={17} />
       </button>
     </div>
   )
@@ -137,7 +181,7 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
       type="button"
       onClick={onClick}
       className={cn(
-        'flex-1 h-9 rounded-lg text-sm transition-all',
+        'flex-1 h-10 rounded-lg text-sm font-medium transition-all',
         active ? 'bg-primary text-white font-semibold shadow-elevation-1' : 'text-muted-foreground',
       )}
     >
@@ -152,17 +196,46 @@ function cleanFilters<T extends object>(f: T): T | undefined {
   return Object.keys(cleaned).length > 0 ? cleaned : undefined
 }
 
-function Properties({ view, filters }: { view: View; filters: SellerPostFilterValues }) {
+function Properties({ view, filters, sort }: { view: View; filters: SellerPostFilterValues; sort: SortOption }) {
   const gqlFilters = useMemo(() => cleanFilters(filters), [filters])
   const { data, loading, error } = useQuery<{ sellerPosts: PropertyCardData[] }>(GET_SELLER_POSTS, {
     variables: { limit: 50, offset: 0, filters: gqlFilters },
     fetchPolicy: 'cache-and-network',
   })
 
+  const properties = useMemo(() => {
+    const list = [...(data?.sellerPosts ?? [])]
+    const dir = sort.dir === 'asc' ? 1 : -1
+
+    list.sort((a, b) => {
+      switch (sort.field) {
+        case 'recency': {
+          const ta = Number(a.createdAt) || new Date(a.createdAt).getTime()
+          const tb = Number(b.createdAt) || new Date(b.createdAt).getTime()
+          return (ta - tb) * dir
+        }
+        case 'price':
+          return (a.price - b.price) * dir
+        case 'areaSqm': {
+          const aa = a.areaSqm ?? (dir > 0 ? Infinity : -Infinity)
+          const ba = b.areaSqm ?? (dir > 0 ? Infinity : -Infinity)
+          return (aa - ba) * dir
+        }
+        case 'pricePerSqm': {
+          const aPpm = a.areaSqm ? a.price / a.areaSqm : (dir > 0 ? Infinity : -Infinity)
+          const bPpm = b.areaSqm ? b.price / b.areaSqm : (dir > 0 ? Infinity : -Infinity)
+          return (aPpm - bPpm) * dir
+        }
+        default:
+          return 0
+      }
+    })
+
+    return list
+  }, [data, sort])
+
   if (loading && !data) return <FeedLoading />
   if (error) return <FeedError message={error.message} />
-
-  const properties = data?.sellerPosts ?? []
   if (properties.length === 0) {
     return <FeedEmpty title="No properties yet" body="Be the first to list a property — sellers post here, buyers reach out directly." />
   }
@@ -173,7 +246,7 @@ function Properties({ view, filters }: { view: View; filters: SellerPostFilterVa
         <p className="mb-3 text-sm text-muted-foreground">
           {properties.length} {properties.length === 1 ? 'property' : 'properties'} on the map
         </p>
-        <LazyPostsMap properties={properties} height="60vh" />
+        <LazyPostsMap properties={properties} height="clamp(300px, 60vh, 600px)" />
       </>
     )
   }
@@ -183,7 +256,7 @@ function Properties({ view, filters }: { view: View; filters: SellerPostFilterVa
       <p className="mb-3 text-sm text-muted-foreground">
         {properties.length} {properties.length === 1 ? 'property' : 'properties'} found
       </p>
-      <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {properties.map(p => <PropertyCard key={p.id} property={p} />)}
       </div>
     </>
@@ -226,7 +299,7 @@ function Criteria({ view, filters }: { view: View; filters: BuyerPostFilterValue
         <p className="mb-3 text-sm text-muted-foreground">
           {criteria.length} active buyers on the map
         </p>
-        <LazyPostsMap criteria={criteria} height="60vh" />
+        <LazyPostsMap criteria={criteria} height="clamp(300px, 60vh, 600px)" />
       </>
     )
   }
@@ -235,7 +308,7 @@ function Criteria({ view, filters }: { view: View; filters: BuyerPostFilterValue
     <>
       {intro}
       <p className="mb-3 text-sm text-muted-foreground">{criteria.length} active buyers</p>
-      <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {criteria.map(c => <CriteriaCard key={c.id} criteria={c} />)}
       </div>
     </>

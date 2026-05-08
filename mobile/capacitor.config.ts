@@ -8,14 +8,9 @@ import { join } from 'node:path'
  * Create `mobile/dev.config.json` like:
  *   { "serverUrl": "http://192.168.x.x:5173" }   ← your default DEV URL
  *
- * The launcher (mobile/launcher/index.html) is ALWAYS the entry point. It shows
- * a PROD/DEV toggle:
- *   - PROD → loads the deployed webapp (PROD_URL constant in the launcher).
- *   - DEV  → user picks a URL from presets or types one.
- *
- * What this script does at sync time: injects `serverUrl` from dev.config.json
- * into the launcher's `DEFAULT_DEV_URL` constant so the DEV input is pre-filled.
- * Nothing else — the toggle UI lives entirely in the launcher.
+ * On iOS the launcher handles the URL switching at runtime.
+ * On Android we use Capacitor's `server.url` from dev.config.json so the native
+ * bridge stays alive (required for OAuth deep links + plugins to work).
  */
 interface DevConfig {
   serverUrl?: string
@@ -24,19 +19,26 @@ interface DevConfig {
 const launcherPath = join(__dirname, 'launcher', 'index.html')
 const devPath = join(__dirname, 'dev.config.json')
 
-if (existsSync(devPath) && existsSync(launcherPath)) {
+let androidServerUrl: string | undefined
+
+if (existsSync(devPath)) {
   try {
     const dev = JSON.parse(readFileSync(devPath, 'utf-8')) as DevConfig
     if (dev.serverUrl) {
-      const html = readFileSync(launcherPath, 'utf-8')
-      const updated = html.replace(
-        /var DEFAULT_DEV_URL = '[^']*'/,
-        `var DEFAULT_DEV_URL = '${dev.serverUrl.replace(/\/$/, '')}'`,
-      )
-      if (updated !== html) {
-        writeFileSync(launcherPath, updated)
-        // eslint-disable-next-line no-console
-        console.log(`[capacitor] Launcher DEV default set to: ${dev.serverUrl}`)
+      androidServerUrl = dev.serverUrl.replace(/\/$/, '')
+
+      // Also inject into the launcher for iOS
+      if (existsSync(launcherPath)) {
+        const html = readFileSync(launcherPath, 'utf-8')
+        const updated = html.replace(
+          /var DEFAULT_DEV_URL = '[^']*'/,
+          `var DEFAULT_DEV_URL = '${androidServerUrl}'`,
+        )
+        if (updated !== html) {
+          writeFileSync(launcherPath, updated)
+          // eslint-disable-next-line no-console
+          console.log(`[capacitor] Launcher DEV default set to: ${androidServerUrl}`)
+        }
       }
     }
   } catch (e) {
@@ -45,14 +47,14 @@ if (existsSync(devPath) && existsSync(launcherPath)) {
   }
 }
 
+const PROD_URL = 'https://criteria-app.com'
+
 const config: CapacitorConfig = {
   appId: 'com.criteria.app',
   appName: 'CRITERIA',
   webDir: 'launcher',
 
   server: {
-    // No `url` here on purpose — the launcher decides which URL to load at
-    // runtime, so the user can switch between PROD and DEV without rebuilding.
     cleartext: true,
     allowNavigation: [
       '192.168.*.*',
@@ -61,7 +63,8 @@ const config: CapacitorConfig = {
       'localhost',
       '127.0.0.1',
       '*.vercel.app',
-      '*.criteria.app',
+      'criteria-app.com',
+      '*.criteria-app.com',
       // Map tiles + geocoding
       'tile.openstreetmap.org',
       '*.tile.openstreetmap.org',
@@ -79,6 +82,15 @@ const config: CapacitorConfig = {
     allowMixedContent: true,
     captureInput: true,
   },
+}
+
+// Android: use server.url so the native bridge stays alive (required for
+// OAuth deep links and Capacitor plugins). In dev, reads from dev.config.json;
+// otherwise uses the production URL.
+if (androidServerUrl) {
+  config.server!.url = androidServerUrl
+} else {
+  config.server!.url = PROD_URL
 }
 
 export default config

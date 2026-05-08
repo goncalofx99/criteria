@@ -191,7 +191,7 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
                   radiusKm: Math.max(1, Number(radiusKm) || 1),
                 }]}
                 interactive
-                height={220}
+                height="clamp(200px, 30vh, 360px)"
               />
             )}
           </div>

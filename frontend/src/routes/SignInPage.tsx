@@ -29,7 +29,7 @@ export default function SignInPage() {
         : error.message)
       setLoading(false)
     } else {
-      navigate('/feed', { replace: true })
+      navigate('/auth/callback', { replace: true })
     }
   }
 

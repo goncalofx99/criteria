@@ -174,7 +174,7 @@ export function PropertyForm({ initial, submitLabel, onSubmit }: PropertyFormPro
                 pin={{ lat: location.lat, lng: location.lng, draggable: true }}
                 onPinDrag={(lat, lng) => setLocation({ ...location, lat, lng })}
                 interactive
-                height={220}
+                height="clamp(200px, 30vh, 360px)"
               />
             )}
           </div>

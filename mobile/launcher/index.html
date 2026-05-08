@@ -125,8 +125,10 @@
       font-weight: 600;
       cursor: pointer;
       margin-top: 4px;
+      transition: opacity 150ms ease;
     }
     .btn-primary { background: #f5f0e8; color: #344e41; }
+    .btn:disabled { opacity: 0.5; cursor: default; }
 
     #auto-area {
       width: 100%;
@@ -168,6 +170,44 @@
       cursor: pointer;
     }
 
+    /* ── Status banner (error / connecting) ──────────────────────────────────── */
+    #status-banner {
+      width: 100%;
+      max-width: 420px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      text-align: center;
+      animation: fadeIn 200ms ease;
+    }
+    #status-banner.hidden { display: none; }
+    #status-banner.error {
+      background: rgba(220, 38, 38, 0.2);
+      border: 1px solid rgba(220, 38, 38, 0.4);
+      color: #fca5a5;
+    }
+    #status-banner.connecting {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: rgba(255,255,255,0.85);
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #f5f0e8;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(4px); }
       to   { opacity: 1; transform: translateY(0); }
@@ -183,6 +223,9 @@
     <button class="tab" id="tab-prod">PROD</button>
     <button class="tab" id="tab-dev">DEV</button>
   </div>
+
+  <!-- Status banner (errors, connecting state) -->
+  <div id="status-banner" class="hidden"></div>
 
   <!-- PROD panel -->
   <div id="panel-prod" class="panel">
@@ -228,24 +271,25 @@
 
 <script>
   // ── Config (edited at sync time from dev.config.json) ───────────────────────
-  // Production URL — points to the deployed webapp.
-  // Set this to your real prod URL (e.g. https://criteria.vercel.app).
-  var PROD_URL = 'https://criteria.app'
-
-  // Default DEV URL, used as the initial value for the dev URL input.
-  // Overwritten at `npx cap sync` time from `mobile/dev.config.json`.
+  var PROD_URL = 'https://criteria-app.com'
   var DEFAULT_DEV_URL = 'http://localhost:5173'
 
-  // Built-in DEV presets shown as quick-pick chips.
   var DEV_PRESETS = [
     { label: 'iOS sim',      url: 'http://localhost:5173' },
     { label: 'Android emu',  url: 'http://10.0.2.2:5173' },
   ]
 
+  // How long to wait for a connectivity check before giving up (ms).
+  var CHECK_TIMEOUT = 5000
+  // How long to wait after navigating for the page to show signs of life.
+  // If we're still on this page after this delay, something went wrong.
+  var NAV_TIMEOUT = 10000
+
   // ── Storage keys ────────────────────────────────────────────────────────────
-  var KEY_ENV  = 'criteria_env'        // 'prod' | 'dev'
-  var KEY_URL  = 'criteria_dev_url'    // last DEV URL chosen
-  var KEY_AUTO = 'criteria_auto'       // '1' | '0'
+  var KEY_ENV  = 'criteria_env'
+  var KEY_URL  = 'criteria_dev_url'
+  var KEY_AUTO = 'criteria_auto'
+  var KEY_ERR  = 'criteria_last_error'  // set before navigating, cleared by the app
 
   // ── DOM ─────────────────────────────────────────────────────────────────────
   var tabProd       = document.getElementById('tab-prod')
@@ -261,6 +305,7 @@
   var countdownEl   = document.getElementById('countdown')
   var countdownNum  = document.getElementById('countdown-num')
   var cancelBtn     = document.getElementById('cancel-btn')
+  var statusBanner  = document.getElementById('status-banner')
 
   prodUrlEl.textContent = PROD_URL
 
@@ -268,10 +313,22 @@
   var savedEnv  = localStorage.getItem(KEY_ENV) || 'prod'
   var savedUrl  = localStorage.getItem(KEY_URL) || DEFAULT_DEV_URL
   var autoOn    = localStorage.getItem(KEY_AUTO) === '1'
+  var isConnecting = false
 
   devInput.value = savedUrl
   autoToggle.checked = autoOn
   setActiveTab(savedEnv)
+
+  // ── Check if we're returning from a failed navigation ──────────────────────
+  var lastError = localStorage.getItem(KEY_ERR)
+  if (lastError) {
+    localStorage.removeItem(KEY_ERR)
+    showStatus('error', lastError)
+    // Disable auto-connect after a failure so we don't loop
+    autoOn = false
+    autoToggle.checked = false
+    localStorage.setItem(KEY_AUTO, '0')
+  }
 
   // ── Presets ─────────────────────────────────────────────────────────────────
   DEV_PRESETS.concat([{ label: 'Saved (' + DEFAULT_DEV_URL.replace(/^https?:\/\//, '') + ')', url: DEFAULT_DEV_URL }])
@@ -287,6 +344,20 @@
       presetsEl.appendChild(btn)
     })
 
+  // ── Status banner ──────────────────────────────────────────────────────────
+  function showStatus(type, message) {
+    statusBanner.className = type  // 'error' or 'connecting'
+    if (type === 'connecting') {
+      statusBanner.innerHTML = '<span class="spinner"></span>' + message
+    } else {
+      statusBanner.textContent = message
+    }
+  }
+  function hideStatus() {
+    statusBanner.className = 'hidden'
+    statusBanner.textContent = ''
+  }
+
   // ── Tabs ────────────────────────────────────────────────────────────────────
   function setActiveTab(env) {
     var isProd = env === 'prod'
@@ -295,28 +366,92 @@
     panelProd.classList.toggle('hidden', !isProd)
     panelDev.classList.toggle('hidden', isProd)
   }
-  tabProd.onclick = function () { cancelCountdown(); setActiveTab('prod') }
-  tabDev.onclick  = function () { cancelCountdown(); setActiveTab('dev') }
+  tabProd.onclick = function () { cancelCountdown(); hideStatus(); setActiveTab('prod') }
+  tabDev.onclick  = function () { cancelCountdown(); hideStatus(); setActiveTab('dev') }
+
+  // ── Connectivity check ─────────────────────────────────────────────────────
+  function checkConnectivity(url) {
+    return new Promise(function (resolve) {
+      var controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+      var timeoutId = setTimeout(function () {
+        if (controller) controller.abort()
+        resolve(false)
+      }, CHECK_TIMEOUT)
+
+      var opts = { method: 'HEAD', mode: 'no-cors' }
+      if (controller) opts.signal = controller.signal
+
+      fetch(url, opts)
+        .then(function () {
+          clearTimeout(timeoutId)
+          resolve(true)
+        })
+        .catch(function () {
+          clearTimeout(timeoutId)
+          resolve(false)
+        })
+    })
+  }
 
   // ── Connect actions ─────────────────────────────────────────────────────────
   function persistAuto() { localStorage.setItem(KEY_AUTO, autoToggle.checked ? '1' : '0') }
   autoToggle.addEventListener('change', persistAuto)
 
+  function setButtonsEnabled(enabled) {
+    prodConnect.disabled = !enabled
+    devConnect.disabled = !enabled
+    isConnecting = !enabled
+  }
+
   function go(env, url) {
+    if (isConnecting) return
+
     localStorage.setItem(KEY_ENV, env)
     if (env === 'dev') localStorage.setItem(KEY_URL, url)
     persistAuto()
-    // Cache-bust to defeat any WKWebView module caching.
-    var sep = url.indexOf('?') === -1 ? '?' : '&'
-    window.location.replace(url + sep + '_b=' + Date.now())
+
+    setButtonsEnabled(false)
+    showStatus('connecting', 'Checking ' + url + '…')
+
+    checkConnectivity(url).then(function (ok) {
+      if (!ok) {
+        setButtonsEnabled(true)
+        var msg = env === 'dev'
+          ? 'Could not reach dev server at ' + url + '. Is it running? (pnpm --filter frontend dev --host)'
+          : 'Could not reach ' + url + '. Check your internet connection.'
+        showStatus('error', msg)
+        return
+      }
+
+      showStatus('connecting', 'Loading…')
+
+      // Set a safety marker — if we end up back on this page (e.g. WKWebView
+      // navigation failed silently), we'll know something went wrong.
+      localStorage.setItem(KEY_ERR, 'Navigation to ' + url + ' failed. The server may have stopped responding.')
+
+      // Schedule a fallback: if we're still on this page after NAV_TIMEOUT,
+      // the navigation didn't work. Reset state.
+      setTimeout(function () {
+        // If this runs, we never left this page — navigation failed silently.
+        setButtonsEnabled(true)
+        localStorage.removeItem(KEY_ERR)
+        showStatus('error', 'Navigation to ' + url + ' timed out. Try again or check the URL.')
+      }, NAV_TIMEOUT)
+
+      // Navigate
+      var sep = url.indexOf('?') === -1 ? '?' : '&'
+      window.location.replace(url + sep + '_b=' + Date.now())
+    })
   }
 
   prodConnect.onclick = function () {
     cancelCountdown()
+    hideStatus()
     go('prod', PROD_URL)
   }
   devConnect.onclick = function () {
     cancelCountdown()
+    hideStatus()
     var url = devInput.value.trim()
     if (!url) return
     if (!/^https?:\/\//i.test(url)) url = 'http://' + url
@@ -349,8 +484,8 @@
   }
   cancelBtn.onclick = cancelCountdown
 
-  // Boot: if user opted in to auto-connect, start the 2-second countdown.
-  if (autoOn) startCountdown()
+  // Boot: if auto-connect is on AND there was no previous error, start countdown.
+  if (autoOn && !lastError) startCountdown()
 </script>
 </body>
 </html>

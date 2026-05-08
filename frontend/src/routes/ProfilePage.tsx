@@ -1,23 +1,17 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@apollo/client'
-import { LogOut, Loader2 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { Loader2 } from 'lucide-react'
 import { GET_MY_SELLER_POSTS, GET_MY_BUYER_POSTS } from '@/lib/gql'
 import { useMe } from '@/hooks/useMe'
-import { Button } from '@/components/ui/button'
 import { PropertyCard, type PropertyCardData } from '@/components/posts/PropertyCard'
 import { CriteriaCard, type CriteriaCardData } from '@/components/posts/CriteriaCard'
-import { PageHeader } from '@/components/layout/PageHeader'
 import { initialsOf } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 type Tab = 'listings' | 'criteria'
 
 export default function ProfilePage() {
-  const navigate = useNavigate()
   const { me, canCreateProperty, canCreateCriteria, loading: meLoading } = useMe()
-  const [signingOut, setSigningOut] = useState(false)
   const [tab, setTab] = useState<Tab | null>(null)
 
   // Sync tab once role loads
@@ -27,25 +21,12 @@ export default function ProfilePage() {
     }
   }, [meLoading, canCreateProperty, tab])
 
-  async function handleSignOut() {
-    setSigningOut(true)
-    await supabase.auth.signOut()
-    navigate('/', { replace: true })
-  }
-
   if (!me) {
     return (
-      <div>
-        <PageHeader>
-          <div className="flex items-center justify-between px-5 py-4">
-            <h1 className="text-lg font-bold text-foreground">Profile</h1>
-          </div>
-        </PageHeader>
-        <div className="flex justify-center py-16">
-          {meLoading
-            ? <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            : <p className="text-sm text-muted-foreground">Couldn't load profile.</p>}
-        </div>
+      <div className="flex justify-center py-16">
+        {meLoading
+          ? <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          : <p className="text-sm text-muted-foreground">Couldn't load profile.</p>}
       </div>
     )
   }
@@ -66,12 +47,6 @@ export default function ProfilePage() {
 
   return (
     <div>
-      <PageHeader>
-        <div className="flex items-center justify-between px-5 py-4">
-          <h1 className="text-lg font-bold text-foreground">Profile</h1>
-        </div>
-      </PageHeader>
-
       <div className="px-5 pt-5">
         <div className="overflow-hidden rounded-2xl bg-surface shadow-elevation-1">
           <div className="h-14 bg-primary" />
@@ -116,23 +91,6 @@ export default function ProfilePage() {
         <div className="mt-5">
           {activeTab === 'listings' ? <MyListings /> : <MyCriteria />}
         </div>
-
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          className="mt-8 w-full rounded-xl"
-          onClick={handleSignOut}
-          disabled={signingOut}
-        >
-          {signingOut ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <>
-              <LogOut className="mr-2 h-4 w-4" /> Sign out
-            </>
-          )}
-        </Button>
       </div>
     </div>
   )
@@ -164,7 +122,7 @@ function MyListings() {
   const items = data?.mySellerPosts ?? []
   if (items.length === 0) return <ProfileEmpty body="You haven't listed any properties yet." />
   return (
-    <div className="flex flex-col gap-4">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {items.map(p => <PropertyCard key={p.id} property={p} />)}
     </div>
   )
@@ -179,7 +137,7 @@ function MyCriteria() {
   const items = data?.myBuyerPosts ?? []
   if (items.length === 0) return <ProfileEmpty body="You haven't posted any criteria yet." />
   return (
-    <div className="flex flex-col gap-4">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {items.map(c => <CriteriaCard key={c.id} criteria={c} />)}
     </div>
   )

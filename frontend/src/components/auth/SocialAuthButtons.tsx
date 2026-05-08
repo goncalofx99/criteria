@@ -59,8 +59,8 @@ export function SocialAuthButtons({ variant = 'compact', onAuthenticated, onErro
         await signInWithProviderNative('google')
         // iOS: ASWebAuthenticationSession returned synchronously and the PKCE code
         // has been exchanged — session is set, navigate now.
-        // Android: signInWithProviderNative resolves before the redirect; the
-        // appUrlOpen listener in App.tsx will navigate when the deep link fires.
+        // Android: Browser.open resolves immediately; the appUrlOpen deep link
+        // listener in NativeAuthBridge will navigate when the redirect fires.
         if (platform() === 'ios') {
           onAuthenticated?.()
         }

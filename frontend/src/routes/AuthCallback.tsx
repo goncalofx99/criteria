@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@apollo/client'
+import { apolloClient } from '@/lib/apollo'
 import { Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { GET_ME, UPSERT_USER } from '@/lib/gql'
@@ -15,9 +16,36 @@ export default function AuthCallback() {
     called.current = true
 
     async function handle() {
-      const { data: { session }, error } = await supabase.auth.getSession()
+      // Wait for the session to be fully available. On native OAuth flows,
+      // onAuthStateChange may not have fired yet by the time we reach this page,
+      // so we poll briefly to ensure the token is cached for the Apollo auth link.
+      let session = (await supabase.auth.getSession()).data.session
 
-      if (error || !session) {
+      if (!session) {
+        // Give onAuthStateChange a moment to fire (native OAuth race condition)
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(() => resolve(), 3000)
+          const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+            if (s) {
+              session = s
+              clearTimeout(timeout)
+              subscription.unsubscribe()
+              resolve()
+            }
+          })
+          // If session appeared while we were setting up the listener
+          supabase.auth.getSession().then(({ data: { session: s } }) => {
+            if (s) {
+              session = s
+              clearTimeout(timeout)
+              subscription.unsubscribe()
+              resolve()
+            }
+          })
+        })
+      }
+
+      if (!session) {
         navigate('/', { replace: true })
         return
       }
@@ -25,8 +53,13 @@ export default function AuthCallback() {
       const { user } = session
 
       try {
-        // upsertUser returns the full user (including role) — no need to fetch
-        // it back with a separate GET_ME round-trip.
+        // Check if user already exists in our DB (returning user vs brand new)
+        const { data: meData } = await apolloClient.query({
+          query: GET_ME,
+          fetchPolicy: 'network-only',
+        })
+        const isReturningUser = !!meData?.me
+
         const { data } = await upsertUser({
           variables: {
             input: {
@@ -35,8 +68,6 @@ export default function AuthCallback() {
               avatarUrl: user.user_metadata?.avatar_url ?? null,
             },
           },
-          // Seed the GET_ME cache so the destination page renders instantly
-          // without firing another network request.
           update: (cache, { data }) => {
             if (data?.upsertUser) {
               cache.writeQuery({ query: GET_ME, data: { me: data.upsertUser } })
@@ -44,8 +75,12 @@ export default function AuthCallback() {
           },
         })
 
-        const role = data?.upsertUser?.role
-        navigate(role ? '/feed' : '/onboarding', { replace: true })
+        // Returning users go straight to feed; new users go through onboarding
+        if (isReturningUser && data?.upsertUser?.role) {
+          navigate('/feed', { replace: true })
+        } else {
+          navigate('/onboarding', { replace: true })
+        }
       } catch (err) {
         console.error('upsertUser error:', err)
         navigate('/onboarding', { replace: true })

@@ -211,7 +211,7 @@ export default function PropertyDetailPage() {
                   ? { pin: { lat: post.lat, lng: post.lng } }
                   : { approximate: { lat: post.lat, lng: post.lng, radiusM: 500 } })}
                 interactive={false}
-                height={220}
+                height="clamp(200px, 30vh, 360px)"
               />
             </section>
 

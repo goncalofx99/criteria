@@ -30,7 +30,12 @@ export function avatarColorFor(id: string): string {
 }
 
 export function timeAgo(iso: string | number | Date): string {
-  const ms = Date.now() - new Date(iso).getTime()
+  // Drizzle may return timestamps as numeric strings (milliseconds) — detect and coerce.
+  const date = typeof iso === 'string' && /^\d+$/.test(iso)
+    ? new Date(Number(iso))
+    : new Date(iso)
+  const ms = Date.now() - date.getTime()
+  if (isNaN(ms)) return ''
   const days = Math.floor(ms / (1000 * 60 * 60 * 24))
   if (days <= 0) {
     const hours = Math.floor(ms / (1000 * 60 * 60))

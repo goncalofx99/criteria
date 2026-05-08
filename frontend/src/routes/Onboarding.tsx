@@ -4,6 +4,7 @@
  */
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useKeyboardHeight } from '@/hooks/useKeyboardHeight'
 import { useMutation } from '@apollo/client'
 import { Building2, Search, LayoutGrid, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -30,6 +31,7 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [upsertUser] = useMutation(UPSERT_USER)
+  const keyboardHeight = useKeyboardHeight()
 
   const ageNum = parseInt(age)
   const ageValid = !isNaN(ageNum) && ageNum >= 18 && ageNum <= 120
@@ -143,7 +145,10 @@ export default function Onboarding() {
       </div>
 
       {/* Footer */}
-      <div className="web-content px-6 pb-10 pb-safe">
+      <div
+        className="web-content px-6 pb-10 pb-safe transition-transform duration-200"
+        style={keyboardHeight > 0 ? { transform: `translateY(-${keyboardHeight}px)` } : undefined}
+      >
         <Button
           size="lg"
           className="w-full rounded-xl"
