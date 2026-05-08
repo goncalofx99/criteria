@@ -16,14 +16,6 @@ export function platform(): 'ios' | 'android' | 'web' {
   return p === 'ios' || p === 'android' ? p : 'web'
 }
 
-/**
- * Check if a Capacitor plugin is actually available at runtime.
- * When the WebView loads a remote URL, the native bridge may not inject plugins.
- */
-function isPluginAvailable(name: string): boolean {
-  return Capacitor.isPluginAvailable(name)
-}
-
 // ─── iOS: Sign in with Apple (native ASAuthorizationAppleIDProvider) ────────
 
 interface AppleAuthResult {
