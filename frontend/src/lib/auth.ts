@@ -31,7 +31,7 @@ export function getAccessToken(): string | null {
   return cachedAccessToken
 }
 
-function setTokens(accessToken: string, refreshToken: string) {
+export function setTokens(accessToken: string, refreshToken: string) {
   cachedAccessToken = accessToken
   localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
   localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)

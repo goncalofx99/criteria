@@ -5,6 +5,7 @@ import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import { AppLayout }  from '@/components/layout/AppLayout'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { registerDeepLinkHandler } from '@/lib/native-auth'
+import { setTokens } from '@/lib/auth'
 
 // ─── Lazy-loaded routes ──────────────────────────────────────────────────────
 const LandingPage        = lazy(() => import('@/routes/LandingPage'))
@@ -52,9 +53,7 @@ function NativeAuthBridge() {
   useEffect(() => {
     return registerDeepLinkHandler(
       (tokens) => {
-        // Store tokens from native OAuth deep link
-        localStorage.setItem('criteria_access_token', tokens.accessToken)
-        localStorage.setItem('criteria_refresh_token', tokens.refreshToken)
+        setTokens(tokens.accessToken, tokens.refreshToken)
         navigate('/auth/callback', { replace: true })
       },
       (msg) => {

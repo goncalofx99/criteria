@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { startGoogleOAuth } from '@/lib/auth'
+import { startGoogleOAuth, setTokens } from '@/lib/auth'
 import { isNative, platform, signInWithGoogleNative, parseCallbackTokens } from '@/lib/native-auth'
 import { cn } from '@/lib/utils'
 
@@ -9,13 +10,13 @@ type Variant = 'landing' | 'compact'
 
 interface Props {
   variant?: Variant
-  onAuthenticated?: (tokens?: { accessToken: string; refreshToken: string }) => void
   onError?: (msg: string) => void
 }
 
 const API_URL = import.meta.env.VITE_API_URL
 
-export function SocialAuthButtons({ variant = 'compact', onAuthenticated, onError }: Props) {
+export function SocialAuthButtons({ variant = 'compact', onError }: Props) {
+  const navigate = useNavigate()
   const [googleLoading, setGoogleLoading] = useState(false)
 
   async function handleGoogle() {
@@ -28,9 +29,11 @@ export function SocialAuthButtons({ variant = 'compact', onAuthenticated, onErro
           // iOS: ASWebAuthenticationSession returned synchronously
           const tokens = parseCallbackTokens(callbackUrl)
           if (tokens) {
-            onAuthenticated?.(tokens)
+            setTokens(tokens.accessToken, tokens.refreshToken)
+            navigate('/auth/callback', { replace: true })
           } else {
             onError?.('Failed to parse authentication tokens')
+            setGoogleLoading(false)
           }
         }
         // Android: Browser.open resolves immediately; the appUrlOpen deep link
