@@ -33,17 +33,35 @@ export const propertyConditionEnum = pgEnum('property_condition', [
 export const userRoleEnum = pgEnum('user_role', ['buyer', 'seller', 'both'])
 
 // ─── Users ────────────────────────────────────────────────────────────────────
-// Mirrors Supabase auth.users — populated via upsertUser mutation on login.
 
 export const users = pgTable('users', {
-  id: uuid('id').primaryKey(), // same UUID as Supabase auth.users.id
+  id: uuid('id').defaultRandom().primaryKey(),
   email: text('email').notNull().unique(),
   fullName: text('full_name'),
   avatarUrl: text('avatar_url'),
   role: userRoleEnum('role').notNull().default('buyer'),
+  // null for Google-only users; set when user signs up with email/password
+  passwordHash: text('password_hash'),
+  // Google OAuth subject ID for linking Google sign-ins to this user
+  googleId: text('google_id').unique(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
+
+// ─── Sessions (refresh tokens) ───────────────────────────────────────────────
+
+export const sessions = pgTable('sessions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  refreshToken: text('refresh_token').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('session_user_id_idx').on(t.userId),
+  index('session_refresh_token_idx').on(t.refreshToken),
+])
 
 // ─── Seller Posts (property listings) ────────────────────────────────────────
 // What a seller HAS.
@@ -208,6 +226,8 @@ export const messages = pgTable('messages', {
 
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
+export type Session = typeof sessions.$inferSelect
+export type NewSession = typeof sessions.$inferInsert
 export type SellerPost = typeof sellerPosts.$inferSelect
 export type NewSellerPost = typeof sellerPosts.$inferInsert
 export type BuyerPost = typeof buyerPosts.$inferSelect

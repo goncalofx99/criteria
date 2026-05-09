@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { signIn } from '@/lib/auth'
 import { warmUpBackend } from '@/lib/warmup'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,14 +22,12 @@ export default function SignInPage() {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setError(error.message === 'Invalid login credentials'
-        ? 'Incorrect email or password.'
-        : error.message)
-      setLoading(false)
-    } else {
+    try {
+      await signIn(email, password)
       navigate('/auth/callback', { replace: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sign in failed')
+      setLoading(false)
     }
   }
 
@@ -54,11 +52,10 @@ export default function SignInPage() {
           <p className="mt-1 text-sm text-muted-foreground">Sign in to your account</p>
         </div>
 
-        {/* Social auth (per-platform) */}
+        {/* Social auth */}
         <div className="mb-6">
           <SocialAuthButtons
             variant="compact"
-            onAuthenticated={() => navigate('/auth/callback', { replace: true })}
             onError={setError}
           />
         </div>
@@ -94,7 +91,6 @@ export default function SignInPage() {
               <button
                 type="button"
                 onClick={() => {
-                  // TODO: implement forgot password flow
                   alert('Please use Google sign-in or contact support to reset your password.')
                 }}
                 className="text-xs text-primary hover:underline underline-offset-4"

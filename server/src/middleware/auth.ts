@@ -1,57 +1,43 @@
 import { createMiddleware } from 'hono/factory'
-import { jwtVerify, createRemoteJWKSet } from 'jose'
+import { jwtVerify, SignJWT } from 'jose'
 import { env } from '../lib/env.js'
 
 type Variables = { userId: string | null }
 
-// ─── JWT key resolution ────────────────────────────────────────────────────────
-//
-// Supabase now signs tokens with an ECC P-256 key by default.
-// We verify using the JWKS endpoint (/.well-known/jwks.json) which works with
-// both the legacy HS256 secret AND the modern ECC key — whatever is active.
-//
-// The JWKS getter is lazy and cached after first call (jose handles this
-// internally). The remote key set is refreshed automatically when key IDs rotate.
-//
-// SUPABASE_JWT_SECRET is kept as an optional override. When set it forces HS256
-// verification (useful for local tests that don't connect to Supabase).
+// ─── JWT helpers ──────────────────────────────────────────────────────────────
 
-let _jwks: ReturnType<typeof createRemoteJWKSet> | null = null
+const secret = new TextEncoder().encode(env.JWT_SECRET)
 
-function getJwks() {
-  if (!_jwks) {
-    _jwks = createRemoteJWKSet(
-      new URL(`${env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`)
-    )
-  }
-  return _jwks
+/**
+ * Sign a short-lived access token (15 minutes).
+ */
+export async function signAccessToken(userId: string): Promise<string> {
+  return new SignJWT({ sub: userId })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('15m')
+    .sign(secret)
 }
 
-// Shared JWT verification — used by both the HTTP middleware and the WS subscription context.
+/**
+ * Verify an access token and return the user ID, or null if invalid/expired.
+ */
 export async function verifyJwt(token: string): Promise<string | null> {
   try {
-    // Split into two explicit branches so TypeScript can resolve the correct
-    // jwtVerify overload (Uint8Array vs JWTVerifyGetKey are incompatible in a union).
-    const verifyOptions = {
-      issuer: `${env.SUPABASE_URL}/auth/v1`,
-      audience: 'authenticated',
-    }
-    const { payload } = env.SUPABASE_JWT_SECRET
-      ? await jwtVerify(token, new TextEncoder().encode(env.SUPABASE_JWT_SECRET), verifyOptions)
-      : await jwtVerify(token, getJwks(), verifyOptions)
+    const { payload } = await jwtVerify(token, secret)
     if (typeof payload.sub !== 'string') return null
     return payload.sub
-  } catch (err) {
-    // Log verification failures in production for observability
-    if (env.NODE_ENV === 'production') {
-      console.warn('[Auth] JWT verification failed:', err instanceof Error ? err.message : err)
-    }
+  } catch {
     return null
   }
 }
 
-// Verifies the JWT on every request and sets userId in the Hono context.
-// Resolvers are responsible for throwing if authentication is required.
+// ─── Hono middleware ──────────────────────────────────────────────────────────
+
+/**
+ * Sets `userId` on Hono context from the Authorization header.
+ * Never rejects — resolvers call requireAuth() themselves.
+ */
 export const authMiddleware = createMiddleware<{ Variables: Variables }>(
   async (c, next) => {
     const authHeader = c.req.header('Authorization')

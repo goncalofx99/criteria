@@ -51,7 +51,12 @@ function NativeAuthBridge() {
   const navigate = useNavigate()
   useEffect(() => {
     return registerDeepLinkHandler(
-      () => navigate('/auth/callback', { replace: true }),
+      (tokens) => {
+        // Store tokens from native OAuth deep link
+        localStorage.setItem('criteria_access_token', tokens.accessToken)
+        localStorage.setItem('criteria_refresh_token', tokens.refreshToken)
+        navigate('/auth/callback', { replace: true })
+      },
       (msg) => {
         console.error('OAuth deep link error:', msg)
         navigate('/sign-in', { replace: true })

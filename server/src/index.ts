@@ -16,6 +16,8 @@ import { rateLimitMiddleware } from './middleware/rateLimit.js'
 import { typeDefs } from './schema/typeDefs.js'
 import { resolvers } from './schema/resolvers/index.js'
 import { createLoaders } from './lib/dataloaders.js'
+import { authRoutes } from './routes/auth.js'
+import { uploadRoutes } from './routes/upload.js'
 import type { Context } from './context.js'
 
 // ─── Executable schema (shared between Apollo HTTP and graphql-ws) ─────────────
@@ -77,9 +79,18 @@ app.use('*', rateLimitMiddleware)
 // JWT auth — sets userId on context (null if unauthenticated)
 app.use('*', authMiddleware)
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
+// ─── REST Routes ──────────────────────────────────────────────────────────────
 
+// Auth routes (signup, signin, google oauth, refresh, signout)
+app.route('/', authRoutes)
+
+// Upload routes (presigned URLs for R2)
+app.route('/', uploadRoutes)
+
+// Health check
 app.get('/health', (c) => c.json({ status: 'ok' }))
+
+// ─── GraphQL ──────────────────────────────────────────────────────────────────
 
 app.on(['GET', 'POST'], '/graphql', async (c) => {
   let body = {}
@@ -143,8 +154,10 @@ useServer(
   wss
 )
 
-console.log(`🚀 Server ready at http://localhost:${env.PORT}/graphql`)
-console.log(`   WebSocket subscriptions at ws://localhost:${env.PORT}/graphql`)
+console.log(`Server ready at http://localhost:${env.PORT}/graphql`)
+console.log(`  WebSocket subscriptions at ws://localhost:${env.PORT}/graphql`)
+console.log(`  Auth endpoints at http://localhost:${env.PORT}/auth/*`)
+console.log(`  Upload endpoint at http://localhost:${env.PORT}/upload/presign`)
 if (env.NODE_ENV === 'development') {
-  console.log(`   Apollo Sandbox: http://localhost:${env.PORT}/graphql`)
+  console.log(`  Apollo Sandbox: http://localhost:${env.PORT}/graphql`)
 }

@@ -1,11 +1,8 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { Browser } from '@capacitor/browser'
 import { App } from '@capacitor/app'
-import type { Provider } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
 
 export const NATIVE_CALLBACK_SCHEME = 'com.criteria.app'
-export const NATIVE_REDIRECT_URL = `${NATIVE_CALLBACK_SCHEME}://auth/callback`
 
 export function isNative() {
   return Capacitor.isNativePlatform()
@@ -16,40 +13,7 @@ export function platform(): 'ios' | 'android' | 'web' {
   return p === 'ios' || p === 'android' ? p : 'web'
 }
 
-// ─── iOS: Sign in with Apple (native ASAuthorizationAppleIDProvider) ────────
-
-interface AppleAuthResult {
-  identityToken: string
-  nonce: string
-  user: string
-  email: string
-  fullName: { givenName?: string; familyName?: string }
-}
-
-interface AppleAuthBridgePlugin {
-  signIn(): Promise<AppleAuthResult>
-}
-
-const AppleAuthBridge = registerPlugin<AppleAuthBridgePlugin>('AppleAuthBridge')
-
-/**
- * iOS-only. Native Sign in with Apple via ASAuthorizationAppleIDProvider.
- * Returns a JWT identityToken + raw nonce; we hand both to Supabase which
- * verifies the JWT against Apple's public keys.
- */
-export async function signInWithAppleNative(): Promise<void> {
-  console.log('[CRITERIA] signInWithAppleNative — calling AppleAuthBridge.signIn')
-  const result = await AppleAuthBridge.signIn()
-
-  const { error } = await supabase.auth.signInWithIdToken({
-    provider: 'apple',
-    token: result.identityToken,
-    nonce: result.nonce,
-  })
-  if (error) throw error
-}
-
-// ─── Android: Google via Chrome Custom Tabs + intent-filter callback ────────
+// ─── iOS: OAuth via ASWebAuthenticationSession ────────────────────────────────
 
 interface OAuthBridgePlugin {
   startSession(opts: { url: string; callbackScheme: string }): Promise<{ callbackUrl: string }>
@@ -57,42 +21,50 @@ interface OAuthBridgePlugin {
 
 const OAuthBridge = registerPlugin<OAuthBridgePlugin>('OAuthBridge')
 
-export async function signInWithProviderNative(provider: Provider): Promise<void> {
-  console.log('[CRITERIA] signInWithProviderNative — platform:', platform())
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider,
-    options: {
-      redirectTo: NATIVE_REDIRECT_URL,
-      skipBrowserRedirect: true,
-    },
-  })
-  if (error) throw error
-  if (!data?.url) throw new Error('No OAuth URL returned')
+/**
+ * Start Google OAuth on native platforms.
+ * 
+ * The flow:
+ * 1. Open the server's /auth/google endpoint (which redirects to Google consent)
+ * 2. After Google auth, server redirects to frontend /auth/callback with tokens
+ * 
+ * iOS: Uses ASWebAuthenticationSession via OAuthBridge plugin
+ * Android: Opens Chrome Custom Tab, deep link brings user back
+ */
+export async function signInWithGoogleNative(serverUrl: string): Promise<string | null> {
+  const authUrl = `${serverUrl}/auth/google?redirect=${NATIVE_CALLBACK_SCHEME}://auth/callback`
 
   if (platform() === 'ios') {
-    // iOS: route through ASWebAuthenticationSession (in-app sheet).
+    // iOS: ASWebAuthenticationSession returns the callback URL synchronously
     const { callbackUrl } = await OAuthBridge.startSession({
-      url: data.url,
+      url: authUrl,
       callbackScheme: NATIVE_CALLBACK_SCHEME,
     })
-    await exchangeCallbackUrl(callbackUrl)
-    return
+    return callbackUrl
   }
 
   // Android: open Chrome Custom Tab. The intent-filter on com.criteria.app://
   // will bring the app back and fire the appUrlOpen event via the native bridge.
-  await Browser.open({ url: data.url })
+  await Browser.open({ url: authUrl })
+  return null // Android handles via deep link listener
 }
 
-async function exchangeCallbackUrl(callbackUrl: string) {
-  const parsed = new URL(callbackUrl)
-  const code = parsed.searchParams.get('code')
-  const errorDescription = parsed.searchParams.get('error_description')
-  if (errorDescription) throw new Error(errorDescription)
-  if (!code) throw new Error('No authorization code in callback URL')
-  const { error } = await supabase.auth.exchangeCodeForSession(code)
-  if (error) throw error
+/**
+ * Parse tokens from a callback URL (native OAuth).
+ * Returns { accessToken, refreshToken } or null if not found.
+ */
+export function parseCallbackTokens(callbackUrl: string): { accessToken: string; refreshToken: string } | null {
+  try {
+    const url = new URL(callbackUrl)
+    const accessToken = url.searchParams.get('access_token')
+    const refreshToken = url.searchParams.get('refresh_token')
+    if (accessToken && refreshToken) {
+      return { accessToken, refreshToken }
+    }
+    return null
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -100,7 +72,7 @@ async function exchangeCallbackUrl(callbackUrl: string) {
  * Custom Tab redirects to com.criteria.app://auth/callback.
  */
 export function registerDeepLinkHandler(
-  onSession: () => void,
+  onTokens: (tokens: { accessToken: string; refreshToken: string }) => void,
   onError?: (msg: string) => void,
 ) {
   if (!isNative()) return () => {}
@@ -108,8 +80,12 @@ export function registerDeepLinkHandler(
 
   const subPromise = App.addListener('appUrlOpen', async ({ url }) => {
     try {
-      await exchangeCallbackUrl(url)
-      onSession()
+      const tokens = parseCallbackTokens(url)
+      if (tokens) {
+        onTokens(tokens)
+      } else {
+        onError?.('No tokens in callback URL')
+      }
     } catch (e) {
       onError?.(e instanceof Error ? e.message : 'Sign-in failed')
     } finally {

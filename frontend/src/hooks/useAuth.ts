@@ -1,34 +1,41 @@
 import { useEffect, useState } from 'react'
-import type { User, Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { getAccessToken, onAuthChange, signOut, refreshAccessToken } from '@/lib/auth'
 
 interface AuthState {
-  user: User | null
-  session: Session | null
+  isAuthenticated: boolean
   loading: boolean
 }
 
 export function useAuth(): AuthState & { signOut: () => Promise<void> } {
   const [state, setState] = useState<AuthState>({
-    user: null,
-    session: null,
+    isAuthenticated: !!getAccessToken(),
     loading: true,
   })
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setState({ user: session?.user ?? null, session, loading: false })
+    // Check if we have a valid session on mount
+    async function check() {
+      const token = getAccessToken()
+      if (token) {
+        setState({ isAuthenticated: true, loading: false })
+      } else {
+        // Try refreshing
+        const refreshed = await refreshAccessToken()
+        setState({ isAuthenticated: !!refreshed, loading: false })
+      }
+    }
+    check()
+
+    // Listen for auth state changes (login, logout, refresh)
+    const unsub = onAuthChange((token) => {
+      setState((prev) => ({ ...prev, isAuthenticated: !!token }))
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setState(prev => ({ ...prev, user: session?.user ?? null, session }))
-    })
-
-    return () => subscription.unsubscribe()
+    return unsub
   }, [])
 
   return {
     ...state,
-    signOut: () => supabase.auth.signOut().then(() => {}),
+    signOut,
   }
 }

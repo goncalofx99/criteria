@@ -3,7 +3,7 @@ import { GraphQLWsLink } from '@apollo/client/link/subscriptions'
 import { setContext } from '@apollo/client/link/context'
 import { getMainDefinition } from '@apollo/client/utilities'
 import { createClient } from 'graphql-ws'
-import { supabase } from './supabase'
+import { getAccessToken, onAuthChange, refreshAccessToken } from './auth'
 
 const graphqlUrl = import.meta.env.VITE_GRAPHQL_URL
 const graphqlWsUrl = import.meta.env.VITE_GRAPHQL_WS_URL
@@ -18,29 +18,20 @@ const httpLink = new HttpLink({
   uri: graphqlUrl,
 })
 
-// ─── Cached token for the auth link ────────────────────────────────────────────
-// getSession() reads from storage + may refresh tokens, which is expensive to
-// call on every GraphQL request. We cache the token and update it reactively
-// via onAuthStateChange, so the auth link becomes synchronous in the hot path.
+// ─── Auth link ────────────────────────────────────────────────────────────────
 
-let cachedToken: string | null = null
+const authLink = setContext(async (_, { headers }) => {
+  let token = getAccessToken()
 
-// Eagerly prime the cache from the current session
-supabase.auth.getSession().then(({ data: { session } }) => {
-  cachedToken = session?.access_token ?? null
-})
+  // If no token, try refreshing
+  if (!token) {
+    token = await refreshAccessToken()
+  }
 
-// Keep the cache in sync whenever the session changes (login, logout, refresh)
-supabase.auth.onAuthStateChange((_event, session) => {
-  cachedToken = session?.access_token ?? null
-})
-
-const authLink = setContext((_, { headers }) => {
-  // Synchronous — no await, no storage read
   return {
     headers: {
       ...headers,
-      ...(cachedToken ? { authorization: `Bearer ${cachedToken}` } : {}),
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
   }
 })
@@ -49,10 +40,12 @@ const wsLink = new GraphQLWsLink(
   createClient({
     url: graphqlWsUrl,
     connectionParams: async () => {
-      // WS connections are rare (only on subscribe), so getSession() is acceptable
-      const { data: { session } } = await supabase.auth.getSession()
-      return session?.access_token
-        ? { Authorization: `Bearer ${session.access_token}` }
+      let token = getAccessToken()
+      if (!token) {
+        token = await refreshAccessToken()
+      }
+      return token
+        ? { Authorization: `Bearer ${token}` }
         : {}
     },
   }),
@@ -70,4 +63,11 @@ const splitLink = split(
 export const apolloClient = new ApolloClient({
   link: splitLink,
   cache: new InMemoryCache(),
+})
+
+// Clear Apollo cache on sign-out
+onAuthChange((token) => {
+  if (!token) {
+    apolloClient.clearStore()
+  }
 })

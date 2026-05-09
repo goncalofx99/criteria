@@ -2,7 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { signOut } from '@/lib/auth'
 import { BottomNav } from './BottomNav'
 
 function AppHeader() {
@@ -17,7 +17,7 @@ function AppHeader() {
 
   async function handleSignOut() {
     setSigningOut(true)
-    await supabase.auth.signOut()
+    await signOut()
     navigate('/', { replace: true })
   }
 

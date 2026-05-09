@@ -5,9 +5,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useKeyboardHeight } from '@/hooks/useKeyboardHeight'
-import { useMutation } from '@apollo/client'
+import { useMutation, useQuery } from '@apollo/client'
 import { Building2, Search, LayoutGrid, Loader2 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { UPSERT_USER, GET_ME } from '@/lib/gql'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,6 +30,7 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [upsertUser] = useMutation(UPSERT_USER)
+  const { data: meData } = useQuery(GET_ME)
   const keyboardHeight = useKeyboardHeight()
 
   const ageNum = parseInt(age)
@@ -41,18 +41,14 @@ export default function Onboarding() {
     setLoading(true)
     setError(null)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
-
-      // Store age in Supabase user metadata
-      await supabase.auth.updateUser({ data: { age: ageNum } })
+      const me = meData?.me
 
       await upsertUser({
         variables: {
           input: {
-            email: user.email!,
-            fullName: user.user_metadata?.full_name ?? null,
-            avatarUrl: user.user_metadata?.avatar_url ?? null,
+            email: me?.email ?? '',
+            fullName: me?.fullName ?? null,
+            avatarUrl: me?.avatarUrl ?? null,
             role,
           },
         },

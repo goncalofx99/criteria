@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { hasValidSession } from '@/lib/auth'
 import { warmUpBackend } from '@/lib/warmup'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
@@ -13,8 +13,8 @@ export default function LandingPage() {
 
   useEffect(() => {
     warmUpBackend()
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate('/feed', { replace: true })
+    hasValidSession().then((valid) => {
+      if (valid) navigate('/feed', { replace: true })
       else setCheckingSession(false)
     })
   }, [navigate])
@@ -49,7 +49,6 @@ export default function LandingPage() {
         <div className="web-content flex flex-col gap-3">
           <SocialAuthButtons
             variant="landing"
-            onAuthenticated={() => navigate('/auth/callback', { replace: true })}
             onError={setError}
           />
 

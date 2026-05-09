@@ -1,75 +1,43 @@
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { supabase } from '@/lib/supabase'
-import { isNative, platform, signInWithAppleNative, signInWithProviderNative } from '@/lib/native-auth'
+import { startGoogleOAuth } from '@/lib/auth'
+import { isNative, platform, signInWithGoogleNative, parseCallbackTokens } from '@/lib/native-auth'
 import { cn } from '@/lib/utils'
 
 type Variant = 'landing' | 'compact'
 
 interface Props {
-  /** Visual treatment. `landing` = filled buttons on dark backgrounds, `compact` = outlined for the sign-in form. */
   variant?: Variant
-  /** Called after a sign-in attempt succeeds locally (Supabase has the session). */
-  onAuthenticated?: () => void
-  /** Called on error so the parent can show a message. */
+  onAuthenticated?: (tokens?: { accessToken: string; refreshToken: string }) => void
   onError?: (msg: string) => void
 }
 
-/**
- * Per-platform social auth buttons.
- *
- * - iOS native:   Sign in with Apple (native ASAuthorizationAppleIDProvider).
- * - Android native: Continue with Google (Chrome Custom Tabs + intent-filter).
- * - Web:           Both buttons (web OAuth via Supabase redirect).
- */
+const API_URL = import.meta.env.VITE_API_URL
+
 export function SocialAuthButtons({ variant = 'compact', onAuthenticated, onError }: Props) {
-  const [appleLoading, setAppleLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-
-  const showApple = isNative() ? platform() === 'ios' : true
-  // Show Google on iOS (via ASWebAuthenticationSession in-app sheet) and Android (via Custom Tabs).
-  const showGoogle = true
-
-  async function handleApple() {
-    setAppleLoading(true)
-    try {
-      if (isNative()) {
-        await signInWithAppleNative()
-        onAuthenticated?.()
-      } else {
-        // Web: use Supabase OAuth redirect (native bridge is not available on web)
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'apple',
-          options: { redirectTo: `${window.location.origin}/auth/callback` },
-        })
-        if (error) throw error
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Apple sign-in failed.'
-      if (msg !== 'USER_CANCELLED') onError?.(msg)
-      setAppleLoading(false)
-    }
-  }
 
   async function handleGoogle() {
     setGoogleLoading(true)
     try {
       if (isNative()) {
-        await signInWithProviderNative('google')
-        // iOS: ASWebAuthenticationSession returned synchronously and the PKCE code
-        // has been exchanged — session is set, navigate now.
-        // Android: Browser.open resolves immediately; the appUrlOpen deep link
-        // listener in NativeAuthBridge will navigate when the redirect fires.
-        if (platform() === 'ios') {
-          onAuthenticated?.()
+        const callbackUrl = await signInWithGoogleNative(API_URL)
+
+        if (platform() === 'ios' && callbackUrl) {
+          // iOS: ASWebAuthenticationSession returned synchronously
+          const tokens = parseCallbackTokens(callbackUrl)
+          if (tokens) {
+            onAuthenticated?.(tokens)
+          } else {
+            onError?.('Failed to parse authentication tokens')
+          }
         }
+        // Android: Browser.open resolves immediately; the appUrlOpen deep link
+        // listener in NativeAuthBridge will handle the callback.
       } else {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: { redirectTo: `${window.location.origin}/auth/callback` },
-        })
-        if (error) throw error
+        // Web: redirect to server's Google OAuth endpoint
+        startGoogleOAuth(`${window.location.origin}/auth/callback`)
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Google sign-in failed.'
@@ -78,50 +46,22 @@ export function SocialAuthButtons({ variant = 'compact', onAuthenticated, onErro
     }
   }
 
-  if (!showApple && !showGoogle) return null
-
   return (
     <div className="flex flex-col gap-3 w-full">
-      {showApple && (
-        <Button
-          onClick={handleApple}
-          disabled={appleLoading}
-          className={cn(
-            variant === 'landing'
-              ? 'h-14 w-full rounded-xl bg-white text-black shadow-elevation-2 hover:bg-accent text-[15px] font-medium'
-              : 'h-12 w-full rounded-xl border-border text-foreground text-[15px] font-medium',
-          )}
-          variant={variant === 'landing' ? 'default' : 'outline'}
-        >
-          {appleLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <AppleIcon />}
-          Continue with Apple
-        </Button>
-      )}
-
-      {showGoogle && (
-        <Button
-          onClick={handleGoogle}
-          disabled={googleLoading}
-          className={cn(
-            variant === 'landing'
-              ? 'h-14 w-full rounded-xl bg-white text-foreground shadow-elevation-2 hover:bg-accent text-[15px] font-medium'
-              : 'h-12 w-full rounded-xl border-border text-foreground text-[15px] font-medium',
-          )}
-          variant={variant === 'landing' ? 'default' : 'outline'}
-        >
-          {googleLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleIcon />}
-          Continue with Google
-        </Button>
-      )}
+      <Button
+        onClick={handleGoogle}
+        disabled={googleLoading}
+        className={cn(
+          variant === 'landing'
+            ? 'h-14 w-full rounded-xl bg-white text-foreground shadow-elevation-2 hover:bg-accent text-[15px] font-medium'
+            : 'h-12 w-full rounded-xl border-border text-foreground text-[15px] font-medium',
+        )}
+        variant={variant === 'landing' ? 'default' : 'outline'}
+      >
+        {googleLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleIcon />}
+        Continue with Google
+      </Button>
     </div>
-  )
-}
-
-function AppleIcon() {
-  return (
-    <svg className="mr-1 h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M16.365 1.43c0 1.14-.469 2.225-1.222 3.022-.806.852-2.117 1.51-3.205 1.43-.142-1.106.41-2.255 1.18-2.984.86-.823 2.281-1.43 3.247-1.468zM21 17.46c-.59 1.291-.871 1.872-1.625 3.013-1.05 1.586-2.532 3.566-4.367 3.583-1.628.014-2.046-1.046-4.255-1.034-2.21.012-2.668 1.052-4.297 1.038-1.835-.014-3.236-1.795-4.286-3.382C-.55 16.39-.866 11.087 1.024 8.252c1.337-2.005 3.45-3.179 5.434-3.179 2.02 0 3.292 1.097 4.96 1.097 1.62 0 2.605-1.099 4.943-1.099 1.766 0 3.638.954 4.972 2.604-4.37 2.371-3.659 8.567.667 9.785z" />
-    </svg>
   )
 }
 

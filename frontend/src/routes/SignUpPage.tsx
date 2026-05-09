@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation } from '@apollo/client'
 import { Building2, Search, LayoutGrid, Eye, EyeOff, Camera, ChevronLeft, Loader2, X } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { signUp } from '@/lib/auth'
+import { uploadFile } from '@/lib/upload'
 import { UPSERT_USER, GET_ME } from '@/lib/gql'
 import { warmUpBackend } from '@/lib/warmup'
 import { Button } from '@/components/ui/button'
@@ -97,48 +98,31 @@ export default function SignUpPage() {
     setLoading(true)
 
     try {
-      // 1. Upload avatar if provided
+      // 1. Create user account
+      const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`
+      const user = await signUp({
+        email: form.email,
+        password: form.password,
+        fullName,
+        role: form.role ?? 'buyer',
+      })
+
+      // 2. Upload avatar if provided (now that we have a token)
       let avatarUrl: string | null = null
       if (form.avatarFile) {
-        const ext = form.avatarFile.name.split('.').pop()
-        const path = `avatars/${Date.now()}.${ext}`
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(path, form.avatarFile, { upsert: true })
-        if (!uploadError) {
-          const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-          avatarUrl = data.publicUrl
+        try {
+          avatarUrl = await uploadFile(form.avatarFile, `avatars/${user.id}`)
+        } catch (err) {
+          console.warn('Avatar upload failed, continuing without it:', err)
         }
       }
 
-      // 2. Create Supabase auth account
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: form.email,
-        password: form.password,
-        options: {
-          data: {
-            full_name: `${form.firstName.trim()} ${form.lastName.trim()}`,
-            avatar_url: avatarUrl,
-            age: parseInt(form.age),
-          },
-        },
-      })
-
-      if (signUpError) throw signUpError
-      if (!data.user) throw new Error('Sign up failed. Please try again.')
-
-      // 3. If email confirmation required, show message
-      if (!data.session) {
-        navigate('/check-email', { replace: true })
-        return
-      }
-
-      // 4. Upsert user in our DB. Seed the me cache so /feed renders instantly.
+      // 3. Upsert user in our DB with avatar URL
       await upsertUser({
         variables: {
           input: {
             email: form.email,
-            fullName: `${form.firstName.trim()} ${form.lastName.trim()}`,
+            fullName,
             avatarUrl,
             role: form.role,
           },
@@ -369,7 +353,6 @@ function StepPhoto({
       </div>
 
       <div className="flex flex-col items-center gap-4 py-6">
-        {/* Avatar preview */}
         <div className="relative">
           <div
             className={cn(
@@ -398,7 +381,6 @@ function StepPhoto({
           )}
         </div>
 
-        {/* Initials preview */}
         {!form.avatarPreview && (
           <div className="h-28 w-28 rounded-full bg-primary-100 flex items-center justify-center absolute opacity-0 pointer-events-none" />
         )}
@@ -451,7 +433,6 @@ function StepAccount({
       </div>
 
       <div className="space-y-4">
-        {/* Email */}
         <div className="space-y-1.5">
           <Label htmlFor="email" required>Email</Label>
           <Input
@@ -464,7 +445,6 @@ function StepAccount({
           />
         </div>
 
-        {/* Password */}
         <div className="space-y-1.5">
           <Label htmlFor="password" required>Password</Label>
           <div className="relative">
@@ -489,7 +469,6 @@ function StepAccount({
           <PasswordStrength password={form.password} />
         </div>
 
-        {/* Confirm password */}
         <div className="space-y-1.5">
           <Label htmlFor="confirmPassword" required>Confirm password</Label>
           <div className="relative">
