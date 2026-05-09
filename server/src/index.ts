@@ -65,7 +65,12 @@ app.use(
   cors({
     origin:
       env.NODE_ENV === 'production' && env.FRONTEND_URL
-        ? env.FRONTEND_URL
+        ? (origin) => {
+            // Allow the configured frontend URL and its www variant
+            const base = env.FRONTEND_URL!
+            const allowed = [base, base.replace('https://', 'https://www.')]
+            return allowed.includes(origin) ? origin : null
+          }
         : '*',
     allowMethods: ['GET', 'POST', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
