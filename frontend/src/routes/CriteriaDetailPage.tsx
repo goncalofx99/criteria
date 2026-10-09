@@ -85,7 +85,7 @@ export default function CriteriaDetailPage() {
   return (
     <div>
       <PageHeader>
-        <div className="flex items-center justify-between gap-3 px-5 py-4">
+        <div className="workspace-content flex items-center justify-between gap-3 px-5 py-4 md:px-8 lg:px-10">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -94,7 +94,7 @@ export default function CriteriaDetailPage() {
             >
               <ArrowLeft size={20} />
             </button>
-            <h1 className="text-lg font-bold text-foreground">Buyer criteria</h1>
+            <h1 className="text-lg font-semibold text-foreground">Buyer request</h1>
           </div>
           {post && isOwner && (
             <PostMenu
@@ -120,10 +120,13 @@ export default function CriteriaDetailPage() {
           {error?.message ?? 'Criteria not found.'}
         </p>
       ) : (
-        <article className="px-5 pt-5 pb-6">
-          <div className="rounded-xl bg-surface shadow-elevation-1 overflow-hidden">
-            <div className="h-1 bg-primary" />
-            <div className="p-5">
+        <article className="mx-auto max-w-[940px] px-5 pb-8 pt-5 md:px-8 lg:pt-9">
+          <div className="detail-frame">
+            <div className="bg-primary-900 px-6 py-6 text-white md:px-9">
+              <p className="text-[11px] font-semibold uppercase tracking-[.18em] text-primary-200">A buyer is searching</p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight">A place that fits their life.</p>
+            </div>
+            <div className="p-6 md:p-9">
               <div className="flex items-center gap-3">
                 <div
                   className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-semibold text-white"
@@ -146,13 +149,11 @@ export default function CriteriaDetailPage() {
                 )}
               </div>
 
-              <h2 className="mt-5 text-xl font-semibold text-foreground">{post.title}</h2>
+              <h2 className="mt-6 text-[28px] font-semibold leading-tight tracking-[-.04em] text-primary-900">{post.title}</h2>
 
               <div className="mt-4">
-                <p className="text-2xs font-medium uppercase tracking-widest text-muted-foreground">
-                  Budget
-                </p>
-                <p className="mt-0.5 text-2xl font-semibold tracking-tight text-foreground">
+                <p className="editorial-kicker">Budget</p>
+                <p className="mt-1 text-3xl font-semibold tracking-[-.04em] text-primary-900">
                   {formatPriceRange(post.priceMin, post.priceMax)}
                 </p>
               </div>

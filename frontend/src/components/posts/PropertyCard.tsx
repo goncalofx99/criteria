@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { BedDouble, Bath, Maximize2, MapPin } from "lucide-react";
+import { ArrowUpRight, BedDouble, Bath, Maximize2, MapPin } from "lucide-react";
 import { formatPrice, initialsOf, avatarColorFor, timeAgo } from "@/lib/format";
 import { PROPERTY_TYPE_LABEL, type PropertyType } from "@/lib/propertyType";
 import {
@@ -42,42 +42,46 @@ export function PropertyCard({ property }: { property: PropertyCardData }) {
   return (
     <Link
       to={`/listing/${property.id}`}
-      className="block w-full bg-surface rounded-xl overflow-hidden shadow-elevation-1 transition-transform active:scale-[0.99]"
+      className="listing-card group block h-full w-full active:scale-[0.99]"
     >
       {/* Image / placeholder */}
-      <div className="relative h-44 overflow-hidden bg-overlay z-0">
+      <div className="relative aspect-[4/3] overflow-hidden bg-overlay z-0">
         {cover ? (
           <img
             src={cover}
             alt={property.title}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.035]"
           />
         ) : (
           <StaticMapImage lat={property.lat} lng={property.lng} alt={property.title} />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/20" />
-        <span className="absolute top-3 left-3 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-primary backdrop-blur-sm">
+        <div className="absolute inset-0 bg-gradient-to-t from-primary-900/45 via-transparent to-transparent" />
+        <span className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-primary backdrop-blur-sm">
           {PROPERTY_TYPE_LABEL[property.propertyType]}
         </span>
-        <span className="absolute top-3 right-3 rounded-full bg-black/45 px-2.5 py-1 text-[11px] text-white/90 backdrop-blur-sm">
+        <span className="absolute right-4 top-4 rounded-full bg-primary-900/65 px-2.5 py-1.5 text-[11px] text-white backdrop-blur-sm">
           {timeAgo(property.createdAt)}
+        </span>
+        <span className="absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white text-primary transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5">
+          <ArrowUpRight size={18} />
         </span>
       </div>
 
       {/* Body */}
-      <div className="p-4">
-        <p className="text-2xl font-semibold tracking-tight text-primary">
+      <div className="p-5">
+        <p className="editorial-kicker">For sale · {PROPERTY_TYPE_LABEL[property.propertyType]}</p>
+        <p className="mt-2 text-[26px] font-semibold tracking-[-.045em] text-primary-900">
           {formatPrice(property.price)}
         </p>
-        <p className="mt-0.5 text-base font-medium text-foreground">
+        <p className="mt-0.5 line-clamp-2 text-[15px] font-semibold text-foreground">
           {property.title}
         </p>
-        <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
           <MapPin size={13} className="text-muted-foreground/70" />
           {property.locationText}
         </p>
 
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-foreground/70">
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-y border-border/70 py-3 text-[13px] font-medium text-foreground/75">
           <span className="flex items-center gap-1.5">
             <BedDouble size={14} className="text-muted-foreground/70" />
             {property.bedrooms} bed
@@ -94,23 +98,23 @@ export function PropertyCard({ property }: { property: PropertyCardData }) {
           )}
         </div>
 
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          <span className="rounded-full bg-accent px-2.5 py-0.5 text-[11px] font-medium text-foreground/70">
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <span className="quiet-chip">
             {PROPERTY_CONDITION_LABEL[property.condition]}
           </span>
           {property.yearBuilt != null && (
-            <span className="rounded-full bg-accent px-2.5 py-0.5 text-[11px] font-medium text-foreground/70">
+            <span className="quiet-chip">
               Built {property.yearBuilt}
             </span>
           )}
           {property.hasBalcony && (
-            <span className="rounded-full bg-accent px-2.5 py-0.5 text-[11px] font-medium text-foreground/70">
+            <span className="quiet-chip">
               Balcony
             </span>
           )}
         </div>
 
-        <div className="mt-3 flex items-center gap-2 border-t border-border/70 pt-3">
+        <div className="mt-4 flex items-center gap-2 border-t border-border/70 pt-3">
           <div
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
             style={{ backgroundColor: avatarBg }}

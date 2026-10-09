@@ -32,9 +32,9 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="app-shell flex flex-col bg-background">
+    <div className="app-shell auth-page flex flex-col">
       {/* Header */}
-      <div className="web-content flex items-center px-4 pt-safe pt-4 pb-2">
+      <div className="web-content flex items-center justify-between px-4 pt-safe pt-4 pb-2">
         <Button
           variant="ghost"
           size="icon"
@@ -43,13 +43,15 @@ export default function SignInPage() {
         >
           <Link to="/"><ChevronLeft className="h-5 w-5" /></Link>
         </Button>
+        <span className="text-xs font-semibold tracking-[.16em] text-primary">CRITERIA</span>
       </div>
 
-      <div className="web-content flex flex-1 flex-col px-6 pt-6">
+      <div className="web-content auth-panel my-auto flex flex-none flex-col px-6 py-8 md:px-9 md:py-9">
         {/* Title */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Sign in to your account</p>
+          <p className="editorial-kicker">Continue your search</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-.04em] text-primary-900">Welcome back.</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Sign in to pick up where you left off.</p>
         </div>
 
         {/* Social auth */}

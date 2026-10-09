@@ -27,22 +27,22 @@
     --accent-dark:        38 28% 87%;   /* #e8e0d0 */
 
     /* Surfaces */
-    --background:         60 17% 98%;   /* #fafaf8 */
+    --background:         42 30% 96%;   /* warm paper */
     --surface:             0  0% 100%;  /* #ffffff */
-    --overlay:           220  9% 96%;   /* #f3f4f6 */
+    --overlay:            40 25% 94%;  /* warm overlay */
 
     /* Borders */
-    --border:            220  9% 91%;   /* #e5e7eb */
-    --border-strong:     220  9% 82%;   /* #d1d5db */
+    --border:             42 18% 85%;  /* warm hairline */
+    --border-strong:      42 18% 72%;
 
     /* Text */
-    --foreground:          0  0%  10%;  /* #1a1a1a */
-    --muted:             220  9% 96%;   /* #f3f4f6 */
-    --muted-foreground:  220  9% 46%;   /* #6b7280 */
+    --foreground:        155 24% 14%;  /* forest ink */
+    --muted:              40 25% 94%;
+    --muted-foreground:  155  8% 42%;
 
     /* Interactive */
     --ring:              150 20% 25%;   /* #344e41 — focus ring = primary */
-    --input:             220  9% 91%;   /* #e5e7eb */
+    --input:              42 18% 85%;
     --input-focus:       150 20% 25%;   /* #344e41 */
 
     /* Status */
@@ -56,6 +56,15 @@
     --warning-muted:      48 96% 89%;   /* #fef3c7 */
     --info:              217 91% 60%;   /* #3b82f6 */
     --info-muted:        214 100% 97%;  /* #eff6ff */
+
+    /* Design foundations: warm paper, dark ink, and subtle green depth. */
+    --paper:             42 30% 96%;
+    --paper-strong:      40 35% 93%;
+    --ink:              155 24% 14%;
+    --hairline:          42 18% 85%;
+    --surface-raised:     0  0% 100%;
+    --shadow-soft: 0 20px 60px -32px rgba(26, 46, 34, .25), 0 5px 16px -10px rgba(26, 46, 34, .14);
+    --shadow-lift: 0 30px 70px -34px rgba(26, 46, 34, .35), 0 10px 24px -14px rgba(26, 46, 34, .18);
   }
 
   /* ── Reset & base styles ──────────────────────────────────────────────── */
@@ -79,11 +88,13 @@
   body {
     @apply bg-background text-foreground font-sans;
     min-height: 100dvh;
+    background: hsl(var(--paper));
   }
 
   /* Headings */
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold tracking-tight text-foreground;
+    font-family: 'DM Sans', Inter, system-ui, sans-serif;
   }
 
   /* Focus ring — only on keyboard nav */
@@ -149,7 +160,7 @@
 
   /* Typography helpers */
   .text-label {
-    @apply text-2xs font-medium tracking-widest uppercase text-muted-foreground;
+    @apply text-2xs font-semibold tracking-widest uppercase text-muted-foreground;
   }
 
   /* Tap area — ensures minimum 44px touch target */

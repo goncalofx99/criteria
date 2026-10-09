@@ -5,6 +5,7 @@ import { Capacitor } from '@capacitor/core'
 import { apolloClient } from '@/lib/apollo'
 import App from './App'
 import './index.css'
+import './design-basis.css'
 
 // Tag the document so CSS can branch on native vs browser. Used by `app-shell`
 // to keep the mobile column on native (Capacitor wrapper) but go full-width

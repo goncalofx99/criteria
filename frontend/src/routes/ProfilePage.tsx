@@ -46,12 +46,14 @@ export default function ProfilePage() {
         : 'bg-primary text-white'
 
   return (
-    <div>
-      <div className="px-5 pt-5">
-        <div className="overflow-hidden rounded-2xl bg-surface shadow-elevation-1">
-          <div className="h-14 bg-primary" />
-          <div className="px-5 pb-5">
-            <div className="-mt-9 mb-3 h-[72px] w-[72px] overflow-hidden rounded-full border-4 border-surface bg-primary flex items-center justify-center">
+    <div className="workspace-content px-5 py-7 md:px-8 lg:px-10 lg:py-10">
+      <p className="editorial-kicker">Your corner</p>
+      <h1 className="editorial-title mb-7 mt-2">Your profile.</h1>
+      <div>
+        <div className="surface-panel overflow-hidden">
+          <div className="h-20 bg-primary-900 md:h-28" />
+          <div className="px-5 pb-6 md:px-8">
+            <div className="-mt-9 mb-3 flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-full border-4 border-surface bg-primary md:h-20 md:w-20">
               {me.avatarUrl ? (
                 <img src={me.avatarUrl} alt="" className="h-full w-full object-cover" />
               ) : (
@@ -59,7 +61,7 @@ export default function ProfilePage() {
               )}
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-xl font-bold text-foreground">{me.fullName ?? 'Unnamed user'}</h2>
+              <h2 className="text-2xl font-semibold text-foreground">{me.fullName ?? 'Unnamed user'}</h2>
               <span
                 className={cn(
                   'rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-widest',
@@ -74,7 +76,7 @@ export default function ProfilePage() {
         </div>
 
         {showBothTabs && (
-          <div className="mt-5 flex rounded-xl bg-accent p-1">
+          <div className="segmented-control mt-7 flex w-full sm:w-auto" role="group" aria-label="Your posts">
             <ProfileTabBtn
               active={activeTab === 'listings'}
               label="My listings"
@@ -88,7 +90,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <div className="mt-5">
+        <div className="mt-7">
           {activeTab === 'listings' ? <MyListings /> : <MyCriteria />}
         </div>
       </div>
@@ -103,8 +105,9 @@ function ProfileTabBtn({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        'flex-1 h-9 rounded-lg text-sm transition-all',
+        'h-10 flex-1 rounded-full px-5 text-sm transition-all sm:flex-none',
         active ? 'bg-primary text-white font-semibold shadow-elevation-1' : 'text-muted-foreground',
       )}
     >
@@ -122,7 +125,7 @@ function MyListings() {
   const items = data?.mySellerPosts ?? []
   if (items.length === 0) return <ProfileEmpty body="You haven't listed any properties yet." />
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="result-card-grid">
       {items.map(p => <PropertyCard key={p.id} property={p} />)}
     </div>
   )
@@ -137,7 +140,7 @@ function MyCriteria() {
   const items = data?.myBuyerPosts ?? []
   if (items.length === 0) return <ProfileEmpty body="You haven't posted any criteria yet." />
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="result-card-grid">
       {items.map(c => <CriteriaCard key={c.id} criteria={c} />)}
     </div>
   )

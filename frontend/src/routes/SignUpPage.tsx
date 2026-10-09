@@ -153,7 +153,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="app-shell flex flex-col bg-background">
+    <div className="app-shell auth-page flex flex-col">
       {/* Top bar */}
       <div className="web-content flex items-center justify-between px-4 pt-safe pt-4 pb-2">
         <Button variant="ghost" size="icon" onClick={back} className="rounded-full text-muted-foreground">
@@ -164,7 +164,7 @@ export default function SignUpPage() {
       </div>
 
       {/* Step content */}
-      <div className="web-content flex flex-1 flex-col px-6 pt-4 animate-slide-in-right">
+      <div className="web-content auth-panel my-auto flex flex-none flex-col px-6 py-7 animate-slide-in-right md:px-9 md:py-9">
         {step === 0 && <StepName form={form} set={set} />}
         {step === 1 && <StepAge form={form} set={set} />}
         {step === 2 && <StepRole form={form} set={set} />}

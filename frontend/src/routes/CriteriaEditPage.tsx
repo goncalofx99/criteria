@@ -92,7 +92,9 @@ export default function CriteriaEditPage() {
           You can only edit your own criteria.
         </p>
       ) : (
-        <div className="px-5 py-5">
+        <div className="mx-auto max-w-[840px] px-5 py-7 md:px-8 md:py-10">
+          <p className="editorial-kicker">Your request</p>
+          <h2 className="editorial-title mb-7 mt-2">Refine your search.</h2>
           <CriteriaForm
             initial={{
               title: post.title,

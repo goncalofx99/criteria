@@ -50,21 +50,21 @@ export default {
         },
 
         // Surfaces & backgrounds
-        background: 'hsl(var(--background))',       // #fafaf8
+        background: 'hsl(var(--background))',       // warm paper
         surface: 'hsl(var(--surface))',             // #ffffff
-        overlay: 'hsl(var(--overlay))',             // #f3f4f6
+        overlay: 'hsl(var(--overlay))',             // warm overlay
 
         // Borders
-        border: 'hsl(var(--border))',               // #e5e7eb
-        'border-strong': 'hsl(var(--border-strong))', // #d1d5db
+        border: 'hsl(var(--border))',               // warm hairline
+        'border-strong': 'hsl(var(--border-strong))',
 
         // Semantic
         ring: 'hsl(var(--ring))',
-        foreground: 'hsl(var(--foreground))',       // #1a1a1a
+        foreground: 'hsl(var(--foreground))',       // forest ink
 
         muted: {
-          DEFAULT: 'hsl(var(--muted))',             // #f3f4f6
-          foreground: 'hsl(var(--muted-foreground))', // #6b7280
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
         },
 
         // Status
