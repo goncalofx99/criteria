@@ -46,15 +46,15 @@
     --input-focus:       150 20% 25%;   /* #344e41 */
 
     /* Status */
-    --destructive:         0 84% 60%;   /* #ef4444 */
+    --destructive:         0 58% 38%;
     --destructive-foreground: 0 0% 100%;
-    --success:           142 71% 45%;   /* #22c55e */
+    --success:           147 45% 28%;
     --success-foreground:  0  0% 100%;
     --success-muted:     138 76% 97%;   /* #f0fdf4 */
-    --warning:            38 92% 50%;   /* #f59e0b */
+    --warning:            34 75% 33%;
     --warning-foreground:  0  0%  10%;
     --warning-muted:      48 96% 89%;   /* #fef3c7 */
-    --info:              217 91% 60%;   /* #3b82f6 */
+    --info:              210 70% 38%;
     --info-muted:        214 100% 97%;  /* #eff6ff */
 
     /* Design foundations: warm paper, dark ink, and subtle green depth. */
@@ -102,12 +102,9 @@
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 
-  /* Smooth scrolling */
   html {
-    scroll-behavior: smooth;
     height: 100%;
     background: hsl(var(--background));
-    touch-action: manipulation; /* disables double-tap zoom */
   }
 
   /* Remove default button styles */
@@ -132,16 +129,13 @@
   .mt-safe { margin-top: var(--safe-top); }
   .mb-safe { margin-bottom: var(--safe-bottom); }
 
-  /* App shell.
-     - Native (Capacitor wrapper): always the mobile column (max-w-app).
-     - Web at narrow viewport: same mobile column.
-     - Web at md+ viewport: full-width — pages can opt into a wider layout
-       and add their own inner max-widths. */
+  /* Phones use a centered column; tablets and desktops use available space,
+     including inside a Capacitor WebView. */
   .app-shell {
     @apply mx-auto w-full max-w-app min-h-dvh relative;
   }
   @media (min-width: 768px) {
-    html.web .app-shell {
+    .app-shell {
       max-width: none;
     }
   }
@@ -153,7 +147,7 @@
     @apply w-full mx-auto;
   }
   @media (min-width: 768px) {
-    html.web .web-content {
+    .web-content {
       max-width: 28rem; /* 448px — comfortable form column on desktop */
     }
   }
@@ -207,9 +201,18 @@
   background: hsl(var(--primary-100)) !important;
 }
 
-/* Remove default blue outline on Leaflet containers */
-.leaflet-container:focus {
-  outline: none !important;
+/* Map controls must retain a visible keyboard focus indicator. */
+.leaflet-container :focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Popup styling */

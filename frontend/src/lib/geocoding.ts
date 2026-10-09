@@ -8,6 +8,7 @@
  *
  * Scoped to Portugal (`countrycodes=pt`) since the product launches there.
  */
+import { reviewMode } from '@/review/mode'
 
 export interface GeocodeResult {
   label: string  // human-readable address (Nominatim's display_name)
@@ -31,6 +32,18 @@ export async function searchAddress(
 ): Promise<GeocodeResult[]> {
   const q = query.trim()
   if (q.length < 3) return []
+
+  if (reviewMode) {
+    const places: GeocodeResult[] = [
+      { label: 'Lisboa, Portugal', lat: 38.722, lng: -9.139 },
+      { label: 'Porto, Portugal', lat: 41.149, lng: -8.611 },
+      { label: 'Braga, Portugal', lat: 41.550, lng: -8.423 },
+      { label: 'Coimbra, Portugal', lat: 40.208, lng: -8.426 },
+      { label: 'Aveiro, Portugal', lat: 40.640, lng: -8.654 },
+      { label: 'Lagos, Faro, Portugal', lat: 37.103, lng: -8.675 },
+    ]
+    return places.filter(place => place.label.toLocaleLowerCase().includes(q.toLocaleLowerCase()))
+  }
 
   const cached = cache.get(q.toLowerCase())
   if (cached) return cached

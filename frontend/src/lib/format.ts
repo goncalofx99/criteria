@@ -1,11 +1,21 @@
+const euroFormatter = new Intl.NumberFormat('pt-PT', {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 0,
+})
+
+/** Full amounts are used in details and forms so the price is never rounded. */
 export function formatPrice(price: number): string {
+  return euroFormatter.format(price)
+}
+
+/** Compact amounts are reserved for dense map markers. */
+export function formatCompactPrice(price: number): string {
   if (price >= 1_000_000) {
-    return `$${(price / 1_000_000).toFixed(price % 1_000_000 === 0 ? 0 : 1)}M`
+    return `€${new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1 }).format(price / 1_000_000)}M`
   }
-  if (price >= 1000) {
-    return `$${(price / 1000).toFixed(0)}K`
-  }
-  return `$${price.toFixed(0)}`
+  if (price >= 1_000) return `€${Math.round(price / 1_000)}k`
+  return `€${Math.round(price)}`
 }
 
 export function formatPriceRange(min: number, max: number): string {

@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { env } from '../lib/env.js'
 import { verifyJwt } from '../middleware/auth.js'
+import { validUploadKey } from '../lib/uploadKey.js'
 
 // ─── R2 Client ────────────────────────────────────────────────────────────────
 
@@ -51,9 +52,10 @@ uploadRoutes.post('/upload/presign', async (c) => {
     return c.json({ error: 'Invalid content type. Allowed: jpeg, png, webp, gif' }, 400)
   }
 
-  // Validate key pattern (prevent path traversal)
-  if (key.includes('..') || key.startsWith('/')) {
-    return c.json({ error: 'Invalid key' }, 400)
+  // Keep every object in a namespace owned by the authenticated user.
+  // This also prevents replacing another user's avatar or listing images.
+  if (!validUploadKey(userId, key, contentType)) {
+    return c.json({ error: 'Invalid upload path' }, 400)
   }
 
   const command = new PutObjectCommand({

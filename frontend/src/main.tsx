@@ -3,18 +3,20 @@ import { createRoot } from 'react-dom/client'
 import { ApolloProvider } from '@apollo/client'
 import { Capacitor } from '@capacitor/core'
 import { apolloClient } from '@/lib/apollo'
+import { ReviewControls } from '@/review/ReviewControls'
+import { installReviewNetworkGuard } from '@/review/networkGuard'
 import App from './App'
 import './index.css'
 import './design-basis.css'
 
-// Tag the document so CSS can branch on native vs browser. Used by `app-shell`
-// to keep the mobile column on native (Capacitor wrapper) but go full-width
-// in a desktop browser.
+installReviewNetworkGuard()
+
+// Tag the document so CSS can adapt shell width and safe areas to native and web viewports.
 if (Capacitor.isNativePlatform()) {
   document.documentElement.classList.add('native')
 
   // Clear the launcher's error marker — we loaded successfully.
-  try { localStorage.removeItem('criteria_last_error') } catch (_) { /* noop */ }
+  try { localStorage.removeItem('criteria_last_error') } catch { /* noop */ }
 
   // Escape hatch: triple-tap the top 44px of the screen to return to the
   // Capacitor launcher. This lets you switch between PROD/DEV or recover from
@@ -40,6 +42,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ApolloProvider client={apolloClient}>
       <App />
+      <ReviewControls />
     </ApolloProvider>
   </StrictMode>,
 )

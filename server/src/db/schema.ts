@@ -44,6 +44,9 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash'),
   // Google OAuth subject ID for linking Google sign-ins to this user
   googleId: text('google_id').unique(),
+  // Google accounts must complete role and age onboarding before posting.
+  // We record the confirmation time rather than retaining an unnecessary age.
+  onboardingCompletedAt: timestamp('onboarding_completed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -61,6 +64,16 @@ export const sessions = pgTable('sessions', {
 }, (t) => [
   index('session_user_id_idx').on(t.userId),
   index('session_refresh_token_idx').on(t.refreshToken),
+])
+
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('password_reset_user_created_idx').on(t.userId, t.createdAt),
 ])
 
 // ─── Seller Posts (property listings) ────────────────────────────────────────

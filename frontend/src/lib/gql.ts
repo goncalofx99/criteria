@@ -10,6 +10,7 @@ export const UPSERT_USER = gql`
       email
       role
       avatarUrl
+      onboardingComplete
       createdAt
     }
   }
@@ -23,16 +24,18 @@ export const GET_ME = gql`
       email
       role
       avatarUrl
+      onboardingComplete
       createdAt
     }
   }
 `
 
 export const UPDATE_USER_ROLE = gql`
-  mutation UpsertUser($input: UpsertUserInput!) {
+  mutation UpdateUserRole($input: UpsertUserInput!) {
     upsertUser(input: $input) {
       id
       role
+      onboardingComplete
     }
   }
 `
@@ -75,6 +78,24 @@ export const GET_SELLER_POSTS = gql`
   query SellerPosts($limit: Int, $offset: Int, $filters: SellerPostFilters) {
     sellerPosts(limit: $limit, offset: $offset, filters: $filters) {
       ...SellerPostFields
+    }
+  }
+`
+
+export const SEARCH_SELLER_POSTS = gql`
+  ${SELLER_POST_FIELDS}
+  query SellerPostSearch(
+    $limit: Int
+    $offset: Int
+    $filters: SellerPostFilters
+    $search: String
+    $bounds: MapBoundsInput
+    $sort: SellerPostSort
+  ) {
+    sellerPostSearch(limit: $limit, offset: $offset, filters: $filters, search: $search, bounds: $bounds, sort: $sort) {
+      items { ...SellerPostFields }
+      totalCount
+      hasNextPage
     }
   }
 `
@@ -124,6 +145,12 @@ export const DEACTIVATE_SELLER_POST = gql`
   }
 `
 
+export const REACTIVATE_SELLER_POST = gql`
+  mutation ReactivateSellerPost($id: ID!) {
+    reactivateSellerPost(id: $id) { id isActive }
+  }
+`
+
 // ─── Buyer posts (criteria) ──────────────────────────────────────────────────
 
 export const BUYER_POST_FIELDS = gql`
@@ -163,6 +190,24 @@ export const GET_BUYER_POSTS = gql`
   query BuyerPosts($limit: Int, $offset: Int, $filters: BuyerPostFilters) {
     buyerPosts(limit: $limit, offset: $offset, filters: $filters) {
       ...BuyerPostFields
+    }
+  }
+`
+
+export const SEARCH_BUYER_POSTS = gql`
+  ${BUYER_POST_FIELDS}
+  query BuyerPostSearch(
+    $limit: Int
+    $offset: Int
+    $filters: BuyerPostFilters
+    $search: String
+    $bounds: MapBoundsInput
+    $sort: BuyerPostSort
+  ) {
+    buyerPostSearch(limit: $limit, offset: $offset, filters: $filters, search: $search, bounds: $bounds, sort: $sort) {
+      items { ...BuyerPostFields }
+      totalCount
+      hasNextPage
     }
   }
 `
@@ -208,6 +253,82 @@ export const DEACTIVATE_BUYER_POST = gql`
     deactivateBuyerPost(id: $id) {
       id
       isActive
+    }
+  }
+`
+
+export const REACTIVATE_BUYER_POST = gql`
+  mutation ReactivateBuyerPost($id: ID!) {
+    reactivateBuyerPost(id: $id) { id isActive }
+  }
+`
+
+// ─── Matching and conversations ─────────────────────────────────────────────
+
+export const MATCHING_SELLER_POSTS = gql`
+  ${SELLER_POST_FIELDS}
+  query MatchingSellerPosts($buyerPostId: ID!) {
+    matchingSellerPosts(buyerPostId: $buyerPostId) { ...SellerPostFields }
+  }
+`
+
+export const MATCHING_BUYER_POSTS = gql`
+  ${BUYER_POST_FIELDS}
+  query MatchingBuyerPosts($sellerPostId: ID!) {
+    matchingBuyerPosts(sellerPostId: $sellerPostId) { ...BuyerPostFields }
+  }
+`
+
+export const CONVERSATION_FIELDS = gql`
+  fragment ConversationFields on Conversation {
+    id
+    createdAt
+    buyer { id fullName avatarUrl }
+    seller { id fullName avatarUrl }
+    buyerPost { id title }
+    sellerPost { id title images }
+    messages {
+      id
+      body
+      createdAt
+      sender { id fullName avatarUrl }
+    }
+  }
+`
+
+export const GET_MY_CONVERSATIONS = gql`
+  ${CONVERSATION_FIELDS}
+  query MyConversations {
+    myConversations { ...ConversationFields }
+  }
+`
+
+export const GET_CONVERSATION = gql`
+  ${CONVERSATION_FIELDS}
+  query Conversation($id: ID!) {
+    conversation(id: $id) { ...ConversationFields }
+  }
+`
+
+export const START_CONVERSATION = gql`
+  ${CONVERSATION_FIELDS}
+  mutation StartConversation($input: StartConversationInput!) {
+    startConversation(input: $input) { ...ConversationFields }
+  }
+`
+
+export const SEND_MESSAGE = gql`
+  mutation SendMessage($conversationId: ID!, $body: String!) {
+    sendMessage(conversationId: $conversationId, body: $body) {
+      id body createdAt sender { id fullName avatarUrl }
+    }
+  }
+`
+
+export const MESSAGE_SENT = gql`
+  subscription MessageSent($conversationId: ID!) {
+    messageSent(conversationId: $conversationId) {
+      id body createdAt sender { id fullName avatarUrl }
     }
   }
 `

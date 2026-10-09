@@ -1,5 +1,5 @@
 import DataLoader from 'dataloader'
-import { eq, inArray } from 'drizzle-orm'
+import { inArray } from 'drizzle-orm'
 import type { DB } from '../db/index.js'
 import { users, sellerPosts, buyerPosts } from '../db/schema.js'
 import type { User, SellerPost, BuyerPost } from '../db/schema.js'

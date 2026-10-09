@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { LOCATION_PRESETS, type LocationPreset } from '@/lib/locations'
 import { type PropertyType } from '@/lib/propertyType'
 import {
-  AMENITIES,
+  amenitiesForPropertyType,
   PROPERTY_CONDITIONS,
   PROPERTY_CONDITION_LABEL,
   type PropertyCondition,
@@ -100,18 +100,26 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
   const yearMin = yearBuiltMin ? Number(yearBuiltMin) : null
   const fMin = floorMin ? Number(floorMin) : null
   const fMax = floorMax ? Number(floorMax) : null
+  const isResidential = type === 'apartment' || type === 'house'
+  const isApartment = type === 'apartment'
 
   const floorRangeOk =
     fMin == null || fMax == null || fMin <= fMax
+  const floorValuesOk = [fMin, fMax].every(value => value === null || (
+    Number.isInteger(value) && value >= -5 && value <= 200
+  ))
 
   const canSubmit =
     title.trim().length > 0 &&
     location !== null &&
-    !Number.isNaN(radius) && radius > 0 &&
+    Number.isFinite(radius) && radius >= 1 && radius <= 500 &&
     !Number.isNaN(min) && min >= 0 &&
     !Number.isNaN(max) && max > 0 &&
     min < max &&
-    floorRangeOk
+    (areaNum === null || (Number.isFinite(areaNum) && areaNum > 0)) &&
+    (yearMin === null || (Number.isInteger(yearMin) && yearMin >= 1500 && yearMin <= CURRENT_YEAR + 5)) &&
+    (!isResidential || (Number.isInteger(Number(bedroomsMin)) && Number.isInteger(Number(bathroomsMin)))) &&
+    (!isApartment || (floorRangeOk && floorValuesOk))
 
   function toggleAmenity(key: string) {
     setRequiredAmenities(prev =>
@@ -139,16 +147,16 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
         propertyType: type,
         priceMin: min,
         priceMax: max,
-        bedroomsMin: parseInt(bedroomsMin, 10),
-        bathroomsMin: parseInt(bathroomsMin, 10),
+        bedroomsMin: isResidential ? parseInt(bedroomsMin, 10) : 0,
+        bathroomsMin: isResidential ? parseInt(bathroomsMin, 10) : 0,
         areaSqmMin: areaNum && areaNum > 0 ? areaNum : null,
-        yearBuiltMin: yearMin && yearMin >= 1500 ? yearMin : null,
-        conditions: conditions.length > 0 ? conditions : null,
-        floorMin: fMin,
-        floorMax: fMax,
-        requiresBalcony,
-        requiresCentralHeating,
-        requiredAmenities,
+        yearBuiltMin: isResidential ? yearMin : null,
+        conditions: isResidential && conditions.length > 0 ? conditions : null,
+        floorMin: isApartment ? fMin : null,
+        floorMax: isApartment ? fMax : null,
+        requiresBalcony: isResidential ? requiresBalcony : null,
+        requiresCentralHeating: isResidential ? requiresCentralHeating : null,
+        requiredAmenities: requiredAmenities.filter(key => amenitiesForPropertyType(type).some(item => item.key === key)),
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -170,7 +178,7 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
           />
         </Field>
 
-        <Field label="Property type">
+        <Field label="Property type" required>
           <PropertyTypePicker value={type} onChange={setType} />
         </Field>
 
@@ -180,8 +188,10 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
             <AddressAutocomplete
               value={location?.label ?? ''}
               onPick={(r: GeocodeResult) => setLocation({ label: r.label, lat: r.lat, lng: r.lng })}
+              onEdit={() => setLocation(null)}
               placeholder="Or type an address (e.g. Cascais)"
             />
+            <p className="text-xs leading-relaxed text-muted-foreground">Eligible sellers see an approximate area. Keep any private address out of the title and description.</p>
             {location && Number(radiusKm) > 0 && (
               <LazyPostsMap
                 criteria={[{
@@ -197,7 +207,7 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
           </div>
         </Field>
 
-        <Field label="Search radius (km)">
+        <Field label="Search radius (km)" required>
           <Input
             type="number"
             inputMode="numeric"
@@ -211,6 +221,7 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
         <Field label="Budget (€)" required>
           <div className="flex items-center gap-3">
             <Input
+              aria-label="Minimum budget in euros"
               type="number"
               inputMode="numeric"
               value={priceMin}
@@ -220,6 +231,7 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
             />
             <span className="text-muted-foreground">–</span>
             <Input
+              aria-label="Maximum budget in euros"
               type="number"
               inputMode="numeric"
               value={priceMax}
@@ -234,15 +246,15 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
         </Field>
       </Section>
 
-      <Section title="Layout">
-        <div className="grid grid-cols-2 gap-4">
+      <Section title={isResidential ? 'Rooms and area' : 'Area'}>
+        {isResidential && <div className="grid grid-cols-2 gap-4">
           <Field label="Min bedrooms">
             <CountPicker options={['0', '1', '2', '3', '4', '5']} value={bedroomsMin} onChange={setBedroomsMin} />
           </Field>
           <Field label="Min bathrooms">
             <CountPicker options={['1', '2', '3', '4']} value={bathroomsMin} onChange={setBathroomsMin} />
           </Field>
-        </div>
+        </div>}
 
         <Field label="Min area (m²)">
           <Input
@@ -256,7 +268,7 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
         </Field>
       </Section>
 
-      <Section title="Optional preferences" subtitle="Leave blank if you don't mind">
+      {isResidential && <Section title="Optional preferences" subtitle="Leave blank if you don't mind">
         <Field label="Built no earlier than">
           <Input
             type="number"
@@ -278,8 +290,9 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
                   key={c}
                   type="button"
                   onClick={() => toggleCondition(c)}
+                  aria-pressed={active}
                   className={cn(
-                    'h-9 rounded-full px-3.5 text-sm transition-all',
+                    'min-h-11 rounded-full px-3.5 text-sm transition-all',
                     active
                       ? 'bg-primary text-white font-semibold'
                       : 'border border-border bg-surface text-foreground/70',
@@ -292,7 +305,7 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
           </div>
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
+        {isApartment && <div className="grid grid-cols-2 gap-4">
           <Field label="Floor min">
             <Input
               type="number"
@@ -300,6 +313,9 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
               value={floorMin}
               onChange={e => setFloorMin(e.target.value)}
               placeholder="e.g. 1"
+              min={-5}
+              max={200}
+              step={1}
             />
           </Field>
           <Field label="Floor max">
@@ -309,11 +325,17 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
               value={floorMax}
               onChange={e => setFloorMax(e.target.value)}
               placeholder="e.g. 4"
+              min={-5}
+              max={200}
+              step={1}
             />
           </Field>
-        </div>
-        {!floorRangeOk && (
+        </div>}
+        {isApartment && !floorRangeOk && (
           <p className="text-xs text-destructive">Floor min must be ≤ floor max.</p>
+        )}
+        {isApartment && !floorValuesOk && (
+          <p className="text-xs text-destructive">Floors must be whole numbers from −5 to 200.</p>
         )}
 
         <Field label="Balcony">
@@ -323,42 +345,46 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
           <RequirementPicker value={requiresCentralHeating} onChange={setRequiresCentralHeating} />
         </Field>
 
-        <Field label="Required amenities" >
-          <div className="flex flex-wrap gap-2">
-            {AMENITIES.map(a => {
-              const active = requiredAmenities.includes(a.key)
-              return (
-                <button
-                  key={a.key}
-                  type="button"
-                  onClick={() => toggleAmenity(a.key)}
-                  className={cn(
-                    'h-9 rounded-full px-3.5 text-sm transition-all',
-                    active
-                      ? 'bg-primary text-white font-semibold'
-                      : 'border border-border bg-surface text-foreground/70',
-                  )}
-                >
-                  {a.label}
-                </button>
-              )
-            })}
-          </div>
-        </Field>
+      </Section>}
+
+      <Section title="Required amenities" subtitle="Select only your deal-breakers">
+        <div className="flex flex-wrap gap-2">
+          {amenitiesForPropertyType(type).map(a => {
+            const active = requiredAmenities.includes(a.key)
+            return (
+              <button
+                key={a.key}
+                type="button"
+                onClick={() => toggleAmenity(a.key)}
+                aria-pressed={active}
+                className={cn(
+                  'h-10 rounded-full px-3.5 text-sm transition-all',
+                  active
+                    ? 'bg-primary text-white font-semibold'
+                    : 'border border-border bg-surface text-foreground/70',
+                )}
+              >
+                {a.label}
+              </button>
+            )
+          })}
+        </div>
       </Section>
 
       <Section title="Notes">
-        <Textarea
-          rows={4}
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          placeholder="Anything else sellers should know? Schools, parking, timeline, deal-breakers..."
-          maxLength={2000}
-        />
+        <Field label="Anything else sellers should know?">
+          <Textarea
+            rows={4}
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Schools, parking, timeline, deal-breakers…"
+            maxLength={2000}
+          />
+        </Field>
       </Section>
 
       {error && (
-        <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+        <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
       )}
 
       <Button
@@ -388,6 +414,7 @@ function RequirementPicker({
             key={String(opt.v)}
             type="button"
             onClick={() => onChange(opt.v)}
+          aria-pressed={active}
             className={cn(
               'h-10 flex-1 rounded-md text-sm transition-all border-[1.5px]',
               active

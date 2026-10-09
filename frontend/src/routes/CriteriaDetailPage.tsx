@@ -1,16 +1,22 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@apollo/client'
-import { ArrowLeft, BedDouble, Bath, Maximize2, MapPin, Loader2 } from 'lucide-react'
+import { ArrowLeft, BedDouble, Bath, Maximize2, MapPin, Loader2, MessageCircle } from 'lucide-react'
 import { LazyPostsMap } from '@/components/map/LazyPostsMap'
 import {
   GET_BUYER_POST,
-  GET_BUYER_POSTS,
   GET_MY_BUYER_POSTS,
   DEACTIVATE_BUYER_POST,
+  REACTIVATE_BUYER_POST,
+  MATCHING_SELLER_POSTS,
+  START_CONVERSATION,
 } from '@/lib/gql'
 import { useMe } from '@/hooks/useMe'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PostMenu } from '@/components/posts/PostMenu'
+import { PropertyCard, type PropertyCardData } from '@/components/posts/PropertyCard'
+import { Button } from '@/components/ui/button'
+import { safeInternalPath } from '@/lib/returnTo'
 import { formatPriceRange, initialsOf, avatarColorFor, timeAgo } from '@/lib/format'
 import { PROPERTY_TYPE_LABEL, type PropertyType } from '@/lib/propertyType'
 import {
@@ -49,20 +55,36 @@ interface BuyerPostData {
 export default function CriteriaDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const routeLocation = useLocation()
+  const returnTo = safeInternalPath((routeLocation.state as { returnTo?: string } | null)?.returnTo, '/feed')
   const { me } = useMe()
-  const { data, loading, error } = useQuery<{ buyerPost: BuyerPostData | null }>(GET_BUYER_POST, {
+  const [contactError, setContactError] = useState<string | null>(null)
+  const { data, loading, error, refetch } = useQuery<{ buyerPost: BuyerPostData | null }>(GET_BUYER_POST, {
     variables: { id },
     fetchPolicy: 'cache-and-network',
   })
   const [deactivate] = useMutation(DEACTIVATE_BUYER_POST, {
-    refetchQueries: [
-      { query: GET_BUYER_POSTS, variables: { limit: 50, offset: 0 } },
-      { query: GET_MY_BUYER_POSTS },
-    ],
+    refetchQueries: [{ query: GET_MY_BUYER_POSTS }],
   })
+  const [reactivate] = useMutation(REACTIVATE_BUYER_POST, { refetchQueries: [{ query: GET_MY_BUYER_POSTS }] })
+  const [startConversation, { loading: contacting }] = useMutation(START_CONVERSATION)
 
   const post = data?.buyerPost ?? null
   const isOwner = !!post && !!me && post.buyer.id === me.id
+  const canContact = !isOwner && !!post?.isActive && (me?.role === 'seller' || me?.role === 'both')
+  const canMatch = me?.role === 'buyer' || me?.role === 'both'
+  const { data: matchesData, loading: matchesLoading, error: matchesError, refetch: refetchMatches } = useQuery<{ matchingSellerPosts: PropertyCardData[] }>(MATCHING_SELLER_POSTS, { variables: { buyerPostId: id }, skip: !post || !isOwner || !post.isActive || !canMatch })
+
+  async function contactBuyer() {
+    if (!post) return
+    setContactError(null)
+    try {
+      const result = await startConversation({ variables: { input: { buyerPostId: post.id } } })
+      navigate(`/inbox/${result.data.startConversation.id}`)
+    } catch (cause) {
+      setContactError(cause instanceof Error ? cause.message : 'Could not start a conversation. Try again.')
+    }
+  }
 
   const prefRows: { label: string; value: string }[] = []
   if (post) {
@@ -89,8 +111,9 @@ export default function CriteriaDetailPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => navigate(-1)}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
+            onClick={() => navigate(returnTo)}
+            aria-label="Back to results"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
             >
               <ArrowLeft size={20} />
             </button>
@@ -99,13 +122,16 @@ export default function CriteriaDetailPage() {
           {post && isOwner && (
             <PostMenu
               editTo={`/criteria/${post.id}/edit`}
-              onDelete={async () => {
+              returnTo={returnTo}
+              onArchive={async () => {
                 await deactivate({ variables: { id: post.id } })
-                navigate(-1)
+                await refetch()
               }}
+              onReactivate={async () => { await reactivate({ variables: { id: post.id } }); await refetch() }}
+              canReactivate={canMatch}
               isActive={post.isActive}
-              removeLabel="Remove criteria"
-              confirmTitle="Remove this criteria?"
+              removeLabel="Archive request"
+              confirmTitle="Archive this request?"
             />
           )}
         </div>
@@ -116,9 +142,11 @@ export default function CriteriaDetailPage() {
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       ) : error || !post ? (
-        <p className="px-6 py-10 text-center text-sm text-muted-foreground">
-          {error?.message ?? 'Criteria not found.'}
-        </p>
+        <div className="mx-auto max-w-lg px-6 py-16 text-center">
+          <h2 className="text-xl font-semibold">{error?.graphQLErrors.some(item => item.extensions?.code === 'FORBIDDEN') ? 'Buyer requests are for sellers' : 'Request unavailable'}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">{error?.graphQLErrors.some(item => item.extensions?.code === 'FORBIDDEN') ? 'Add the seller role in your profile to browse and contact buyers.' : 'This request may have been removed or the link may be incorrect.'}</p>
+          <Link to={error?.graphQLErrors.some(item => item.extensions?.code === 'FORBIDDEN') ? '/profile' : '/feed'} className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-semibold text-white">{error?.graphQLErrors.some(item => item.extensions?.code === 'FORBIDDEN') ? 'Manage role' : 'Explore posts'}</Link>
+        </div>
       ) : (
         <article className="mx-auto max-w-[940px] px-5 pb-8 pt-5 md:px-8 lg:pt-9">
           <div className="detail-frame">
@@ -139,12 +167,12 @@ export default function CriteriaDetailPage() {
                     {post.buyer.fullName ?? 'Anonymous'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Active buyer · {timeAgo(post.createdAt)}
+                    {post.isActive ? 'Active request' : 'Archived request'} · {timeAgo(post.createdAt)}
                   </p>
                 </div>
                 {!post.isActive && (
                   <span className="rounded-full bg-destructive/90 px-2.5 py-1 text-[11px] font-semibold tracking-wider text-white">
-                    INACTIVE
+                    ARCHIVED
                   </span>
                 )}
               </div>
@@ -171,14 +199,14 @@ export default function CriteriaDetailPage() {
               </div>
 
               <div className="mt-4 flex items-center gap-5 text-sm text-foreground/80">
-                <span className="flex items-center gap-1.5">
+                {(post.propertyType === 'apartment' || post.propertyType === 'house') && <span className="flex items-center gap-1.5">
                   <BedDouble size={16} className="text-muted-foreground/70" />
                   {post.bedroomsMin}+ bed
-                </span>
-                <span className="flex items-center gap-1.5">
+                </span>}
+                {(post.propertyType === 'apartment' || post.propertyType === 'house') && <span className="flex items-center gap-1.5">
                   <Bath size={16} className="text-muted-foreground/70" />
                   {post.bathroomsMin}+ bath
-                </span>
+                </span>}
                 {post.areaSqmMin != null && (
                   <span className="flex items-center gap-1.5">
                     <Maximize2 size={16} className="text-muted-foreground/70" />
@@ -223,7 +251,7 @@ export default function CriteriaDetailPage() {
 
               <section className="mt-5">
                 <p className="text-2xs font-medium uppercase tracking-widest text-muted-foreground mb-2">
-                  Search area
+                  Approximate search area
                 </p>
                 <LazyPostsMap
                   criteria={[{
@@ -236,6 +264,16 @@ export default function CriteriaDetailPage() {
                   height="clamp(200px, 30vh, 360px)"
                 />
               </section>
+              {canContact && <div className="mt-6">
+                {contactError && <p role="alert" className="mb-2 text-sm text-destructive">{contactError}</p>}
+                <Button type="button" size="lg" className="w-full rounded-xl" disabled={contacting} onClick={() => void contactBuyer()}><MessageCircle size={17} /> {contacting ? 'Opening conversation…' : 'Message buyer'}</Button>
+              </div>}
+              {isOwner && post.isActive && <section className="mt-8 border-t border-border pt-7">
+                <h3 className="text-xl font-semibold text-primary-900">Matching properties</h3>
+                <p className="mb-4 mt-1 text-sm text-muted-foreground">Listings that fit your budget and preferences.</p>
+                {!canMatch ? <p className="rounded-xl bg-accent/50 p-4 text-sm text-muted-foreground">Add the buyer role in <Link to="/profile" className="font-semibold text-primary underline">your profile</Link> to see matching properties.</p> : matchesLoading ? <Loader2 className="animate-spin text-primary" aria-label="Loading matches" /> : matchesError ? <div><p role="alert" className="text-sm text-destructive">Could not load matches.</p><button type="button" onClick={() => void refetchMatches()} className="mt-2 text-sm font-semibold text-primary underline">Retry</button></div> : (matchesData?.matchingSellerPosts.length ?? 0) > 0 ? <div className="result-card-grid">{matchesData?.matchingSellerPosts.map(item => <PropertyCard key={item.id} property={item} />)}</div> : <p className="rounded-xl bg-accent/50 p-4 text-sm text-muted-foreground">No matching listings yet. Sellers can still discover your request.</p>}
+              </section>}
+              {!isOwner && !canContact && post.isActive && <p className="mt-5 text-sm text-muted-foreground">Only members with a seller role can contact buyers. <Link to="/profile" className="font-semibold text-primary underline">Manage your role</Link>.</p>}
             </div>
           </div>
         </article>

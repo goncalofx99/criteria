@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { Browser } from '@capacitor/browser'
 import { App } from '@capacitor/app'
+import { reviewMode } from '@/review/mode'
 
 export const NATIVE_CALLBACK_SCHEME = 'com.criteria.app'
 
@@ -26,12 +27,14 @@ const OAuthBridge = registerPlugin<OAuthBridgePlugin>('OAuthBridge')
  * 
  * The flow:
  * 1. Open the server's /auth/google endpoint (which redirects to Google consent)
- * 2. After Google auth, server redirects to frontend /auth/callback with tokens
+ * 2. After Google auth, server redirects to the native callback with a single-use code
  * 
  * iOS: Uses ASWebAuthenticationSession via OAuthBridge plugin
  * Android: Opens Chrome Custom Tab, deep link brings user back
  */
 export async function signInWithGoogleNative(serverUrl: string): Promise<string | null> {
+  if (reviewMode) throw new Error('Google OAuth is unavailable in local review mode')
+  if (!serverUrl) throw new Error('Missing API URL for Google sign-in')
   const authUrl = `${serverUrl}/auth/google?redirect=${NATIVE_CALLBACK_SCHEME}://auth/callback`
 
   if (platform() === 'ios') {
@@ -50,18 +53,13 @@ export async function signInWithGoogleNative(serverUrl: string): Promise<string 
 }
 
 /**
- * Parse tokens from a callback URL (native OAuth).
- * Returns { accessToken, refreshToken } or null if not found.
+ * Parse the single-use code only from the registered native OAuth callback.
  */
-export function parseCallbackTokens(callbackUrl: string): { accessToken: string; refreshToken: string } | null {
+export function parseCallbackCode(callbackUrl: string): string | null {
   try {
     const url = new URL(callbackUrl)
-    const accessToken = url.searchParams.get('access_token')
-    const refreshToken = url.searchParams.get('refresh_token')
-    if (accessToken && refreshToken) {
-      return { accessToken, refreshToken }
-    }
-    return null
+    if (url.protocol !== `${NATIVE_CALLBACK_SCHEME}:` || url.hostname !== 'auth' || url.pathname !== '/callback') return null
+    return url.searchParams.get('code') || null
   } catch {
     return null
   }
@@ -72,7 +70,7 @@ export function parseCallbackTokens(callbackUrl: string): { accessToken: string;
  * Custom Tab redirects to com.criteria.app://auth/callback.
  */
 export function registerDeepLinkHandler(
-  onTokens: (tokens: { accessToken: string; refreshToken: string }) => void,
+  onCode: (code: string) => void | Promise<void>,
   onError?: (msg: string) => void,
 ) {
   if (!isNative()) return () => {}
@@ -80,11 +78,11 @@ export function registerDeepLinkHandler(
 
   const subPromise = App.addListener('appUrlOpen', async ({ url }) => {
     try {
-      const tokens = parseCallbackTokens(url)
-      if (tokens) {
-        onTokens(tokens)
+      const code = parseCallbackCode(url)
+      if (code) {
+        await onCode(code)
       } else {
-        onError?.('No tokens in callback URL')
+        onError?.('No sign-in code in callback URL')
       }
     } catch (e) {
       onError?.(e instanceof Error ? e.message : 'Sign-in failed')

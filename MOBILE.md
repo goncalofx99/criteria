@@ -20,14 +20,16 @@ mobile/
 
 ### How loading works
 
-The **launcher** (`mobile/launcher/index.html`) is always the entry point. It's a small HTML page bundled into the app that shows a **PROD / DEV toggle** at runtime:
+On iOS, the bundled **launcher** (`mobile/launcher/index.html`) presents a **PROD / DEV toggle** at runtime:
 
 - **PROD tab** → loads the deployed webapp from the `PROD_URL` constant in the launcher.
 - **DEV tab** → loads a URL the user types or picks from presets (iOS sim `localhost:5173`, Android emu `10.0.2.2:5173`, last LAN IP).
 
 The launcher persists the user's choice in localStorage. When **"Auto-connect on next launch"** is checked, the next app boot starts a 2-second countdown then redirects automatically — tap **Cancel** to stop it and stay on the launcher (e.g. to switch envs).
 
-`mobile/dev.config.json` is optional. If it has a `serverUrl`, that value is injected into the launcher's `DEFAULT_DEV_URL` constant at sync time, so the DEV input is pre-filled with your usual LAN IP.
+On Android, Capacitor points the WebView directly at the `server.url` chosen in `mobile/capacitor.config.ts`. It uses `dev.config.json` when present and the production URL otherwise. This direct URL keeps the native bridge active for OAuth deep links. Android does not show the launcher toggle.
+
+`mobile/dev.config.json` is optional. If it has a `serverUrl`, that value is injected into the iOS launcher's `DEFAULT_DEV_URL` and configured as Android's `server.url` at sync time. It is gitignored.
 
 ### Setting the production URL
 
@@ -73,7 +75,7 @@ npx cap open ios
 npx cap open android
 ```
 
-Run from Xcode (⌘R) or Android Studio (▶) on your chosen simulator/emulator. The WebView loads your dev URL directly — no launcher screen, no URL switcher.
+Run from Xcode (⌘R) or Android Studio (▶) on your chosen simulator/emulator. iOS starts in the launcher; Android loads its configured URL directly.
 
 ---
 
@@ -92,29 +94,23 @@ Wired in:
 
 ### Android — `@capacitor/browser` (Chrome Custom Tabs) + intent-filter
 
-`Browser.open(url)` shows a Chrome Custom Tab. Supabase redirects to `com.criteria.app://auth/callback?code=…`, which is caught by the intent-filter on `MainActivity` and dispatched to JS via `@capacitor/app`'s `appUrlOpen` event.
+`Browser.open(url)` shows a Chrome Custom Tab. The CRITERIA API redirects to `com.criteria.app://auth/callback?code=…`, which is caught by the intent-filter on `MainActivity` and dispatched to JS via `@capacitor/app`'s `appUrlOpen` event.
 
 Wired in:
 - [mobile/android/app/src/main/AndroidManifest.xml](mobile/android/app/src/main/AndroidManifest.xml) — `<intent-filter>` for the `com.criteria.app` scheme.
 
 ### JS layer (shared)
 
-- [frontend/src/lib/supabase.ts](frontend/src/lib/supabase.ts) — Supabase client uses `flowType: 'pkce'`.
-- [frontend/src/lib/native-auth.ts](frontend/src/lib/native-auth.ts) — `signInWithProviderNative()` branches on platform and either calls the iOS plugin or opens Custom Tabs on Android. `registerDeepLinkHandler()` listens for the Android callback.
+- [frontend/src/lib/native-auth.ts](frontend/src/lib/native-auth.ts) — `signInWithGoogleNative()` branches on platform and either calls the iOS plugin or opens Custom Tabs on Android. `registerDeepLinkHandler()` listens for the Android callback.
+- [frontend/src/lib/auth.ts](frontend/src/lib/auth.ts) — exchanges the callback code at `POST /auth/google/exchange`, then stores the access and refresh tokens.
 - [frontend/src/App.tsx](frontend/src/App.tsx) — mounts `<NativeAuthBridge />` to listen for the Android `appUrlOpen` event.
-- [frontend/src/routes/SignInPage.tsx](frontend/src/routes/SignInPage.tsx) — branches on `isNative()`.
+- [frontend/src/components/auth/SocialAuthButtons.tsx](frontend/src/components/auth/SocialAuthButtons.tsx) — starts web or native Google sign-in and handles the iOS callback.
 
-### Required Supabase dashboard config (one-time)
+The native callback contains only a single-use code. The server accepts exactly the registered app callback or its configured web callback, then requires code exchange within two minutes. Access and refresh tokens are not carried in the callback URL. OAuth state and exchange codes currently live in one API process's memory; use a shared short-lived store before deploying multiple API instances.
 
-In **Supabase → Auth → URL Configuration → Redirect URLs**, add:
+### Required Google OAuth configuration
 
-```
-com.criteria.app://auth/callback
-```
-
-Without that allowlist entry Supabase will reject the redirect with `requested url is not allowed`.
-
-The Google OAuth client doesn't need any change — Google only sees Supabase's callback URL.
+Configure Google's authorized redirect URI for the CRITERIA API callback, `/auth/google/callback`, on each API origin used for OAuth. Google returns to the API; the API then returns to the registered `com.criteria.app://auth/callback` deep link or configured frontend callback. The app deep link is validated by the API, not entered as a Google redirect URI.
 
 ---
 
@@ -124,9 +120,9 @@ The Google OAuth client doesn't need any change — Google only sees Supabase's 
 2. Edit `PROD_URL` in `mobile/launcher/index.html` to the deployed URL.
 3. `npx cap sync && npx cap open ios` (or android), then build/archive as usual.
 
-In the running app, tap the **PROD** tab and **Open production**. Enable **Auto-connect on next launch** so the next boot skips the launcher.
+On iOS, tap the **PROD** tab and **Open production** in the launcher. Enable **Auto-connect on next launch** if desired. On Android, remove `dev.config.json`, sync again, and rebuild to use the production URL.
 
-To switch back to dev later: kill and reopen the app (or wait for the auto-connect countdown and tap **Cancel**), then tap **DEV** and pick a URL.
+To switch iOS back to dev later, return to the launcher and choose **DEV**. On Android, restore `dev.config.json`, sync, and rebuild.
 
 ---
 
@@ -135,7 +131,7 @@ To switch back to dev later: kill and reopen the app (or wait for the auto-conne
 - **Capacitor**: 7.x (required for Xcode 16+/26 — Capacitor 6 will not compile).
 - **Tested simulators**: iOS 17.x, iOS 18.x. Newer iOS SDKs *may* work but haven't been verified.
 - **Safe areas**: handled via CSS `env(safe-area-inset-*)` — `contentInset: 'never'` in config.
-- **Zoom**: disabled via `user-scalable=no` + `touch-action: manipulation`.
+- **Zoom**: check the current frontend viewport and accessibility behaviour on-device; avoid disabling user zoom.
 
 ### First-time Xcode setup
 

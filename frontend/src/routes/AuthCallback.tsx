@@ -1,28 +1,33 @@
-import { useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@apollo/client'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { apolloClient } from '@/lib/apollo'
 import { Loader2 } from 'lucide-react'
 import { handleOAuthCallback, getAccessToken } from '@/lib/auth'
-import { GET_ME, UPSERT_USER } from '@/lib/gql'
+import { GET_ME } from '@/lib/gql'
+import { takeAuthDestination } from '@/lib/returnTo'
 
 export default function AuthCallback() {
   const navigate = useNavigate()
   const called = useRef(false)
-  const [upsertUser] = useMutation(UPSERT_USER)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (called.current) return
     called.current = true
 
     async function handle() {
-      // Try to extract tokens from URL (Google OAuth redirect)
-      handleOAuthCallback()
+      // Exchange the one-time browser code; native has already exchanged it.
+      try {
+        await handleOAuthCallback()
+      } catch {
+        setError('The sign-in link expired or could not be used. Please try again.')
+        return
+      }
 
       // Check if we have a valid session
       const token = getAccessToken()
       if (!token) {
-        navigate('/', { replace: true })
+        setError('Sign-in did not complete. Please try again.')
         return
       }
 
@@ -32,28 +37,30 @@ export default function AuthCallback() {
           query: GET_ME,
           fetchPolicy: 'network-only',
         })
-        const isReturningUser = !!meData?.me
-
-        if (isReturningUser && meData.me.role) {
-          navigate('/feed', { replace: true })
+        if (meData?.me?.onboardingComplete) {
+          navigate(takeAuthDestination('/feed'), { replace: true })
         } else {
-          // New Google OAuth user — needs onboarding
           navigate('/onboarding', { replace: true })
         }
       } catch (err) {
-        console.error('AuthCallback error:', err)
-        navigate('/onboarding', { replace: true })
+        setError(err instanceof Error ? err.message : 'Could not load your profile. Please retry.')
       }
     }
 
     handle()
-  }, [navigate, upsertUser])
+  }, [navigate])
 
   return (
-    <div className="flex h-dvh items-center justify-center bg-primary">
-      <div className="flex flex-col items-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-white" />
-        <p className="text-sm text-primary-400">Signing you in...</p>
+    <div className="flex min-h-dvh items-center justify-center bg-primary px-6">
+      <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+        {error ? <>
+          <p role="alert" className="text-lg font-semibold text-white">Sign-in needs another try</p>
+          <p className="text-sm text-primary-100">{error}</p>
+          <Link to="/sign-in" className="mt-3 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-primary">Back to sign-in</Link>
+        </> : <>
+          <Loader2 className="h-8 w-8 animate-spin text-white" aria-hidden="true" />
+          <p className="text-sm text-primary-100">Signing you in…</p>
+        </>}
       </div>
     </div>
   )

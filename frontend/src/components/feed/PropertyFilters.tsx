@@ -2,7 +2,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { PROPERTY_TYPES, PROPERTY_TYPE_LABEL, type PropertyType } from '@/lib/propertyType'
-import { PROPERTY_CONDITIONS, PROPERTY_CONDITION_LABEL, AMENITIES, type PropertyCondition } from '@/lib/amenities'
+import { PROPERTY_CONDITIONS, PROPERTY_CONDITION_LABEL, AMENITIES, amenitiesForPropertyType, type PropertyCondition } from '@/lib/amenities'
 import { cn } from '@/lib/utils'
 
 export interface SellerPostFilterValues {
@@ -32,7 +32,7 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
 
   const setNum = (key: keyof SellerPostFilterValues, raw: string) => {
     const n = raw === '' ? undefined : Number(raw)
-    set(key, (n != null && !isNaN(n)) ? n : undefined)
+    set(key, (n != null && Number.isFinite(n) && n >= 0) ? n : undefined)
   }
 
   const toggleCondition = (c: PropertyCondition) => {
@@ -46,21 +46,40 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
     const next = current.includes(key) ? current.filter(x => x !== key) : [...current, key]
     set('amenities', next.length ? next : undefined)
   }
+  const hasRooms = filters.propertyType !== 'land' && filters.propertyType !== 'commercial'
+  const setPropertyType = (propertyType: SellerPostFilterValues['propertyType']) => {
+    const nextType = filters.propertyType === propertyType ? undefined : propertyType
+    const residential = nextType !== 'land' && nextType !== 'commercial'
+    const availableAmenities = nextType ? amenitiesForPropertyType(nextType) : AMENITIES
+    onChange({
+      ...filters,
+      propertyType: nextType,
+      amenities: filters.amenities?.filter(key => availableAmenities.some(item => item.key === key)),
+      ...(!residential ? {
+        bedroomsMin: undefined,
+        bathroomsMin: undefined,
+        yearBuiltMin: undefined,
+        condition: undefined,
+        hasBalcony: undefined,
+        hasCentralHeating: undefined,
+      } : {}),
+    })
+  }
 
   return (
-    <div className="filter-panel space-y-5 p-5">
+    <div className="space-y-5">
       {/* Property type */}
       <div>
-        <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Property type</Label>
-        <div className="flex flex-wrap gap-1.5">
+        <p className="mb-1.5 text-sm font-medium text-foreground">Property type</p>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Property type">
           {PROPERTY_TYPES.map(t => (
             <button
               key={t}
               type="button"
-              onClick={() => set('propertyType', filters.propertyType === t ? undefined : t)}
+              onClick={() => setPropertyType(t)}
               aria-pressed={filters.propertyType === t}
               className={cn(
-                'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                'min-h-11 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
                 filters.propertyType === t
                   ? 'bg-primary text-white'
                   : 'bg-accent text-foreground hover:bg-accent/80',
@@ -75,91 +94,105 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
       {/* Price range */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Price min</Label>
+          <Label htmlFor="filter-price-min" className="mb-1.5 text-sm font-medium text-foreground">Price min (€)</Label>
           <Input
+            id="filter-price-min"
             type="number"
+            min="0"
             placeholder="No min"
             value={filters.priceMin ?? ''}
             onChange={e => setNum('priceMin', e.target.value)}
-            className="h-10"
+            className="h-11"
           />
         </div>
         <div>
-          <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Price max</Label>
+          <Label htmlFor="filter-price-max" className="mb-1.5 text-sm font-medium text-foreground">Price max (€)</Label>
           <Input
+            id="filter-price-max"
             type="number"
+            min="0"
             placeholder="No max"
             value={filters.priceMax ?? ''}
             onChange={e => setNum('priceMax', e.target.value)}
-            className="h-10"
+            className="h-11"
           />
         </div>
       </div>
 
       {/* Bedrooms & Bathrooms */}
-      <div className="grid grid-cols-2 gap-3">
+      {hasRooms && <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Bedrooms min</Label>
+          <Label htmlFor="filter-bedrooms" className="mb-1.5 text-sm font-medium text-foreground">Bedrooms min</Label>
           <Input
+            id="filter-bedrooms"
             type="number"
+            min="0"
             placeholder="Any"
             value={filters.bedroomsMin ?? ''}
             onChange={e => setNum('bedroomsMin', e.target.value)}
-            className="h-10"
+            className="h-11"
           />
         </div>
         <div>
-          <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Bathrooms min</Label>
+          <Label htmlFor="filter-bathrooms" className="mb-1.5 text-sm font-medium text-foreground">Bathrooms min</Label>
           <Input
+            id="filter-bathrooms"
             type="number"
+            min="0"
             placeholder="Any"
             value={filters.bathroomsMin ?? ''}
             onChange={e => setNum('bathroomsMin', e.target.value)}
-            className="h-10"
+            className="h-11"
           />
         </div>
-      </div>
+      </div>}
 
       {/* Area range */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Area min (m²)</Label>
+          <Label htmlFor="filter-area-min" className="mb-1.5 text-sm font-medium text-foreground">Area min (m²)</Label>
           <Input
+            id="filter-area-min"
             type="number"
+            min="0"
             placeholder="No min"
             value={filters.areaSqmMin ?? ''}
             onChange={e => setNum('areaSqmMin', e.target.value)}
-            className="h-10"
+            className="h-11"
           />
         </div>
         <div>
-          <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Area max (m²)</Label>
+          <Label htmlFor="filter-area-max" className="mb-1.5 text-sm font-medium text-foreground">Area max (m²)</Label>
           <Input
+            id="filter-area-max"
             type="number"
+            min="0"
             placeholder="No max"
             value={filters.areaSqmMax ?? ''}
             onChange={e => setNum('areaSqmMax', e.target.value)}
-            className="h-10"
+            className="h-11"
           />
         </div>
       </div>
 
       {/* Year built min */}
-      <div>
-        <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Year built (min)</Label>
+      {hasRooms && <div>
+        <Label htmlFor="filter-year-built" className="mb-1.5 text-sm font-medium text-foreground">Year built (min)</Label>
         <Input
+          id="filter-year-built"
           type="number"
+          min="0"
           placeholder="Any"
           value={filters.yearBuiltMin ?? ''}
           onChange={e => setNum('yearBuiltMin', e.target.value)}
-          className="h-10"
+          className="h-11"
         />
-      </div>
+      </div>}
 
       {/* Condition */}
-      <div>
-        <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Condition</Label>
-        <div className="flex flex-wrap gap-1.5">
+      {hasRooms && <div>
+        <p className="mb-1.5 text-sm font-medium text-foreground">Condition</p>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Condition">
           {PROPERTY_CONDITIONS.map(c => (
             <button
               key={c}
@@ -167,7 +200,7 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
               onClick={() => toggleCondition(c)}
               aria-pressed={filters.condition?.includes(c) ?? false}
               className={cn(
-                'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                'min-h-11 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
                 filters.condition?.includes(c)
                   ? 'bg-primary text-white'
                   : 'bg-accent text-foreground hover:bg-accent/80',
@@ -177,16 +210,16 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
             </button>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* Toggles: Balcony & Central heating */}
-      <div className="flex gap-3">
+      {hasRooms && <div className="flex gap-3">
         <button
           type="button"
           onClick={() => set('hasBalcony', filters.hasBalcony === true ? undefined : true)}
           aria-pressed={filters.hasBalcony === true}
           className={cn(
-            'flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
+            'min-h-11 flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
             filters.hasBalcony
               ? 'bg-primary text-white'
               : 'bg-accent text-foreground hover:bg-accent/80',
@@ -199,7 +232,7 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
           onClick={() => set('hasCentralHeating', filters.hasCentralHeating === true ? undefined : true)}
           aria-pressed={filters.hasCentralHeating === true}
           className={cn(
-            'flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
+            'min-h-11 flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
             filters.hasCentralHeating
               ? 'bg-primary text-white'
               : 'bg-accent text-foreground hover:bg-accent/80',
@@ -207,20 +240,20 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
         >
           Central heating
         </button>
-      </div>
+      </div>}
 
       {/* Amenities */}
       <div>
-        <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Must-have amenities</Label>
-        <div className="flex flex-wrap gap-1.5">
-          {AMENITIES.map(a => (
+        <p className="mb-1.5 text-sm font-medium text-foreground">Must-have amenities</p>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Must-have amenities">
+          {(filters.propertyType ? amenitiesForPropertyType(filters.propertyType) : AMENITIES).map(a => (
             <button
               key={a.key}
               type="button"
               onClick={() => toggleAmenity(a.key)}
               aria-pressed={filters.amenities?.includes(a.key) ?? false}
               className={cn(
-                'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors',
+                'min-h-11 rounded-lg px-2.5 py-1 text-sm font-medium transition-colors',
                 filters.amenities?.includes(a.key)
                   ? 'bg-primary text-white'
                   : 'bg-accent text-foreground hover:bg-accent/80',

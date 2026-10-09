@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
-import { eq, or, and, desc } from 'drizzle-orm'
-import { conversations, messages, buyerPosts, sellerPosts } from '../../db/schema.js'
+import { eq, or, and, desc, asc } from 'drizzle-orm'
+import { conversations, messages, buyerPosts, sellerPosts, users } from '../../db/schema.js'
 import { validate, startConversationSchema, sendMessageSchema } from '../../lib/validate.js'
 import { pubsub, EVENTS } from '../../lib/pubsub.js'
 import type { Context } from '../../context.js'
@@ -24,6 +24,17 @@ function requireParticipant(conversation: Conversation, userId: string) {
   }
 }
 
+async function requireConversationRole(ctx: Context, userId: string, role: 'buyer' | 'seller') {
+  const user = await ctx.db.query.users.findFirst({
+    where: eq(users.id, userId), columns: { role: true, onboardingCompletedAt: true },
+  })
+  if (!user?.onboardingCompletedAt || (user.role !== role && user.role !== 'both')) {
+    throw new GraphQLError('Your account role cannot contact this post', {
+      extensions: { code: 'FORBIDDEN' },
+    })
+  }
+}
+
 export const conversationResolvers = {
   Conversation: {
     buyer: (c: Conversation, _: unknown, ctx: Context) =>
@@ -37,7 +48,7 @@ export const conversationResolvers = {
     messages: (c: Conversation, _: unknown, ctx: Context) =>
       ctx.db.query.messages.findMany({
         where: eq(messages.conversationId, c.id),
-        orderBy: (m) => desc(m.createdAt),
+        orderBy: (m) => asc(m.createdAt),
       }),
   },
 
@@ -82,6 +93,7 @@ export const conversationResolvers = {
 
       if (data.buyerPostId) {
         // User is a seller reaching out to a buyer post
+        await requireConversationRole(ctx, userId, 'seller')
         const post = await ctx.db.query.buyerPosts.findFirst({
           where: eq(buyerPosts.id, data.buyerPostId),
         })
@@ -117,6 +129,7 @@ export const conversationResolvers = {
       }
 
       // User is a buyer reaching out to a seller post
+      await requireConversationRole(ctx, userId, 'buyer')
       const post = await ctx.db.query.sellerPosts.findFirst({
         where: eq(sellerPosts.id, data.sellerPostId!),
       })

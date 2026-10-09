@@ -49,6 +49,17 @@ export const AMENITY_LABEL: Record<string, string> = Object.fromEntries(
   AMENITIES.map(a => [a.key, a.label]),
 )
 
+/** Hide residential-only features when posting land or commercial space. */
+export function amenitiesForPropertyType(type: 'apartment' | 'house' | 'land' | 'commercial'): AmenityOption[] {
+  if (type === 'land') {
+    return AMENITIES.filter(item => ['parking', 'garden', 'sea_view', 'mountain_view', 'solar_panels'].includes(item.key))
+  }
+  if (type === 'commercial') {
+    return AMENITIES.filter(item => ['elevator', 'parking', 'garage', 'air_conditioning', 'storage', 'doorman', 'furnished', 'solar_panels', 'ev_charger'].includes(item.key))
+  }
+  return AMENITIES
+}
+
 export function formatFloor(floor: number | null | undefined): string {
   if (floor == null) return '—'
   if (floor === 0) return 'Ground floor'

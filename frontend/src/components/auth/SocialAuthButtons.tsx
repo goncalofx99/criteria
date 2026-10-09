@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { startGoogleOAuth, setTokens } from '@/lib/auth'
-import { isNative, platform, signInWithGoogleNative, parseCallbackTokens } from '@/lib/native-auth'
+import { startGoogleOAuth, completeGoogleOAuthCode } from '@/lib/auth'
+import { isNative, platform, signInWithGoogleNative, parseCallbackCode } from '@/lib/native-auth'
+import { reviewMode } from '@/review/mode'
 import { cn } from '@/lib/utils'
 
 type Variant = 'landing' | 'compact'
@@ -22,17 +23,18 @@ export function SocialAuthButtons({ variant = 'compact', onError }: Props) {
   async function handleGoogle() {
     setGoogleLoading(true)
     try {
+      if (reviewMode) throw new Error('Google OAuth is unavailable in local review mode. Use mock email sign-in or the role switcher.')
       if (isNative()) {
         const callbackUrl = await signInWithGoogleNative(API_URL)
 
         if (platform() === 'ios' && callbackUrl) {
           // iOS: ASWebAuthenticationSession returned synchronously
-          const tokens = parseCallbackTokens(callbackUrl)
-          if (tokens) {
-            setTokens(tokens.accessToken, tokens.refreshToken)
+          const code = parseCallbackCode(callbackUrl)
+          if (code) {
+            await completeGoogleOAuthCode(code)
             navigate('/auth/callback', { replace: true })
           } else {
-            onError?.('Failed to parse authentication tokens')
+            onError?.('No sign-in code in Google callback')
             setGoogleLoading(false)
           }
         }
@@ -53,7 +55,7 @@ export function SocialAuthButtons({ variant = 'compact', onError }: Props) {
     <div className="flex flex-col gap-3 w-full">
       <Button
         onClick={handleGoogle}
-        disabled={googleLoading}
+        disabled={googleLoading || reviewMode}
         className={cn(
           variant === 'landing'
             ? 'h-14 w-full rounded-xl bg-white text-foreground shadow-elevation-2 hover:bg-accent text-[15px] font-medium'
@@ -62,7 +64,7 @@ export function SocialAuthButtons({ variant = 'compact', onError }: Props) {
         variant={variant === 'landing' ? 'default' : 'outline'}
       >
         {googleLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleIcon />}
-        Continue with Google
+        {reviewMode ? 'Google sign-in unavailable in review' : 'Continue with Google'}
       </Button>
     </div>
   )

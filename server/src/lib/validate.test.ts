@@ -101,6 +101,26 @@ describe('createSellerPostSchema', () => {
       validate(createSellerPostSchema, { ...validSellerPost, title: 'a'.repeat(201) })
     ).toThrow(GraphQLError)
   })
+
+  it('accepts optional null fields from GraphQL input', () => {
+    expect(() => validate(createSellerPostSchema, {
+      ...validSellerPost, description: null, floor: null, totalFloors: null,
+    })).not.toThrow()
+  })
+
+  it('accepts a land listing without residential details', () => {
+    expect(() => validate(createSellerPostSchema, {
+      title: 'Buildable plot', locationText: 'Évora, Portugal', lat: 38.57, lng: -7.91,
+      propertyType: 'land', price: 80_000,
+    })).not.toThrow()
+  })
+
+  it('requires residential details for a house or apartment', () => {
+    expect(() => validate(createSellerPostSchema, {
+      title: 'House', locationText: 'Évora, Portugal', lat: 38.57, lng: -7.91,
+      propertyType: 'house', price: 80_000,
+    })).toThrow(GraphQLError)
+  })
 })
 
 // ─── Buyer post ───────────────────────────────────────────────────────────────
@@ -145,6 +165,13 @@ describe('createBuyerPostSchema', () => {
     expect(() =>
       validate(createBuyerPostSchema, { ...validBuyerPost, radiusKm: 501 })
     ).toThrow(GraphQLError)
+  })
+
+  it('accepts unset buyer preferences as explicit null', () => {
+    expect(() => validate(createBuyerPostSchema, {
+      ...validBuyerPost, areaSqmMin: null, yearBuiltMin: null,
+      floorMin: null, floorMax: null, conditions: null,
+    })).not.toThrow()
   })
 })
 

@@ -1,9 +1,8 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import {
   GET_BUYER_POST,
-  GET_BUYER_POSTS,
   GET_MY_BUYER_POSTS,
   UPDATE_BUYER_POST,
 } from '@/lib/gql'
@@ -12,6 +11,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { CriteriaForm, type CriteriaFormValues } from '@/components/posts/CriteriaForm'
 import type { PropertyType } from '@/lib/propertyType'
 import type { PropertyCondition } from '@/lib/amenities'
+import { safeInternalPath } from '@/lib/returnTo'
 
 interface BuyerPostData {
   id: string
@@ -40,6 +40,8 @@ interface BuyerPostData {
 export default function CriteriaEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const returnTo = safeInternalPath((location.state as { returnTo?: string } | null)?.returnTo, '/feed')
   const { me } = useMe()
 
   const { data, loading, error } = useQuery<{ buyerPost: BuyerPostData | null }>(GET_BUYER_POST, {
@@ -47,10 +49,7 @@ export default function CriteriaEditPage() {
     fetchPolicy: 'cache-and-network',
   })
   const [updateBuyerPost] = useMutation(UPDATE_BUYER_POST, {
-    refetchQueries: [
-      { query: GET_BUYER_POSTS, variables: { limit: 50, offset: 0 } },
-      { query: GET_MY_BUYER_POSTS },
-    ],
+    refetchQueries: [{ query: GET_MY_BUYER_POSTS }],
   })
 
   const post = data?.buyerPost ?? null
@@ -61,7 +60,7 @@ export default function CriteriaEditPage() {
     await updateBuyerPost({
       variables: { id: post.id, input: values },
     })
-    navigate(`/criteria/${post.id}`, { replace: true })
+    navigate(`/criteria/${post.id}`, { replace: true, state: { returnTo } })
   }
 
   return (
@@ -70,7 +69,8 @@ export default function CriteriaEditPage() {
         <div className="flex items-center gap-3 px-5 py-4">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(`/criteria/${id}`, { state: { returnTo } })}
+            aria-label="Back to request"
             className="flex h-9 w-9 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
           >
             <ArrowLeft size={20} />

@@ -29,6 +29,7 @@ export const typeDefs = `#graphql
     fullName: String
     avatarUrl: String
     role: UserRole!
+    onboardingComplete: Boolean!
     createdAt: String!
     updatedAt: String!
   }
@@ -115,6 +116,43 @@ export const typeDefs = `#graphql
     amenities: [String!]
   }
 
+  input MapBoundsInput {
+    north: Float!
+    south: Float!
+    east: Float!
+    west: Float!
+  }
+
+  enum SellerPostSort {
+    newest
+    oldest
+    price_asc
+    price_desc
+    area_asc
+    area_desc
+    price_per_sqm_asc
+    price_per_sqm_desc
+  }
+
+  enum BuyerPostSort {
+    newest
+    oldest
+    budget_asc
+    budget_desc
+  }
+
+  type SellerPostSearchResult {
+    items: [SellerPost!]!
+    totalCount: Int!
+    hasNextPage: Boolean!
+  }
+
+  type BuyerPostSearchResult {
+    items: [BuyerPost!]!
+    totalCount: Int!
+    hasNextPage: Boolean!
+  }
+
   # Feed-level filters for buyer posts (criteria)
   input BuyerPostFilters {
     propertyType: PropertyType
@@ -126,10 +164,11 @@ export const typeDefs = `#graphql
   }
 
   input UpsertUserInput {
-    email: String!
+    email: String
     fullName: String
     avatarUrl: String
     role: UserRole
+    age: Int
   }
 
   input CreateSellerPostInput {
@@ -140,15 +179,15 @@ export const typeDefs = `#graphql
     lng: Float!
     propertyType: PropertyType!
     price: Float!
-    bedrooms: Int!
-    bathrooms: Int!
-    areaSqm: Float!
-    yearBuilt: Int!
-    condition: PropertyCondition!
+    bedrooms: Int
+    bathrooms: Int
+    areaSqm: Float
+    yearBuilt: Int
+    condition: PropertyCondition
     floor: Int
     totalFloors: Int
-    hasBalcony: Boolean!
-    hasCentralHeating: Boolean!
+    hasBalcony: Boolean
+    hasCentralHeating: Boolean
     amenities: [String!]
     images: [String!]
   }
@@ -184,8 +223,8 @@ export const typeDefs = `#graphql
     propertyType: PropertyType!
     priceMin: Float!
     priceMax: Float!
-    bedroomsMin: Int!
-    bathroomsMin: Int!
+    bedroomsMin: Int
+    bathroomsMin: Int
     areaSqmMin: Float
     yearBuiltMin: Int
     conditions: [PropertyCondition!]
@@ -252,11 +291,13 @@ export const typeDefs = `#graphql
 
     # Seller posts
     sellerPosts(limit: Int, offset: Int, filters: SellerPostFilters): [SellerPost!]!
+    sellerPostSearch(limit: Int, offset: Int, filters: SellerPostFilters, search: String, bounds: MapBoundsInput, sort: SellerPostSort): SellerPostSearchResult!
     sellerPost(id: ID!): SellerPost
     mySellerPosts: [SellerPost!]!
 
     # Buyer posts
     buyerPosts(limit: Int, offset: Int, filters: BuyerPostFilters): [BuyerPost!]!
+    buyerPostSearch(limit: Int, offset: Int, filters: BuyerPostFilters, search: String, bounds: MapBoundsInput, sort: BuyerPostSort): BuyerPostSearchResult!
     buyerPost(id: ID!): BuyerPost
     myBuyerPosts: [BuyerPost!]!
 
@@ -266,9 +307,9 @@ export const typeDefs = `#graphql
 
     # Matching — cross-direction discovery queries
     # Given a seller listing, return all active buyer criteria it satisfies.
-    matchingBuyerPosts(sellerPostId: ID!): [BuyerPost!]!
+    matchingBuyerPosts(sellerPostId: ID!, limit: Int, offset: Int): [BuyerPost!]!
     # Given a buyer criteria post, return all active seller listings that match.
-    matchingSellerPosts(buyerPostId: ID!): [SellerPost!]!
+    matchingSellerPosts(buyerPostId: ID!, limit: Int, offset: Int): [SellerPost!]!
   }
 
   # ─── Mutations ───────────────────────────────────────────────────────────────
@@ -281,11 +322,13 @@ export const typeDefs = `#graphql
     createSellerPost(input: CreateSellerPostInput!): SellerPost!
     updateSellerPost(id: ID!, input: UpdateSellerPostInput!): SellerPost!
     deactivateSellerPost(id: ID!): SellerPost!
+    reactivateSellerPost(id: ID!): SellerPost!
 
     # Buyer posts
     createBuyerPost(input: CreateBuyerPostInput!): BuyerPost!
     updateBuyerPost(id: ID!, input: UpdateBuyerPostInput!): BuyerPost!
     deactivateBuyerPost(id: ID!): BuyerPost!
+    reactivateBuyerPost(id: ID!): BuyerPost!
 
     # Conversations — idempotent: returns existing if already started
     startConversation(input: StartConversationInput!): Conversation!

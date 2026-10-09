@@ -4,19 +4,17 @@ import { setContext } from '@apollo/client/link/context'
 import { getMainDefinition } from '@apollo/client/utilities'
 import { createClient } from 'graphql-ws'
 import { getAccessToken, onAuthChange, refreshAccessToken } from './auth'
+import { reviewMode } from '@/review/mode'
+import { createReviewLink } from '@/review/link'
 
 const graphqlUrl = import.meta.env.VITE_GRAPHQL_URL
 const graphqlWsUrl = import.meta.env.VITE_GRAPHQL_WS_URL
 
-if (!graphqlUrl || !graphqlWsUrl) {
+if (!reviewMode && (!graphqlUrl || !graphqlWsUrl)) {
   throw new Error(
     'Missing GraphQL environment variables. Ensure VITE_GRAPHQL_URL and VITE_GRAPHQL_WS_URL are set.'
   )
 }
-
-const httpLink = new HttpLink({
-  uri: graphqlUrl,
-})
 
 // ─── Auth link ────────────────────────────────────────────────────────────────
 
@@ -36,32 +34,24 @@ const authLink = setContext(async (_, { headers }) => {
   }
 })
 
-const wsLink = new GraphQLWsLink(
-  createClient({
+function createLiveLink() {
+  const httpLink = new HttpLink({ uri: graphqlUrl })
+  const wsLink = new GraphQLWsLink(createClient({
     url: graphqlWsUrl,
     connectionParams: async () => {
       let token = getAccessToken()
-      if (!token) {
-        token = await refreshAccessToken()
-      }
-      return token
-        ? { Authorization: `Bearer ${token}` }
-        : {}
+      if (!token) token = await refreshAccessToken()
+      return token ? { Authorization: `Bearer ${token}` } : {}
     },
-  }),
-)
-
-const splitLink = split(
-  ({ query }) => {
+  }))
+  return split(({ query }) => {
     const def = getMainDefinition(query)
     return def.kind === 'OperationDefinition' && def.operation === 'subscription'
-  },
-  wsLink,
-  authLink.concat(httpLink),
-)
+  }, wsLink, authLink.concat(httpLink))
+}
 
 export const apolloClient = new ApolloClient({
-  link: splitLink,
+  link: reviewMode ? createReviewLink() : createLiveLink(),
   cache: new InMemoryCache(),
 })
 

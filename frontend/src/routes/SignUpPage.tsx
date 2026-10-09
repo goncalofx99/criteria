@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation } from '@apollo/client'
 import { Building2, Search, LayoutGrid, Eye, EyeOff, Camera, ChevronLeft, Loader2, X } from 'lucide-react'
 import { signUp } from '@/lib/auth'
@@ -11,8 +11,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StepIndicator } from '@/components/auth/StepIndicator'
 import { PasswordStrength, getPasswordChecks } from '@/components/auth/PasswordStrength'
-import { useKeyboardHeight } from '@/hooks/useKeyboardHeight'
 import { cn } from '@/lib/utils'
+import { rememberAuthDestination, safeInternalPath, takeAuthDestination } from '@/lib/returnTo'
 
 type Role = 'buyer' | 'seller' | 'both'
 
@@ -38,6 +38,7 @@ const roles = [
 
 export default function SignUpPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<FormData>({
     firstName: '', lastName: '', age: '', role: null,
@@ -50,9 +51,13 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null!) as React.RefObject<HTMLInputElement>
   const [upsertUser] = useMutation(UPSERT_USER)
-  const keyboardHeight = useKeyboardHeight()
 
   useEffect(() => { warmUpBackend() }, [])
+  useEffect(() => () => { if (form.avatarPreview) URL.revokeObjectURL(form.avatarPreview) }, [form.avatarPreview])
+  useEffect(() => {
+    const next = new URLSearchParams(location.search).get('next')
+    if (next) rememberAuthDestination(safeInternalPath(next))
+  }, [location.search])
 
   function set<K extends keyof FormData>(key: K, value: FormData[K]) {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -61,6 +66,12 @@ export default function SignUpPage() {
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      setError('Choose a JPEG, PNG or WebP photo under 10 MB.')
+      e.target.value = ''
+      return
+    }
+    setError(null)
     set('avatarFile', file)
     set('avatarPreview', URL.createObjectURL(file))
   }
@@ -75,8 +86,8 @@ export default function SignUpPage() {
     switch (step) {
       case 0: return form.firstName.trim().length > 0 && form.lastName.trim().length > 0
       case 1: {
-        const age = parseInt(form.age)
-        return !isNaN(age) && age >= 18 && age <= 120
+        const age = Number(form.age)
+        return form.age !== '' && Number.isInteger(age) && age >= 18 && age <= 120
       }
       case 2: return form.role !== null
       case 3: return true // photo is optional
@@ -105,36 +116,25 @@ export default function SignUpPage() {
         password: form.password,
         fullName,
         role: form.role ?? 'buyer',
+        age: Number(form.age),
       })
 
-      // 2. Upload avatar if provided (now that we have a token)
-      let avatarUrl: string | null = null
+      // The account already exists after signUp. Optional photo failures must
+      // never turn successful registration into an apparent signup failure.
       if (form.avatarFile) {
         try {
-          avatarUrl = await uploadFile(form.avatarFile, `avatars/${user.id}`)
+          const avatarUrl = await uploadFile(form.avatarFile, `avatars/${user.id}`)
+          await upsertUser({
+            variables: { input: { email: form.email, fullName, avatarUrl, role: form.role } },
+            update: (cache, { data }) => {
+              if (data?.upsertUser) cache.writeQuery({ query: GET_ME, data: { me: data.upsertUser } })
+            },
+          })
         } catch (err) {
-          console.warn('Avatar upload failed, continuing without it:', err)
+          console.warn('Profile photo could not be saved; account creation succeeded:', err)
         }
       }
-
-      // 3. Upsert user in our DB with avatar URL
-      await upsertUser({
-        variables: {
-          input: {
-            email: form.email,
-            fullName,
-            avatarUrl,
-            role: form.role,
-          },
-        },
-        update: (cache, { data }) => {
-          if (data?.upsertUser) {
-            cache.writeQuery({ query: GET_ME, data: { me: data.upsertUser } })
-          }
-        },
-      })
-
-      navigate('/feed', { replace: true })
+      navigate(takeAuthDestination('/feed'), { replace: true })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Something went wrong.'
       setError(msg)
@@ -156,7 +156,7 @@ export default function SignUpPage() {
     <div className="app-shell auth-page flex flex-col">
       {/* Top bar */}
       <div className="web-content flex items-center justify-between px-4 pt-safe pt-4 pb-2">
-        <Button variant="ghost" size="icon" onClick={back} className="rounded-full text-muted-foreground">
+        <Button variant="ghost" size="icon" onClick={back} aria-label="Go back" className="rounded-full text-muted-foreground">
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <StepIndicator current={step} total={TOTAL_STEPS} />
@@ -190,10 +190,7 @@ export default function SignUpPage() {
       </div>
 
       {/* Footer */}
-      <div
-        className="web-content px-6 pb-10 pb-safe space-y-3 transition-transform duration-200"
-        style={keyboardHeight > 0 ? { transform: `translateY(-${keyboardHeight}px)` } : undefined}
-      >
+      <div className="web-content px-6 pb-10 pb-safe space-y-3">
         {error && step < 4 && (
           <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive animate-fade-in">
             {error}
@@ -217,7 +214,7 @@ export default function SignUpPage() {
         {step === 0 && (
           <p className="text-center text-sm text-muted-foreground">
             Already have an account?{' '}
-            <Link to="/sign-in" className="font-medium text-primary hover:underline underline-offset-4">
+            <Link to={`/sign-in${location.search}`} className="font-medium text-primary hover:underline underline-offset-4">
               Log in
             </Link>
           </p>
@@ -242,7 +239,6 @@ function StepName({ form, set }: { form: FormData; set: <K extends keyof FormDat
           <Input
             id="firstName"
             placeholder="João"
-            autoFocus
             autoComplete="given-name"
             value={form.firstName}
             onChange={e => set('firstName', e.target.value)}
@@ -264,8 +260,8 @@ function StepName({ form, set }: { form: FormData; set: <K extends keyof FormDat
 }
 
 function StepAge({ form, set }: { form: FormData; set: <K extends keyof FormData>(k: K, v: FormData[K]) => void }) {
-  const age = parseInt(form.age)
-  const isInvalid = form.age !== '' && (isNaN(age) || age < 18 || age > 120)
+  const age = Number(form.age)
+  const isInvalid = form.age !== '' && (!Number.isInteger(age) || age < 18 || age > 120)
 
   return (
     <div className="space-y-6">
@@ -280,7 +276,6 @@ function StepAge({ form, set }: { form: FormData; set: <K extends keyof FormData
           type="number"
           inputMode="numeric"
           placeholder="25"
-          autoFocus
           min={18}
           max={120}
           value={form.age}
@@ -308,6 +303,7 @@ function StepRole({ form, set }: { form: FormData; set: <K extends keyof FormDat
             key={value}
             type="button"
             onClick={() => set('role', value)}
+            aria-pressed={form.role === value}
             className={cn(
               'flex w-full items-start gap-4 rounded-xl border-2 bg-surface p-4 text-left transition-all duration-150',
               form.role === value
@@ -374,7 +370,8 @@ function StepPhoto({
             <button
               type="button"
               onClick={onRemove}
-              className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-white shadow"
+              aria-label="Remove profile photo"
+              className="absolute -right-1 -top-1 flex h-8 w-8 items-center justify-center rounded-full bg-destructive text-white shadow"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -388,7 +385,7 @@ function StepPhoto({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp"
           className="hidden"
           onChange={onChange}
         />
@@ -459,9 +456,10 @@ function StepAccount({
             />
             <button
               type="button"
-              tabIndex={-1}
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground tap-target"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-pressed={showPassword}
+              className="absolute inset-y-0 right-1 flex w-11 items-center justify-center text-muted-foreground"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -484,9 +482,10 @@ function StepAccount({
             />
             <button
               type="button"
-              tabIndex={-1}
               onClick={() => setShowConfirm(!showConfirm)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground tap-target"
+              aria-label={showConfirm ? 'Hide confirmation password' : 'Show confirmation password'}
+              aria-pressed={showConfirm}
+              className="absolute inset-y-0 right-1 flex w-11 items-center justify-center text-muted-foreground"
             >
               {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -503,10 +502,8 @@ function StepAccount({
         </p>
       )}
 
-      <p className="text-xs text-muted-foreground">
-        By creating an account you agree to our{' '}
-        <span className="text-primary">Terms of Service</span> and{' '}
-        <span className="text-primary">Privacy Policy</span>.
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Your name and optional photo appear on your posts. Your email is kept private from other members.
       </p>
     </div>
   )
