@@ -42,6 +42,8 @@ export const users = pgTable('users', {
   role: userRoleEnum('role').notNull().default('buyer'),
   // null for Google-only users; set when user signs up with email/password
   passwordHash: text('password_hash'),
+  // Incrementing this value invalidates every previously issued access token.
+  authVersion: integer('auth_version').notNull().default(0),
   // Google OAuth subject ID for linking Google sign-ins to this user
   googleId: text('google_id').unique(),
   // Google accounts must complete role and age onboarding before posting.
@@ -58,6 +60,7 @@ export const sessions = pgTable('sessions', {
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
+  authVersion: integer('auth_version').notNull().default(0),
   refreshToken: text('refresh_token').notNull().unique(),
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -75,6 +78,28 @@ export const passwordResetTokens = pgTable('password_reset_tokens', {
 }, (t) => [
   index('password_reset_user_created_idx').on(t.userId, t.createdAt),
 ])
+
+// Short-lived, single-use links for changes that require email ownership.
+export const accountActionTokens = pgTable('account_action_tokens', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  action: text('action', { enum: ['email_current', 'email_new', 'delete'] }).notNull(),
+  targetEmail: text('target_email'),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('account_action_user_created_idx').on(t.userId, t.createdAt),
+  check('account_action_kind_check', sql`${t.action} IN ('email_current', 'email_new', 'delete')`),
+])
+
+// Account deletion is committed even if R2 is temporarily unavailable. This
+// job contains only the deleted user's UUID and retries object erasure.
+export const accountDeletionJobs = pgTable('account_deletion_jobs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().unique(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
 
 // ─── Seller Posts (property listings) ────────────────────────────────────────
 // What a seller HAS.

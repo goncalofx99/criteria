@@ -1,6 +1,8 @@
 export function validUploadKey(userId: string, key: string, contentType: string): boolean {
   const match = /^(avatars|posts)\/([0-9a-f-]{36})\/([A-Za-z0-9_-]{1,80})\.(jpe?g|png|webp|gif)$/i.exec(key)
-  if (!match || match[2].toLowerCase() !== userId.toLowerCase()) return false
+  // UUIDs from the database are canonical lowercase. Requiring the same path
+  // spelling prevents alternate R2 prefixes that are easy to miss on erasure.
+  if (!match || match[2] !== userId) return false
   const extension = match[4].toLowerCase()
   const expectedType = extension === 'jpg' || extension === 'jpeg' ? 'image/jpeg' : `image/${extension}`
   return contentType === expectedType

@@ -1,4 +1,4 @@
-import { useQuery } from '@apollo/client'
+import { useQuery, type ApolloError } from '@apollo/client'
 import { GET_ME } from '@/lib/gql'
 
 export type UserRole = 'buyer' | 'seller' | 'both'
@@ -9,12 +9,14 @@ export interface MeUser {
   email: string | null
   role: UserRole
   avatarUrl: string | null
+  hasPassword: boolean
   createdAt: string
 }
 
 interface UseMeResult {
   me: MeUser | null
   loading: boolean
+  error: ApolloError | undefined
   canViewCriteria: boolean
   canCreateProperty: boolean
   canCreateCriteria: boolean
@@ -22,7 +24,7 @@ interface UseMeResult {
 }
 
 export function useMe(): UseMeResult {
-  const { data, loading, refetch } = useQuery<{ me: MeUser | null }>(GET_ME, {
+  const { data, loading, error, refetch } = useQuery<{ me: MeUser | null }>(GET_ME, {
     fetchPolicy: 'cache-and-network',
   })
   const me = data?.me ?? null
@@ -30,6 +32,7 @@ export function useMe(): UseMeResult {
   return {
     me,
     loading,
+    error,
     canViewCriteria: role === 'seller' || role === 'both',
     canCreateProperty: role === 'seller' || role === 'both',
     canCreateCriteria: role === 'buyer' || role === 'both',

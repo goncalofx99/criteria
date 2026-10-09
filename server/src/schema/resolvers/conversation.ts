@@ -2,6 +2,7 @@ import { GraphQLError } from 'graphql'
 import { eq, or, and, desc, asc } from 'drizzle-orm'
 import { conversations, messages, buyerPosts, sellerPosts, users } from '../../db/schema.js'
 import { validate, startConversationSchema, sendMessageSchema } from '../../lib/validate.js'
+import { consumeAbuseBudget } from '../../lib/abuseBudget.js'
 import { pubsub, EVENTS } from '../../lib/pubsub.js'
 import type { Context } from '../../context.js'
 import type { Conversation, Message } from '../../db/schema.js'
@@ -180,6 +181,13 @@ export const conversationResolvers = {
         })
       }
       requireParticipant(conv, userId)
+
+      const retryAfter = consumeAbuseBudget(`message:${userId}`, 12, 60_000)
+      if (retryAfter > 0) {
+        throw new GraphQLError(`Too many messages. Try again in ${retryAfter} seconds.`, {
+          extensions: { code: 'BAD_USER_INPUT' },
+        })
+      }
 
       const [msg] = await ctx.db
         .insert(messages)

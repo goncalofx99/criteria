@@ -1,23 +1,32 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { hasValidSession } from '@/lib/auth'
 import { warmUpBackend } from '@/lib/warmup'
 import { Button } from '@/components/ui/button'
 import { ArrowUpRight, Building2, Loader2, Search } from 'lucide-react'
 import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons'
+import { LandingFAQ } from '@/components/LandingFAQ'
+import { SiteFooter } from '@/components/SiteFooter'
 
 export default function LandingPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [checkingSession, setCheckingSession] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     warmUpBackend()
     hasValidSession().then((valid) => {
-      if (valid) navigate('/feed', { replace: true })
+      if (valid && location.hash !== '#faq') navigate('/feed', { replace: true })
       else setCheckingSession(false)
     })
-  }, [navigate])
+  }, [location.hash, navigate])
+
+  useEffect(() => {
+    if (checkingSession || location.hash !== '#faq') return
+    const frame = requestAnimationFrame(() => document.getElementById('faq')?.scrollIntoView())
+    return () => cancelAnimationFrame(frame)
+  }, [checkingSession, location.hash])
 
   if (checkingSession) {
     return (
@@ -28,6 +37,8 @@ export default function LandingPage() {
   }
 
   return (
+    <>
+    <main>
     <div className="landing-layout app-shell min-h-dvh bg-primary-900">
       <div className="landing-hero relative flex min-h-[55dvh] flex-col justify-between overflow-hidden px-7 pb-10 pt-safe md:px-12 md:pb-12 lg:px-16">
         <div className="relative z-10 flex items-center gap-3 pt-6 text-white">
@@ -44,6 +55,7 @@ export default function LandingPage() {
           <p className="mt-6 max-w-[470px] text-sm leading-relaxed text-primary-200 md:text-base">
             List a property or share exactly what you’re looking for. The right people can discover each other here.
           </p>
+          <Link to="/#faq" className="mt-5 inline-flex min-h-11 items-center text-sm font-semibold text-white underline decoration-primary-400 underline-offset-4 hover:decoration-white">How CRITERIA works <ArrowUpRight size={16} className="ml-2" aria-hidden="true" /></Link>
         </div>
         <div className="landing-side-notes relative z-10 mt-10 max-w-lg grid-cols-2 gap-3">
           <div className="rounded-[20px] border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
@@ -93,8 +105,13 @@ export default function LandingPage() {
               Log in
             </Link>
           </p>
+          <Link to="/privacy" className="mt-2 inline-flex min-h-11 items-center justify-center text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Privacy Policy</Link>
         </div>
       </div>
     </div>
+    <LandingFAQ />
+    </main>
+    <SiteFooter />
+    </>
   )
 }

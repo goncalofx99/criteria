@@ -1,9 +1,10 @@
 import { ApolloClient, InMemoryCache, HttpLink, split } from '@apollo/client'
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions'
 import { setContext } from '@apollo/client/link/context'
+import { onError } from '@apollo/client/link/error'
 import { getMainDefinition } from '@apollo/client/utilities'
 import { createClient } from 'graphql-ws'
-import { getAccessToken, onAuthChange, refreshAccessToken } from './auth'
+import { clearLocalSession, getAccessToken, onAuthChange, refreshAccessToken } from './auth'
 import { reviewMode } from '@/review/mode'
 import { createReviewLink } from '@/review/link'
 
@@ -36,6 +37,11 @@ const authLink = setContext(async (_, { headers }) => {
 
 function createLiveLink() {
   const httpLink = new HttpLink({ uri: graphqlUrl })
+  const invalidSessionLink = onError(({ graphQLErrors, networkError }) => {
+    const unauthenticated = graphQLErrors?.some(error => error.extensions?.code === 'UNAUTHENTICATED')
+    const unauthorizedHttp = !!networkError && 'statusCode' in networkError && networkError.statusCode === 401
+    if (unauthenticated || unauthorizedHttp) clearLocalSession()
+  })
   const wsLink = new GraphQLWsLink(createClient({
     url: graphqlWsUrl,
     connectionParams: async () => {
@@ -47,7 +53,7 @@ function createLiveLink() {
   return split(({ query }) => {
     const def = getMainDefinition(query)
     return def.kind === 'OperationDefinition' && def.operation === 'subscription'
-  }, wsLink, authLink.concat(httpLink))
+  }, wsLink, authLink.concat(invalidSessionLink).concat(httpLink))
 }
 
 export const apolloClient = new ApolloClient({

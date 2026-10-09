@@ -113,11 +113,11 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
     title.trim().length > 0 &&
     location !== null &&
     Number.isFinite(radius) && radius >= 1 && radius <= 500 &&
-    !Number.isNaN(min) && min >= 0 &&
-    !Number.isNaN(max) && max > 0 &&
+    Number.isFinite(min) && min >= 0 &&
+    Number.isFinite(max) && max > 0 &&
     min < max &&
     (areaNum === null || (Number.isFinite(areaNum) && areaNum > 0)) &&
-    (yearMin === null || (Number.isInteger(yearMin) && yearMin >= 1500 && yearMin <= CURRENT_YEAR + 5)) &&
+    (!isResidential || yearMin === null || (Number.isInteger(yearMin) && yearMin >= 1500 && yearMin <= CURRENT_YEAR + 5)) &&
     (!isResidential || (Number.isInteger(Number(bedroomsMin)) && Number.isInteger(Number(bathroomsMin)))) &&
     (!isApartment || (floorRangeOk && floorValuesOk))
 
@@ -133,7 +133,19 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!canSubmit || !location) return
+    if (!canSubmit || !location) {
+      const issues = [
+        !title.trim() && 'title',
+        !location && 'preferred location',
+        (!Number.isFinite(radius) || radius < 1 || radius > 500) && 'search radius',
+        (!Number.isFinite(min) || min < 0 || !Number.isFinite(max) || max <= 0 || min >= max) && 'budget range',
+        areaNum !== null && (!Number.isFinite(areaNum) || areaNum <= 0) && 'minimum area',
+        isResidential && yearMin !== null && (!Number.isInteger(yearMin) || yearMin < 1500 || yearMin > CURRENT_YEAR + 5) && 'year built',
+        isApartment && (!floorRangeOk || !floorValuesOk) && 'floor range',
+      ].filter(Boolean)
+      setError(`Please check ${issues.join(', ') || 'the highlighted fields'} before continuing.`)
+      return
+    }
     setError(null)
     setSubmitting(true)
     try {
@@ -228,6 +240,7 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
               onChange={e => setPriceMin(e.target.value)}
               placeholder="Min"
               min={0}
+              required
             />
             <span className="text-muted-foreground">–</span>
             <Input
@@ -238,6 +251,7 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
               onChange={e => setPriceMax(e.target.value)}
               placeholder="Max"
               min={1}
+              required
             />
           </div>
           {priceMin && priceMax && min >= max && (
@@ -391,7 +405,7 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
         type="submit"
         size="lg"
         className="rounded-xl mt-2"
-        disabled={!canSubmit || submitting}
+        disabled={submitting}
       >
         {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : submitLabel}
       </Button>

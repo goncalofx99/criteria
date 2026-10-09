@@ -14,6 +14,7 @@ it('rejects another user’s key, traversal, and mismatched content types', () =
   expect(validUploadKey(owner, `posts/${owner}/../photo.jpg`, 'image/jpeg')).toBe(false)
   expect(validUploadKey(owner, `posts/${owner}/photo.jpg`, 'image/png')).toBe(false)
   expect(validUploadKey(owner, `posts/${owner}/script.svg`, 'image/svg+xml')).toBe(false)
+  expect(validUploadKey(owner, `posts/${owner.toUpperCase()}/photo.jpg`, 'image/jpeg')).toBe(false)
 })
 
 it('accepts only an owned listing image on the configured public R2 URL', () => {

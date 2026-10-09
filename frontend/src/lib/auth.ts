@@ -212,6 +212,94 @@ export async function confirmPasswordReset(token: string, password: string): Pro
   if (!response.ok) throw new Error(data.error || 'Password reset failed or expired')
 }
 
+/** Account changes use the same bearer session as GraphQL. These routes never
+ * run against the API from local review mode. */
+async function accountRequest(path: string, body: object, authenticated: boolean): Promise<void> {
+  const token = authenticated ? (getAccessToken() ?? await refreshAccessToken()) : null
+  if (authenticated && !token) throw new Error('Your session has expired. Sign in and try again.')
+  const response = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  })
+  const data = await response.json().catch(() => ({})) as { error?: string }
+  if (!response.ok) throw new Error(data.error || 'Could not update your account. Try again.')
+}
+
+/** Used when the server revokes a session after an account change or auth error. */
+export function clearLocalSession(): void {
+  clearTokens()
+}
+
+export async function changeAccountPassword(currentPassword: string, newPassword: string): Promise<void> {
+  if (reviewMode) {
+    if (!currentPassword || newPassword.length < 8) throw new Error('Enter your current password and a new password of at least 8 characters.')
+    getReviewStore().me.hasPassword = true
+    clearTokens()
+    return
+  }
+  await accountRequest('/auth/account/password', { currentPassword, newPassword }, true)
+  // The server revokes every session after a password change.
+  clearTokens()
+}
+
+export interface AccountActionResult { reviewUrl?: string }
+let reviewPendingEmail: string | null = null
+
+export async function requestAccountEmailChange(email: string): Promise<AccountActionResult> {
+  if (reviewMode) {
+    if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('Enter a valid email address.')
+    reviewPendingEmail = email.trim().toLowerCase()
+    return { reviewUrl: '/settings/verify-email?step=current&token=review-email-current' }
+  }
+  await accountRequest('/auth/account/email/request', { email }, true)
+  return {}
+}
+
+export async function confirmAccountEmailChangeCurrent(token: string): Promise<AccountActionResult> {
+  if (reviewMode) {
+    if (token !== 'review-email-current' || !reviewPendingEmail) throw new Error('This approval link is invalid or expired.')
+    return { reviewUrl: '/settings/verify-email?step=new&token=review-email-new' }
+  }
+  await accountRequest('/auth/account/email/confirm-current', { token }, false)
+  return {}
+}
+
+export async function confirmAccountEmailChangeNew(token: string): Promise<void> {
+  if (reviewMode) {
+    if (token !== 'review-email-new' || !reviewPendingEmail) throw new Error('This verification link is invalid or expired.')
+    getReviewStore().me.email = reviewPendingEmail
+    reviewPendingEmail = null
+    clearTokens()
+    return
+  }
+  await accountRequest('/auth/account/email/confirm-new', { token }, false)
+  // The server revokes every session once the new address is verified.
+  clearTokens()
+}
+
+export async function requestAccountDeletion(password?: string): Promise<AccountActionResult> {
+  if (reviewMode) {
+    if (getReviewStore().me.hasPassword && !password) throw new Error('Enter your password to continue.')
+    return { reviewUrl: '/settings/confirm-delete?token=review-delete-account' }
+  }
+  await accountRequest('/auth/account/delete/request', password ? { password } : {}, true)
+  return {}
+}
+
+export async function confirmAccountDeletion(token: string): Promise<void> {
+  if (reviewMode) {
+    if (token !== 'review-delete-account') throw new Error('This confirmation link is invalid or expired.')
+    clearTokens()
+    return
+  }
+  await accountRequest('/auth/account/delete/confirm', { token }, false)
+  clearTokens()
+}
+
 export async function signOut(): Promise<void> {
   if (reviewMode) { clearTokens(); return }
   const refreshToken = stored(REFRESH_TOKEN_KEY)

@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { ArrowUpRight, BedDouble, Bath, Maximize2, MapPin, Search } from 'lucide-react'
-import { formatPriceRange, initialsOf, avatarColorFor, timeAgo } from '@/lib/format'
+import { formatPriceRange, timeAgo } from '@/lib/format'
+import { MemberAvatar } from '@/components/ui/member-avatar'
 import { PROPERTY_TYPE_LABEL, type PropertyType } from '@/lib/propertyType'
 
 export interface CriteriaCardData {
@@ -34,8 +35,6 @@ export interface CriteriaCardData {
 
 export function CriteriaCard({ criteria }: { criteria: CriteriaCardData }) {
   const location = useLocation()
-  const initials = initialsOf(criteria.buyer.fullName)
-  const avatarBg = avatarColorFor(criteria.buyer.id)
   const residential = criteria.propertyType === 'apartment' || criteria.propertyType === 'house'
 
   return (
@@ -57,12 +56,7 @@ export function CriteriaCard({ criteria }: { criteria: CriteriaCardData }) {
       <div className="p-5">
         {/* Header */}
         <div className="mb-4 flex items-center gap-3">
-          <div
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-            style={{ backgroundColor: avatarBg }}
-          >
-            {initials}
-          </div>
+          <MemberAvatar member={criteria.buyer} className="h-11 w-11 text-sm" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[15px] font-semibold text-foreground">
               {criteria.buyer.fullName ?? 'Anonymous buyer'}

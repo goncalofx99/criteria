@@ -8,7 +8,7 @@ This document describes the current React application. The server schema and rou
 - Apollo Client uses GraphQL over HTTP for queries and mutations, and graphql-ws for chat subscriptions.
 - The same frontend bundle runs in browsers and the Capacitor WebView. main.tsx adds a native or web class at runtime; CSS responds to viewport width on both.
 - App.tsx owns route registration. lib/gql.ts owns GraphQL documents. lib/auth.ts owns access and refresh token operations. lib/native-auth.ts owns Capacitor Google OAuth return handling.
-- The server owns email/password accounts, Google OAuth, JWT issuance, GraphQL authorization and R2 upload signing. Supabase is a PostgreSQL host, not the frontend auth client.
+- The server owns email/password accounts, Google OAuth, JWT issuance, GraphQL authorization and R2 upload signing. The current PostgreSQL host is Neon; the frontend does not use Supabase for authentication.
 
 ## Routes and roles
 
@@ -18,11 +18,15 @@ This document describes the current React application. The server schema and rou
 | /sign-in, /sign-up | Email and Google entry points |
 | /forgot-password, /reset-password | Email password recovery |
 | /auth/callback | Google code exchange and account routing |
+| /settings/verify-email, /settings/confirm-delete | Public, single-use account confirmation links sent by email |
+| /privacy | Privacy Policy covering accounts, posts, providers and device storage |
+| /terms | Terms of Use for accounts, posts, messages and service expectations |
 | /onboarding | Age and role completion after Google sign-in |
 | /feed | Explore properties, and buyer requests for seller/both users |
 | /create | Create a property or buyer request permitted by role |
 | /inbox | Conversations and messages |
 | /profile | Identity, role and owned posts |
+| /settings | Name, profile photo, account access, appearance, privacy information and deletion |
 | /listing/:id, /criteria/:id | Property and buyer-request details |
 | /listing/:id/edit, /criteria/:id/edit | Owner editing |
 
@@ -34,11 +38,11 @@ Email signup sends email, password, name, role and integer age to the server. Th
 
 Google OAuth starts at the server. The server redirects only to its configured web callback or the registered native scheme, with a single-use code. The frontend exchanges the code through POST /auth/google/exchange, removes it from browser history, then checks the user's onboardingComplete field. New Google users complete age and role before Explore. iOS uses the OAuthBridge ASWebAuthenticationSession plugin; Android uses a Custom Tab and appUrlOpen. Neither callback puts access or refresh tokens in the URL.
 
-The access token is attached to GraphQL HTTP and WebSocket requests. lib/auth.ts rejects expired access tokens and refreshes them through POST /auth/refresh. useAuth rechecks when a page becomes visible and while it remains open. Sign-out calls the server and clears local credentials. Password reset uses the server's request/confirm endpoints; production email delivery depends on the configured sender.
+The access token is attached to GraphQL HTTP and WebSocket requests. lib/auth.ts rejects expired access tokens and refreshes them through POST /auth/refresh. useAuth rechecks when a page becomes visible and while it remains open. Sign-out calls the server and clears local credentials. Password reset uses the server's request/confirm endpoints; production email delivery depends on the configured sender. Settings uses GraphQL for the public profile name and owned avatar; password, email and deletion use authenticated REST requests and one-use email links. A password or completed email change signs out every device. Confirmation routes are public so links can open in an ordinary browser, including when the user started from the Capacitor app.
 
 ## Discovery and posts
 
-Explore keeps result type, search text, filters, sort, view and page in the URL. sellerPostSearch and buyerPostSearch return items, totalCount and hasNextPage. List and map use the same query state. Direct details return to the saved results or to a safe fallback. Buyer requests are discoverable only by completed seller/both accounts and their owners. Stored precise post coordinates are for server-side matching; public GraphQL locations are deliberately coarse.
+Explore keeps result type, search text, filters, sort, view and page in the URL. sellerPostSearch and buyerPostSearch return items, totalCount and hasNextPage. List and map use the same query state. Direct details return to the saved results or to a safe fallback. Buyer requests are discoverable only by completed seller/both accounts and their owners. Stored precise post coordinates are for server-side matching; public GraphQL locations are deliberately coarse. Address lookup sends text to the configured Nominatim endpoint only when the user presses Find or Enter; typing alone makes no lookup requests. Public Nominatim has an aggregate per-app limit, so production growth requires a permitted provider or a server proxy with shared throttling and caching.
 
 Property and request forms share section and validation patterns. Property photos are JPEG, PNG or WebP, up to 10 MB each and 12 files. The upload client requests a presigned URL in the authenticated user's avatars/ or posts/ namespace, then PUTs the file to R2. Profile keeps active and archived owner posts; Inbox uses conversation queries and message subscriptions.
 
@@ -46,7 +50,9 @@ Property and request forms share section and validation patterns. Property photo
 
 Edit semantic HSL variables and shadows in src/index.css. tailwind.config.ts maps them to utilities. src/design-basis.css contains reusable layout, type and surface classes. The palette retains forest green and sand, with warm paper, white surfaces, and a restrained clay accent. Dark mode changes the same semantic variables rather than adding a second component palette. The visible theme control offers Light, Dark and System; useTheme persists the preference and follows OS changes, while an index.html bootstrap applies it before React renders. DM Sans is used for headings and Inter for body text.
 
-Phones use a three-item bottom navigation bar with Create centered; a persistent top brand header contains the CRITERIA logo, theme control and Profile link. Tablets and desktops use one top navigation bar with all four destinations. Search and filters belong to Explore and open as temporary controls; they do not create another permanent app rail. The shell expands at 768px on both web and native. Content has readable width while maps and image layouts use available space. Safe-area insets, keyboard focus, reduced motion and clear loading/empty/error states are part of component behavior.
+Phones use a three-item bottom navigation bar with Create centered; a persistent top brand header contains the CRITERIA logo and a profile icon. Tablets and desktops use one top navigation bar with Explore, Create and Inbox; the top-right name/avatar opens Profile. Settings holds the Light, Dark and System theme control. Search and filters belong to Explore and open as temporary controls; they do not create another permanent app rail. The shell expands at 768px on both web and native. Content has readable width while maps and image layouts use available space. Safe-area insets, keyboard focus, reduced motion and clear loading/empty/error states are part of component behavior.
+
+The browser shows a privacy and storage notice; Settings can reopen it. Without a Cloudflare site token it only explains necessary storage. When `VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN` is configured, the real production browser site offers equally visible Essential only and Allow analytics choices; the Cloudflare beacon loads only after recorded opt-in. Withdrawing consent reloads the page to stop a previously loaded beacon. The token is public site configuration, not a secret. The beacon is excluded from the Capacitor WebView, local development, preview hosts, review mode, and single-use auth/account confirmation routes. Cloudflare's `spa:false` setting disables automatic route-change tracking; the integration measures initial page loads and performance only. Disable any hosting or Cloudflare automatic analytics injection, which would bypass the app's choice. Sign-in tokens and theme preference use local storage; return navigation and Explore scroll position use session storage. DM Sans and Inter are served locally. The public Privacy Policy and Terms of Use are substantive drafts, kept out of search indexing pending the operator and legal checks in `LEGAL_REVIEW.md`.
 
 Prefer existing local CVA components in components/ui for buttons, inputs and labels. Add accessible behavior to those components or small focused primitives rather than introducing a separate themed component library.
 
@@ -62,7 +68,11 @@ Use review mode for route, role, ownership, loading and error inspection without
 
 Copy frontend/.env.example to frontend/.env for live local development. Set VITE_API_URL, VITE_GRAPHQL_URL and VITE_GRAPHQL_WS_URL to the same server deployment. Review mode can start without those values, but normal mode requires them.
 
+Production builds reject mixed-content API configuration: `pnpm --filter frontend build` requires an `https://` VITE_API_URL and VITE_GRAPHQL_URL plus a `wss://` VITE_GRAPHQL_WS_URL. Local development can use `http://` and `ws://`.
+
 VITE_MAP_TILE_URL and VITE_MAP_TILE_ATTRIBUTION select the map tile provider and its visible credit. The example uses OpenStreetMap tiles for local development. Configure an appropriate provider and its required attribution for every production deployment; both values are embedded in the frontend bundle at build time.
+
+VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN is optional and must come from the site's Cloudflare Web Analytics dashboard. Leave it unset until the live deployment has been checked for automatic script injection and the consent flow has been verified. This integration measures initial browser page loads and performance, not SPA route changes or custom button events; it cannot serve as sign-up conversion tracking.
 
 ~~~bash
 pnpm install

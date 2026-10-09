@@ -1,10 +1,12 @@
 /**
  * Address geocoding via Nominatim (OpenStreetMap).
  *
- * Free, no API key. Usage policy:
- *   - Mandatory User-Agent identifying the app + a contact.
- *   - ≤ 1 req/s per client; we debounce + abort in-flight requests in callers.
- *   - Be a good citizen: cache locally so repeated keystrokes don't re-hit it.
+ * Public endpoint, no API key. Usage policy:
+ *   - Browsers identify the site through Referer and their own User-Agent.
+ *   - Lookups are explicit user actions; public Nominatim forbids client-side
+ *     autocomplete. Callers abort superseded requests.
+ *   - Cache identical queries within the current page session. A shared
+ *     proxy or permitted provider is needed for an aggregate app-wide limit.
  *
  * Scoped to Portugal (`countrycodes=pt`) since the product launches there.
  */
@@ -17,7 +19,6 @@ export interface GeocodeResult {
 }
 
 const ENDPOINT = 'https://nominatim.openstreetmap.org/search'
-const USER_AGENT = 'CRITERIA/1.0 (https://criteria-newn.onrender.com)'
 const cache = new Map<string, GeocodeResult[]>()
 
 interface NominatimItem {
@@ -57,12 +58,9 @@ export async function searchAddress(
 
   const res = await fetch(url.toString(), {
     method: 'GET',
-    headers: {
-      // Browsers strip User-Agent on fetch — Nominatim accepts a Referer/origin
-      // as identification when UA is missing. We still send Accept.
-      Accept: 'application/json',
-      'X-Application': USER_AGENT,
-    },
+    // Browsers set their own User-Agent and send the site's Referer/origin to
+    // identify CRITERIA. Avoid custom headers that cause a CORS preflight.
+    headers: { Accept: 'application/json' },
     signal,
   })
 

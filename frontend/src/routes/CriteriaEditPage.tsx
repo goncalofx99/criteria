@@ -1,6 +1,6 @@
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import {
   GET_BUYER_POST,
   GET_MY_BUYER_POSTS,
@@ -9,6 +9,7 @@ import {
 import { useMe } from '@/hooks/useMe'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { CriteriaForm, type CriteriaFormValues } from '@/components/posts/CriteriaForm'
+import { EditFormSkeleton } from '@/components/ui/skeleton'
 import type { PropertyType } from '@/lib/propertyType'
 import type { PropertyCondition } from '@/lib/amenities'
 import { safeInternalPath } from '@/lib/returnTo'
@@ -42,7 +43,7 @@ export default function CriteriaEditPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const returnTo = safeInternalPath((location.state as { returnTo?: string } | null)?.returnTo, '/feed')
-  const { me } = useMe()
+  const { me, loading: meLoading } = useMe()
 
   const { data, loading, error } = useQuery<{ buyerPost: BuyerPostData | null }>(GET_BUYER_POST, {
     variables: { id },
@@ -71,7 +72,7 @@ export default function CriteriaEditPage() {
             type="button"
             onClick={() => navigate(`/criteria/${id}`, { state: { returnTo } })}
             aria-label="Back to request"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
           >
             <ArrowLeft size={20} />
           </button>
@@ -79,18 +80,12 @@ export default function CriteriaEditPage() {
         </div>
       </PageHeader>
 
-      {loading && !post ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
+      {(loading && !post) || (meLoading && !me) ? (
+        <EditFormSkeleton />
       ) : error || !post ? (
-        <p className="px-6 py-10 text-center text-sm text-muted-foreground">
-          {error?.message ?? 'Criteria not found.'}
-        </p>
+        <div className="px-6 py-10 text-center text-sm text-muted-foreground"><p>Buyer request unavailable. The post may have been removed or the link may be incorrect.</p><Link to={returnTo} className="mt-4 inline-flex min-h-11 items-center font-semibold text-primary underline">Back to {returnTo.startsWith('/profile') ? 'Profile' : 'Explore'}</Link></div>
       ) : !isOwner ? (
-        <p className="px-6 py-10 text-center text-sm text-muted-foreground">
-          You can only edit your own criteria.
-        </p>
+        <div className="px-6 py-10 text-center text-sm text-muted-foreground"><p>You can only edit your own buyer requests.</p><Link to={`/criteria/${post.id}`} state={{ returnTo }} className="mt-4 inline-flex min-h-11 items-center font-semibold text-primary underline">View request</Link></div>
       ) : (
         <div className="mx-auto max-w-[1160px] px-5 py-7 md:px-8 md:py-10 lg:grid lg:grid-cols-[minmax(220px,290px)_minmax(0,1fr)] lg:items-start lg:gap-12 xl:gap-16">
           <div className="lg:sticky lg:top-28">

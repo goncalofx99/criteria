@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@apollo/client'
 import { ArrowLeft, BedDouble, Bath, Maximize2, MapPin, Loader2, Calendar, Building, Check, X, ChevronLeft, ChevronRight, MessageCircle, ImageIcon } from 'lucide-react'
@@ -16,8 +16,10 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { PostMenu } from '@/components/posts/PostMenu'
 import { CriteriaCard, type CriteriaCardData } from '@/components/posts/CriteriaCard'
 import { Button } from '@/components/ui/button'
+import { DetailSkeleton } from '@/components/ui/skeleton'
+import { MemberAvatar } from '@/components/ui/member-avatar'
 import { safeInternalPath } from '@/lib/returnTo'
-import { formatPrice, initialsOf, avatarColorFor, timeAgo } from '@/lib/format'
+import { formatPrice, timeAgo } from '@/lib/format'
 import { PROPERTY_TYPE_LABEL, type PropertyType } from '@/lib/propertyType'
 import {
   AMENITY_LABEL,
@@ -56,8 +58,10 @@ export default function PropertyDetailPage() {
   const navigate = useNavigate()
   const routeLocation = useLocation()
   const returnTo = safeInternalPath((routeLocation.state as { returnTo?: string } | null)?.returnTo, '/feed')
+  const sourceLabel = returnTo.startsWith('/profile') ? 'Profile' : 'Explore'
   const { me } = useMe()
   const [photoIndex, setPhotoIndex] = useState(0)
+  const [photoFailed, setPhotoFailed] = useState(false)
   const [contactError, setContactError] = useState<string | null>(null)
   const { data, loading, error, refetch } = useQuery<{ sellerPost: SellerPostData | null }>(GET_SELLER_POST, {
     variables: { id },
@@ -75,6 +79,7 @@ export default function PropertyDetailPage() {
   const canMatch = me?.role === 'seller' || me?.role === 'both'
   const { data: matchesData, loading: matchesLoading, error: matchesError, refetch: refetchMatches } = useQuery<{ matchingBuyerPosts: CriteriaCardData[] }>(MATCHING_BUYER_POSTS, { variables: { sellerPostId: id }, skip: !post || !isOwner || !post.isActive || !canMatch })
   const cover = post?.images[photoIndex % Math.max(1, post.images.length)]
+  useEffect(() => setPhotoFailed(false), [cover])
 
   async function contactSeller() {
     if (!post) return
@@ -95,12 +100,16 @@ export default function PropertyDetailPage() {
             <button
               type="button"
               onClick={() => navigate(returnTo)}
-              aria-label="Back to results"
+              aria-label={`Back to ${sourceLabel}`}
               className="flex h-11 w-11 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
             >
               <ArrowLeft size={20} />
             </button>
             <h1 className="text-lg font-semibold text-foreground">Property details</h1>
+            <nav aria-label="Breadcrumb" className="hidden items-center gap-2 text-sm text-muted-foreground md:flex">
+              <span aria-hidden="true">/</span><Link to={returnTo} className="hover:text-primary hover:underline">{sourceLabel}</Link>
+              <span aria-hidden="true">/</span><span aria-current="page">Listing</span>
+            </nav>
           </div>
           {post && isOwner && (
             <PostMenu
@@ -120,20 +129,18 @@ export default function PropertyDetailPage() {
         </div>
       </PageHeader>
 
-      {loading && !post ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      {loading && !post ? <DetailSkeleton variant="property" /> : error || !post ? (
+        <div className="mx-auto max-w-lg px-6 py-16 text-center">
+          <h2 className="text-xl font-semibold">Listing unavailable</h2>
+          <p className="mt-2 text-sm text-muted-foreground">This listing may have been removed or the link may be incorrect.</p>
+          <Link to={returnTo} className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-semibold text-white">Back to {sourceLabel}</Link>
         </div>
-      ) : error || !post ? (
-        <p className="px-6 py-10 text-center text-sm text-muted-foreground">
-          {error?.message ?? 'Listing not found.'}
-        </p>
       ) : (
         <article className="detail-frame mx-4 mt-4 max-w-[1280px] pb-6 md:mx-8 lg:mx-auto lg:mt-8">
           <div className="lg:grid lg:grid-cols-[minmax(0,1.06fr)_minmax(0,.94fr)]">
             <div className="relative h-60 w-full bg-overlay md:h-[420px] lg:h-full lg:min-h-[540px]">
-              {cover ? (
-                <img src={cover} alt={post.title} className="h-full w-full object-cover" />
+              {cover && !photoFailed ? (
+                <img src={cover} alt={`Photo ${photoIndex % post.images.length + 1} of ${post.images.length} for ${post.title}`} loading="eager" fetchPriority="high" decoding="async" onError={() => setPhotoFailed(true)} className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary-100 via-accent to-primary-200 text-sm text-primary-700">
                   <ImageIcon size={38} aria-hidden="true" /> Photo coming soon
@@ -183,12 +190,7 @@ export default function PropertyDetailPage() {
               </div>
               <div className="mt-auto pt-6">
                 <div className="flex items-center gap-3 rounded-[18px] border border-border bg-accent/50 p-4">
-                  <div
-                    className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-semibold text-white"
-                    style={{ backgroundColor: avatarColorFor(post.seller.id) }}
-                  >
-                    {initialsOf(post.seller.fullName)}
-                  </div>
+                  <MemberAvatar member={post.seller} className="h-10 w-10" />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">
                       {post.seller.fullName ?? 'Anonymous'}

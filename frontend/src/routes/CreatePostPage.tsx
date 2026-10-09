@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useMutation } from '@apollo/client'
-import { ArrowLeft, Building2, Search, Loader2, Check } from 'lucide-react'
+import { ArrowLeft, Building2, Search, Check } from 'lucide-react'
 import {
   CREATE_SELLER_POST,
   CREATE_BUYER_POST,
@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PropertyForm, type PropertyFormValues } from '@/components/posts/PropertyForm'
 import { CriteriaForm, type CriteriaFormValues } from '@/components/posts/CriteriaForm'
+import { EditFormSkeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { safeInternalPath } from '@/lib/returnTo'
 
@@ -22,7 +23,7 @@ export default function CreatePostPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const returnTo = safeInternalPath((location.state as { returnTo?: string } | null)?.returnTo, '/feed')
-  const { me, canCreateProperty, canCreateCriteria, loading: meLoading } = useMe()
+  const { me, canCreateProperty, canCreateCriteria, loading: meLoading, refetch } = useMe()
   const [mode, setMode] = useState<Mode | null>(null)
 
   // Sync mode once role loads, avoiding stale useState initial value
@@ -44,11 +45,7 @@ export default function CreatePostPage() {
     return (
       <div>
         <Header onBack={() => navigate(returnTo)} />
-        <div className="flex justify-center py-16">
-          {meLoading
-            ? <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            : <p className="text-sm text-muted-foreground">Couldn't load your profile.</p>}
-        </div>
+        {meLoading ? <EditFormSkeleton /> : <div className="px-6 py-16 text-center text-sm text-muted-foreground"><p>Couldn’t load your account.</p><Button type="button" variant="outline" onClick={() => void refetch()} className="mt-4 min-h-11">Try again</Button></div>}
       </div>
     )
   }
@@ -150,7 +147,7 @@ export default function CreatePostPage() {
             intro={
               <div className="rounded-[20px] border border-primary-200 bg-primary-100/60 p-5">
                 <p className="text-sm leading-relaxed text-primary-700">
-                  <strong>How it works:</strong> publish your search criteria publicly. Sellers with matching properties will reach out to you directly.
+                  <strong>How it works:</strong> share your search with eligible sellers. Sellers with matching properties can reach out directly.
                 </p>
               </div>
             }
@@ -175,7 +172,7 @@ function Header({ onBack }: { onBack: () => void }) {
           type="button"
           onClick={onBack}
           aria-label="Go back"
-          className="flex h-9 w-9 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
         >
           <ArrowLeft size={20} />
         </button>

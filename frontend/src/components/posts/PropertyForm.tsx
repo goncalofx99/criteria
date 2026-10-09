@@ -101,14 +101,14 @@ export function PropertyForm({ initial, submitLabel, uploadOwnerId, onSubmit }: 
   const canSubmit =
     title.trim().length > 0 &&
     location !== null &&
-    !Number.isNaN(priceNum) && priceNum > 0 &&
+    Number.isFinite(priceNum) && priceNum > 0 &&
     (!isResidential || (Number.isInteger(Number(bedrooms)) && Number(bedrooms) >= 0 && Number.isInteger(Number(bathrooms)) && Number(bathrooms) >= 1)) &&
     (areaNum !== null && Number.isFinite(areaNum) && areaNum > 0) &&
-    (yearNum === null || (Number.isInteger(yearNum) && yearNum >= 1500 && yearNum <= CURRENT_YEAR + 5)) &&
+    (!isResidential || yearNum === null || (Number.isInteger(yearNum) && yearNum >= 1500 && yearNum <= CURRENT_YEAR + 5)) &&
     (!isResidential || (yearNum !== null && hasBalcony !== null && hasCentralHeating !== null)) &&
     (!isApartment || (
       floorNum !== null && Number.isInteger(floorNum) && floorNum >= -5 && floorNum <= 200 &&
-      (totalFloorsNum === null || (Number.isInteger(totalFloorsNum) && totalFloorsNum >= 1 && totalFloorsNum <= 200))
+      (totalFloorsNum === null || (Number.isInteger(totalFloorsNum) && totalFloorsNum >= 1 && totalFloorsNum <= 200 && floorNum <= totalFloorsNum))
     ))
 
   function addImages(files: FileList | null) {
@@ -144,7 +144,22 @@ export function PropertyForm({ initial, submitLabel, uploadOwnerId, onSubmit }: 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!canSubmit || !location) return
+    if (!canSubmit || !location) {
+      const issues = [
+        !title.trim() && 'property title',
+        !location && 'location',
+        (!Number.isFinite(priceNum) || priceNum <= 0) && 'asking price',
+        (areaNum === null || !Number.isFinite(areaNum) || areaNum <= 0) && 'area',
+        isResidential && (yearNum === null || !Number.isInteger(yearNum) || yearNum < 1500 || yearNum > CURRENT_YEAR + 5) && 'year built',
+        isResidential && hasBalcony === null && 'balcony',
+        isResidential && hasCentralHeating === null && 'central heating',
+        isApartment && (floorNum === null || !Number.isInteger(floorNum) || floorNum < -5 || floorNum > 200) && 'floor',
+        isApartment && totalFloorsNum !== null && (!Number.isInteger(totalFloorsNum) || totalFloorsNum < 1 || totalFloorsNum > 200) && 'total floors',
+        isApartment && totalFloorsNum !== null && floorNum !== null && floorNum > totalFloorsNum && 'floor and total floors',
+      ].filter(Boolean)
+      setError(`Please check ${issues.join(', ') || 'the highlighted fields'} before continuing.`)
+      return
+    }
     setError(null)
     setSubmitting(true)
     try {
@@ -252,6 +267,7 @@ export function PropertyForm({ initial, submitLabel, uploadOwnerId, onSubmit }: 
           <div className="grid grid-cols-2 gap-4">
             <Field label="Floor" required>
               <Input
+                aria-label="Floor"
                 type="number"
                 inputMode="numeric"
                 value={floor}
@@ -267,6 +283,7 @@ export function PropertyForm({ initial, submitLabel, uploadOwnerId, onSubmit }: 
             </Field>
             <Field label="Total floors">
               <Input
+                aria-label="Total floors"
                 type="number"
                 inputMode="numeric"
                 value={totalFloors}
@@ -279,6 +296,7 @@ export function PropertyForm({ initial, submitLabel, uploadOwnerId, onSubmit }: 
               {totalFloors !== '' && (totalFloorsNum === null || !Number.isInteger(totalFloorsNum) || totalFloorsNum < 1 || totalFloorsNum > 200) && (
                 <p className="mt-1 text-xs text-destructive">Enter a whole number from 1 to 200.</p>
               )}
+              {totalFloorsNum !== null && floorNum !== null && floorNum > totalFloorsNum && <p className="mt-1 text-xs text-destructive">Total floors cannot be below the apartment floor.</p>}
             </Field>
           </div>
         )}
@@ -358,7 +376,7 @@ export function PropertyForm({ initial, submitLabel, uploadOwnerId, onSubmit }: 
         type="submit"
         size="lg"
         className="rounded-xl mt-2"
-        disabled={!canSubmit || submitting}
+        disabled={submitting}
       >
         {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : submitLabel}
       </Button>
@@ -374,9 +392,10 @@ export function Field({
   const id = useId()
   const directControl = isValidElement(children) && (children.type === Input || children.type === Textarea)
   const content = directControl
-    ? cloneElement(children as React.ReactElement<{ id?: string; 'aria-labelledby'?: string }>, {
+    ? cloneElement(children as React.ReactElement<{ id?: string; 'aria-labelledby'?: string; required?: boolean }>, {
         id,
         'aria-labelledby': `${id}-label`,
+        required: required || undefined,
       })
     : children
   return (

@@ -29,6 +29,14 @@ const envSchema = z.object({
   if (value.NODE_ENV === 'production' && !value.FRONTEND_URL) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['FRONTEND_URL'], message: 'FRONTEND_URL is required in production' })
   }
+  if (value.NODE_ENV === 'production') {
+    for (const key of ['FRONTEND_URL', 'R2_PUBLIC_URL'] as const) {
+      const url = value[key]
+      if (url && URL.canParse(url) && new URL(url).protocol !== 'https:') {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `${key} must use HTTPS in production` })
+      }
+    }
+  }
 })
 
 // Validate on startup and fail immediately if env is misconfigured.

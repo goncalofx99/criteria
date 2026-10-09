@@ -5,7 +5,9 @@ import { Capacitor } from '@capacitor/core'
 import { apolloClient } from '@/lib/apollo'
 import { ReviewControls } from '@/review/ReviewControls'
 import { installReviewNetworkGuard } from '@/review/networkGuard'
+import { PrivacyNotice } from '@/components/privacy/PrivacyNotice'
 import App from './App'
+import './fonts.css'
 import './index.css'
 import './design-basis.css'
 
@@ -43,6 +45,7 @@ createRoot(document.getElementById('root')!).render(
     <ApolloProvider client={apolloClient}>
       <App />
       <ReviewControls />
+      {!Capacitor.isNativePlatform() && <PrivacyNotice />}
     </ApolloProvider>
   </StrictMode>,
 )

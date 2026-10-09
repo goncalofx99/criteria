@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "sync": "cap sync",
+    "capacitor:sync:after": "node scripts/harden-native-transport.mjs",
     "dev:ios": "cap sync && cap open ios",
     "dev:android": "cap sync && cap open android",
     "open:ios": "cap open ios",

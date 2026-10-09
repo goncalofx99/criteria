@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ArrowUpRight, Bath, BedDouble, Building2, MapPin, Maximize2 } from 'lucide-react'
-import { avatarColorFor, formatPrice, initialsOf, timeAgo } from '@/lib/format'
+import { formatPrice, timeAgo } from '@/lib/format'
+import { MemberAvatar } from '@/components/ui/member-avatar'
 import { PROPERTY_TYPE_LABEL, type PropertyType } from '@/lib/propertyType'
 import { PROPERTY_CONDITION_LABEL, type PropertyCondition } from '@/lib/amenities'
 
@@ -31,6 +33,8 @@ export interface PropertyCardData {
 export function PropertyCard({ property }: { property: PropertyCardData }) {
   const location = useLocation()
   const cover = property.images[0]
+  const [coverFailed, setCoverFailed] = useState(false)
+  useEffect(() => setCoverFailed(false), [cover])
   const residential = property.propertyType === 'apartment' || property.propertyType === 'house'
 
   return (
@@ -40,8 +44,8 @@ export function PropertyCard({ property }: { property: PropertyCardData }) {
       className="listing-card group flex h-full w-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-primary-100">
-        {cover ? (
-          <img src={cover} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]" />
+        {cover && !coverFailed ? (
+          <img src={cover} alt={`Photo for ${property.title}`} loading="lazy" decoding="async" onError={() => setCoverFailed(true)} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]" />
         ) : (
           <div className="listing-photo-placeholder flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
             <Building2 size={44} strokeWidth={1.25} aria-hidden="true" />
@@ -76,9 +80,7 @@ export function PropertyCard({ property }: { property: PropertyCardData }) {
         </div>
 
         <div className="mt-auto flex items-center gap-2 pt-4">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ backgroundColor: avatarColorFor(property.seller.id) }} aria-hidden="true">
-            {initialsOf(property.seller.fullName)}
-          </div>
+          <MemberAvatar member={property.seller} className="h-8 w-8" />
           <span className="min-w-0 truncate text-sm text-muted-foreground">{property.seller.fullName ?? 'Seller'}</span>
           {residential && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{PROPERTY_CONDITION_LABEL[property.condition]}</span>}
         </div>

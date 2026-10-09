@@ -24,6 +24,7 @@ export function AddressAutocomplete({
   const [results, setResults] = useState<GeocodeResult[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
   const [highlighted, setHighlighted] = useState(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -36,6 +37,11 @@ export function AddressAutocomplete({
       editedRef.current = false;
       return;
     }
+    abortRef.current?.abort();
+    setResults([]);
+    setOpen(false);
+    setLoading(false);
+    setStatus(null);
     setText(value);
   }, [value]);
 
@@ -53,40 +59,35 @@ export function AddressAutocomplete({
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // Debounced search.
-  useEffect(() => {
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  // Public Nominatim does not permit client-side autocomplete requests. Look
+  // up an address only after an explicit button press or Enter key.
+  async function findAddress() {
     const q = text.trim();
-    if (q.length < 3 || q === value) {
-      setResults([]);
-      setLoading(false);
-      return;
-    }
+    if (q.length < 3 || q === value) return;
 
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-
-    const t = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const r = await searchAddress(q, controller.signal);
-        if (!controller.signal.aborted) {
-          setResults(r);
-          setOpen(true);
-          setHighlighted(0);
-        }
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") setResults([]);
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
+    setLoading(true);
+    setStatus(null);
+    setResults([]);
+    setOpen(false);
+    try {
+      const matches = await searchAddress(q, controller.signal);
+      if (!controller.signal.aborted) {
+        setResults(matches);
+        setOpen(matches.length > 0);
+        setHighlighted(0);
+        if (matches.length === 0) setStatus("No matching addresses. Try a broader location.");
       }
-    }, 350);
-
-    return () => {
-      clearTimeout(t);
-      controller.abort();
-    };
-  }, [text, value]);
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") setStatus("Address lookup is unavailable. Try again or choose a location on the map.");
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
+    }
+  }
 
   function pick(r: GeocodeResult) {
     editedRef.current = false;
@@ -97,17 +98,18 @@ export function AddressAutocomplete({
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!open || results.length === 0) return;
-    if (e.key === "ArrowDown") {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const selected = open ? results[highlighted] : undefined;
+      if (selected) pick(selected);
+      else void findAddress();
+    } else if (!open || results.length === 0) return;
+    else if (e.key === "ArrowDown") {
       e.preventDefault();
       setHighlighted((h) => Math.min(h + 1, results.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlighted((h) => Math.max(h - 1, 0));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const r = results[highlighted];
-      if (r) pick(r);
     } else if (e.key === "Escape") {
       setOpen(false);
     }
@@ -115,40 +117,49 @@ export function AddressAutocomplete({
 
   return (
     <div ref={wrapperRef} className="relative">
-      <div className="relative">
-        <Search
-          size={16}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-        />
-        <Input
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            setOpen(true);
-            if (value && e.target.value !== value) {
-              editedRef.current = true;
-              onEdit?.();
-            }
-          }}
-          onFocus={() => results.length > 0 && setOpen(true)}
-          onKeyDown={onKeyDown}
-          placeholder={placeholder}
-          autoComplete="off"
-          spellCheck={false}
-          role="combobox"
-          aria-label="Search for a location"
-          aria-autocomplete="list"
-          aria-expanded={open && results.length > 0}
-          aria-controls={listId}
-          aria-activedescendant={open && results.length > 0 ? `${listId}-${highlighted}` : undefined}
-          className="pl-9 pr-9"
-        />
-        {loading && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <Loader2 size={16} className="animate-spin text-muted-foreground" />
-          </div>
-        )}
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={text}
+            onChange={(e) => {
+              abortRef.current?.abort();
+              setText(e.target.value);
+              setResults([]);
+              setOpen(false);
+              setLoading(false);
+              setStatus(null);
+              if (value && e.target.value !== value) {
+                editedRef.current = true;
+                onEdit?.();
+              }
+            }}
+            onFocus={() => results.length > 0 && setOpen(true)}
+            onKeyDown={onKeyDown}
+            placeholder={placeholder}
+            autoComplete="off"
+            spellCheck={false}
+            role="combobox"
+            aria-label="Search for a location"
+            aria-autocomplete="list"
+            aria-expanded={open && results.length > 0}
+            aria-controls={listId}
+            aria-activedescendant={open && results.length > 0 ? `${listId}-${highlighted}` : undefined}
+            className="pl-9"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => void findAddress()}
+          disabled={loading || text.trim().length < 3 || text.trim() === value}
+          className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-primary hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {loading && <Loader2 size={15} aria-hidden="true" className="animate-spin" />}
+          Find
+        </button>
       </div>
+      {status && <p role="status" className="mt-2 text-xs text-muted-foreground">{status}</p>}
+      <p className="mt-1 text-[11px] text-muted-foreground">Address lookup by <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-primary">OpenStreetMap</a>.</p>
 
       {open && results.length > 0 && (
         <div

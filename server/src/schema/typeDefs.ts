@@ -26,6 +26,8 @@ export const typeDefs = `#graphql
     id: ID!
     # Only returned for the authenticated user themselves — null for all others.
     email: String
+    # Private, like email: null when this is another user's public profile.
+    hasPassword: Boolean
     fullName: String
     avatarUrl: String
     role: UserRole!

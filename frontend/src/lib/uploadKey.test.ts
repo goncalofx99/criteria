@@ -15,6 +15,7 @@ describe('R2 upload key preparation', () => {
 
   it('rejects unsupported media, oversized files and other users’ upload paths', () => {
     expect(() => validateUploadImage({ type: 'image/heic', size: 10 })).toThrow(/JPEG/)
+    expect(() => validateUploadImage({ type: 'image/gif', size: 10 })).toThrow(/JPEG/)
     expect(() => validateUploadImage({ type: 'image/png', size: 10 * 1024 * 1024 + 1 })).toThrow(/10 MB/)
     expect(() => buildUploadKey({ type: 'image/png', size: 100 }, 'posts/other-user', 'id', 1)).toThrow(/destination/)
   })

@@ -30,6 +30,11 @@ interface FormData {
 
 const TOTAL_STEPS = 5
 
+function isValidSignupEmail(value: string): boolean {
+  const email = value.trim()
+  return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
 const roles = [
   { value: 'seller' as Role, icon: Building2, title: 'Seller', description: 'I have a property to list.' },
   { value: 'buyer'  as Role, icon: Search,    title: 'Buyer',  description: 'I\'m looking to buy.' },
@@ -84,7 +89,8 @@ export default function SignUpPage() {
 
   function canProceed(): boolean {
     switch (step) {
-      case 0: return form.firstName.trim().length > 0 && form.lastName.trim().length > 0
+      case 0: return form.firstName.trim().length > 0 && form.lastName.trim().length > 0 &&
+        `${form.firstName.trim()} ${form.lastName.trim()}`.length <= 150
       case 1: {
         const age = Number(form.age)
         return form.age !== '' && Number.isInteger(age) && age >= 18 && age <= 120
@@ -95,8 +101,9 @@ export default function SignUpPage() {
         const checks = getPasswordChecks(form.password)
         const allPass = checks.every(c => c.passed)
         return (
-          form.email.includes('@') &&
+          isValidSignupEmail(form.email) &&
           allPass &&
+          form.password.length <= 1024 &&
           form.password === form.confirmPassword
         )
       }
@@ -112,7 +119,7 @@ export default function SignUpPage() {
       // 1. Create user account
       const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`
       const user = await signUp({
-        email: form.email,
+        email: form.email.trim(),
         password: form.password,
         fullName,
         role: form.role ?? 'buyer',
@@ -125,7 +132,7 @@ export default function SignUpPage() {
         try {
           const avatarUrl = await uploadFile(form.avatarFile, `avatars/${user.id}`)
           await upsertUser({
-            variables: { input: { email: form.email, fullName, avatarUrl, role: form.role } },
+            variables: { input: { email: form.email.trim(), fullName, avatarUrl, role: form.role } },
             update: (cache, { data }) => {
               if (data?.upsertUser) cache.writeQuery({ query: GET_ME, data: { me: data.upsertUser } })
             },
@@ -143,8 +150,9 @@ export default function SignUpPage() {
   }
 
   function next() {
+    if (!canProceed() || loading) return
     if (step < TOTAL_STEPS - 1) { setError(null); setStep(s => s + 1) }
-    else handleSubmit()
+    else void handleSubmit()
   }
 
   function back() {
@@ -211,6 +219,11 @@ export default function SignUpPage() {
                 : 'Continue'
           }
         </Button>
+        {step === TOTAL_STEPS - 1 && (
+          <p className="text-center text-xs leading-relaxed text-muted-foreground">
+            Before creating an account, read our <Link to="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-foreground underline underline-offset-2">Terms and conditions</Link> and <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-foreground underline underline-offset-2">Privacy policy</Link>.
+          </p>
+        )}
         {step === 0 && (
           <p className="text-center text-sm text-muted-foreground">
             Already have an account?{' '}
@@ -227,6 +240,7 @@ export default function SignUpPage() {
 // ── Step components ────────────────────────────────────────────────────────
 
 function StepName({ form, set }: { form: FormData; set: <K extends keyof FormData>(k: K, v: FormData[K]) => void }) {
+  const nameTooLong = `${form.firstName.trim()} ${form.lastName.trim()}`.length > 150
   return (
     <div className="space-y-6">
       <div>
@@ -240,6 +254,8 @@ function StepName({ form, set }: { form: FormData; set: <K extends keyof FormDat
             id="firstName"
             placeholder="João"
             autoComplete="given-name"
+            maxLength={150}
+            aria-describedby={nameTooLong ? 'signup-name-error' : undefined}
             value={form.firstName}
             onChange={e => set('firstName', e.target.value)}
           />
@@ -250,10 +266,13 @@ function StepName({ form, set }: { form: FormData; set: <K extends keyof FormDat
             id="lastName"
             placeholder="Silva"
             autoComplete="family-name"
+            maxLength={150}
+            aria-describedby={nameTooLong ? 'signup-name-error' : undefined}
             value={form.lastName}
             onChange={e => set('lastName', e.target.value)}
           />
         </div>
+        {nameTooLong && <p id="signup-name-error" role="alert" className="text-xs text-destructive">Your full name must be 150 characters or fewer.</p>}
       </div>
     </div>
   )
@@ -421,6 +440,8 @@ function StepAccount({
   error: string | null
 }) {
   const passwordMismatch = form.confirmPassword !== '' && form.password !== form.confirmPassword
+  const emailInvalid = form.email.trim() !== '' && !isValidSignupEmail(form.email)
+  const passwordTooLong = form.password.length > 1024
 
   return (
     <div className="space-y-5">
@@ -437,9 +458,13 @@ function StepAccount({
             type="email"
             placeholder="you@example.com"
             autoComplete="email"
+            maxLength={254}
+            error={emailInvalid}
+            aria-describedby={emailInvalid ? 'signup-email-error' : undefined}
             value={form.email}
             onChange={e => set('email', e.target.value)}
           />
+          {emailInvalid && <p id="signup-email-error" role="alert" className="text-xs text-destructive">Enter a complete email address, such as name@example.com.</p>}
         </div>
 
         <div className="space-y-1.5">
@@ -450,6 +475,7 @@ function StepAccount({
               type={showPassword ? 'text' : 'password'}
               placeholder="Create a strong password"
               autoComplete="new-password"
+              maxLength={1024}
               value={form.password}
               onChange={e => set('password', e.target.value)}
               className="pr-11"
@@ -465,6 +491,7 @@ function StepAccount({
             </button>
           </div>
           <PasswordStrength password={form.password} />
+          {passwordTooLong && <p role="alert" className="text-xs text-destructive">Password must be 1024 characters or fewer.</p>}
         </div>
 
         <div className="space-y-1.5">
