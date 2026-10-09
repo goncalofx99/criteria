@@ -2,12 +2,24 @@
    semantic classes alongside Tailwind utilities for repeatable layouts. */
 
 .editorial-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: hsl(var(--primary-600));
   font-size: 11px;
   font-weight: 700;
   letter-spacing: .16em;
   line-height: 1.5;
   text-transform: uppercase;
+}
+
+.editorial-kicker::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 999px;
+  background: hsl(var(--warm-accent));
 }
 
 .editorial-title {
@@ -42,11 +54,18 @@
 .listing-card:hover, .criteria-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-lift);
-  border-color: hsl(var(--primary-200));
+  border-color: hsl(var(--warm-accent-border));
 }
 
+.listing-photo-placeholder {
+  background: radial-gradient(circle at 25% 20%, hsl(var(--accent)) 0, transparent 45%), linear-gradient(145deg, hsl(var(--primary-100)), hsl(var(--overlay)));
+  color: hsl(var(--primary-700));
+}
+
+:root.dark .listing-photo-placeholder { color: hsl(var(--primary-400)); }
+
 .criteria-card {
-  background: linear-gradient(145deg, hsl(var(--surface-raised)) 0%, hsl(var(--accent)) 100%);
+  background: linear-gradient(145deg, hsl(var(--surface-raised)) 0%, hsl(var(--warm-accent-soft)) 100%);
 }
 
 .segmented-control {
@@ -91,6 +110,8 @@
   font-weight: 600;
   padding: 6px 11px;
 }
+
+:root.dark .quiet-chip { color: hsl(var(--accent-foreground)); }
 
 .auth-page {
   background: radial-gradient(circle at 5% 5%, hsl(var(--primary-100)) 0%, transparent 34%), hsl(var(--paper));

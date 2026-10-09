@@ -115,12 +115,15 @@ export default function CreatePostPage() {
     <div className="min-h-dvh">
       <Header onBack={() => navigate(returnTo)} />
 
-      <div className="mx-auto max-w-[840px] px-5 py-7 md:px-8 md:py-10">
+      <div className="mx-auto max-w-[1160px] px-5 py-7 md:px-8 md:py-10 lg:grid lg:grid-cols-[minmax(220px,290px)_minmax(0,1fr)] lg:items-start lg:gap-12 xl:gap-16">
+        <div className="lg:sticky lg:top-28">
         <p className="editorial-kicker">Make your move</p>
         <h2 className="editorial-title mt-2">Put it out there.</h2>
-        <p className="editorial-subtitle mt-2 mb-7 max-w-xl text-sm md:text-base">
+        <p className="editorial-subtitle mt-2 mb-7 max-w-xl text-sm md:text-base lg:mb-0">
           A clear post helps the right person find you, whether you're offering a home or searching for one.
         </p>
+        </div>
+        <div className="min-w-0">
         {showToggle && (
           <div className="segmented-control mb-7 flex w-full" role="group" aria-label="Post type">
             <ModeButton
@@ -158,6 +161,7 @@ export default function CreatePostPage() {
         <p className="mt-3 text-center text-xs text-muted-foreground">
           Listings are visible to signed-in members. Buyer requests are visible to sellers, and exact addresses stay private.
         </p>
+        </div>
       </div>
     </div>
   )

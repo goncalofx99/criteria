@@ -78,58 +78,60 @@ export default function ProfilePage() {
           Sign out
         </Button>
       </div>
-      <div>
-        <div className="surface-panel overflow-hidden">
-          <div className="h-20 bg-primary-900 md:h-28" />
-          <div className="px-5 pb-6 md:px-8">
-            <div className="-mt-9 mb-3 flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-full border-4 border-surface bg-primary md:h-20 md:w-20">
-              {me.avatarUrl ? (
-                <img src={me.avatarUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-2xl font-bold text-accent">{initialsOf(me.fullName)}</span>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-2xl font-semibold text-foreground">{me.fullName ?? 'Unnamed user'}</h2>
-              <span
-                className={cn(
-                  'rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-widest',
-                  roleBadgeClass,
+      <div className="lg:grid lg:grid-cols-[minmax(270px,350px)_minmax(0,1fr)] lg:items-start lg:gap-8 xl:gap-10">
+        <div className="min-w-0">
+          <div className="surface-panel overflow-hidden">
+            <div className="h-20 bg-primary-900 md:h-28" />
+            <div className="px-5 pb-6 md:px-8">
+              <div className="-mt-9 mb-3 flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-full border-4 border-surface bg-primary md:h-20 md:w-20">
+                {me.avatarUrl ? (
+                  <img src={me.avatarUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold text-white">{initialsOf(me.fullName)}</span>
                 )}
-              >
-                {roleLabel}
-              </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-2xl font-semibold text-foreground">{me.fullName ?? 'Unnamed user'}</h2>
+                <span
+                  className={cn(
+                    'rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-widest',
+                    roleBadgeClass,
+                  )}
+                >
+                  {roleLabel}
+                </span>
+              </div>
+              {me.email && <p className="mt-1 text-sm text-muted-foreground">{me.email}</p>}
             </div>
-            {me.email && <p className="mt-1 text-sm text-muted-foreground">{me.email}</p>}
           </div>
+
+          <section className="surface-panel mt-6 p-5 md:p-6" aria-labelledby="role-heading">
+            <h2 id="role-heading" className="text-lg font-semibold text-foreground">How you use CRITERIA</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Your role controls what you can publish and browse. Your existing posts stay here to manage.</p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-1" role="group" aria-label="Account role">
+              {([
+                ['buyer', 'Buyer', 'Browse properties and publish buyer requests'],
+                ['seller', 'Seller', 'Browse buyer requests and publish properties'],
+                ['both', 'Both', 'Buy and sell with one account'],
+              ] as const).map(([value, label, description]) => (
+                <button key={value} type="button" onClick={() => { setChosenRole(value); setRoleError(null); setRoleSaved(false) }} aria-pressed={selectedRole === value}
+                  className={cn('min-h-20 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', selectedRole === value ? 'border-primary bg-primary-100' : 'border-border bg-surface hover:border-primary-200')}>
+                  <span className="block text-sm font-semibold text-foreground">{label}</span>
+                  <span className="mt-1 block text-xs leading-snug text-muted-foreground">{description}</span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Button onClick={() => { void handleSaveRole() }} disabled={selectedRole === me.role || roleSaving} className="min-h-11">
+                {roleSaving && <Loader2 className="animate-spin" aria-hidden="true" />}Save role
+              </Button>
+              {roleSaved && <p role="status" className="text-sm text-primary">Role updated.</p>}
+              {roleError && <p role="alert" className="text-sm text-destructive">{roleError}</p>}
+            </div>
+          </section>
         </div>
 
-        <section className="surface-panel mt-6 p-5 md:p-6" aria-labelledby="role-heading">
-          <h2 id="role-heading" className="text-lg font-semibold text-foreground">How you use CRITERIA</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Your role controls what you can publish and browse. Your existing posts stay here to manage.</p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-3" role="group" aria-label="Account role">
-            {([
-              ['buyer', 'Buyer', 'Browse properties and publish buyer requests'],
-              ['seller', 'Seller', 'Browse buyer requests and publish properties'],
-              ['both', 'Both', 'Buy and sell with one account'],
-            ] as const).map(([value, label, description]) => (
-              <button key={value} type="button" onClick={() => { setChosenRole(value); setRoleError(null); setRoleSaved(false) }} aria-pressed={selectedRole === value}
-                className={cn('min-h-20 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', selectedRole === value ? 'border-primary bg-primary-100' : 'border-border bg-surface hover:border-primary-200')}>
-                <span className="block text-sm font-semibold text-foreground">{label}</span>
-                <span className="mt-1 block text-xs leading-snug text-muted-foreground">{description}</span>
-              </button>
-            ))}
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Button onClick={() => { void handleSaveRole() }} disabled={selectedRole === me.role || roleSaving} className="min-h-11">
-              {roleSaving && <Loader2 className="animate-spin" aria-hidden="true" />}Save role
-            </Button>
-            {roleSaved && <p role="status" className="text-sm text-primary">Role updated.</p>}
-            {roleError && <p role="alert" className="text-sm text-destructive">{roleError}</p>}
-          </div>
-        </section>
-
-        <section className="mt-8" aria-label="Your posts">
+        <section className="min-w-0 mt-8 lg:mt-0" aria-label="Your posts">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-2xl font-semibold text-foreground">Your posts</h2>
             {(canCreateProperty || canCreateCriteria) && <Link to="/create" state={{ returnTo: '/profile' }} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline">Create a post</Link>}
@@ -232,8 +234,12 @@ function PostCollection<T extends { id: string; isActive: boolean }>({ items, no
   if (items.length === 0) return <ProfileEmpty body={`You have no ${noun}s yet. Create your first post to get started.`} />
 
   function cards(posts: T[]) {
-    return <div className="result-card-grid mt-4">
-      {posts.map(item => <div key={item.id} className="min-w-0">
+    const single = posts.length === 1
+    return <div className={cn('result-card-grid mt-4', single && 'lg:!grid-cols-1')}>
+      {posts.map(item => <div key={item.id} className={cn(
+        'min-w-0',
+        single && noun === 'listing' && 'lg:[&_.listing-card]:!flex-row lg:[&_.listing-card>div:first-child]:!aspect-auto lg:[&_.listing-card>div:first-child]:!min-h-[280px] lg:[&_.listing-card>div:first-child]:!w-[42%] lg:[&_.listing-card>div:first-child]:!shrink-0',
+      )}>
         {renderCard(item)}
         <div className="mt-2 flex flex-wrap items-center gap-3 px-1">
           <Link to={editPath(item.id)} state={{ returnTo: '/profile' }} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Edit {noun}</Link>

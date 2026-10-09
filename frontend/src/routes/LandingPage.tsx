@@ -31,7 +31,7 @@ export default function LandingPage() {
     <div className="landing-layout app-shell min-h-dvh bg-primary-900">
       <div className="landing-hero relative flex min-h-[55dvh] flex-col justify-between overflow-hidden px-7 pb-10 pt-safe md:px-12 md:pb-12 lg:px-16">
         <div className="relative z-10 flex items-center gap-3 pt-6 text-white">
-          <span className="flex h-10 w-10 items-center justify-center rounded-[14px] border border-white/25 bg-white/10 text-xl font-semibold">C</span>
+          <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-[14px] border border-white/25 bg-white/10"><img src="/icon-192.png" alt="" className="h-full w-full scale-[1.8] object-cover" /></span>
           <span className="font-semibold tracking-[.16em]">CRITERIA</span>
         </div>
         <div className="absolute -right-28 top-1/4 h-[460px] w-[460px] rounded-full border border-white/10 md:-right-12" />
@@ -62,7 +62,7 @@ export default function LandingPage() {
       <div className="flex flex-col justify-center rounded-t-[30px] bg-accent px-6 pb-10 pt-10 pb-safe md:rounded-none md:px-10 lg:px-16">
         <div className="mx-auto flex w-full max-w-[430px] flex-col gap-3">
           <p className="editorial-kicker">Welcome to a better search</p>
-          <h2 className="mt-1 text-[34px] font-semibold leading-tight tracking-[-.05em] text-primary-900">Your next move starts here.</h2>
+          <h2 className="mt-1 text-[34px] font-semibold leading-tight tracking-[-.05em] text-foreground">Your next move starts here.</h2>
           <p className="mb-5 text-sm leading-relaxed text-muted-foreground">Join the marketplace where buyers and sellers can both make the first move.</p>
           <SocialAuthButtons
             variant="landing"

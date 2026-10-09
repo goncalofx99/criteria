@@ -160,7 +160,7 @@ export default function SignUpPage() {
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <StepIndicator current={step} total={TOTAL_STEPS} />
-        <div className="w-10" /> {/* spacer */}
+        <span className="flex h-10 w-10 overflow-hidden rounded-xl bg-accent"><img src="/icon-192.png" alt="CRITERIA" className="h-full w-full scale-[1.8] object-cover" /></span>
       </div>
 
       {/* Step content */}

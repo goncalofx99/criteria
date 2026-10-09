@@ -51,14 +51,14 @@ export default function SignInPage() {
         >
           <Link to="/" aria-label="Back to home"><ChevronLeft className="h-5 w-5" /></Link>
         </Button>
-        <span className="text-xs font-semibold tracking-[.16em] text-primary">CRITERIA</span>
+        <span className="inline-flex items-center gap-2 text-xs font-semibold tracking-[.16em] text-foreground"><span className="flex h-8 w-8 overflow-hidden rounded-lg bg-accent"><img src="/icon-192.png" alt="" className="h-full w-full scale-[1.8] object-cover" /></span>CRITERIA</span>
       </div>
 
       <div className="web-content auth-panel my-auto flex flex-none flex-col px-6 py-8 md:px-9 md:py-9">
         {/* Title */}
         <div className="mb-8">
           <p className="editorial-kicker">Continue your search</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-.04em] text-primary-900">Welcome back.</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-.04em] text-foreground">Welcome back.</h1>
           <p className="mt-2 text-sm text-muted-foreground">Sign in to pick up where you left off.</p>
         </div>
 
@@ -76,7 +76,7 @@ export default function SignInPage() {
             <div className="w-full border-t border-border" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-background px-3 text-xs text-muted-foreground">or sign in with email</span>
+            <span className="bg-surface px-3 text-xs text-muted-foreground">or sign in with email</span>
           </div>
         </div>
 

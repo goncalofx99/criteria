@@ -42,7 +42,7 @@ export function CriteriaCard({ criteria }: { criteria: CriteriaCardData }) {
     <Link
       to={`/criteria/${criteria.id}`}
       state={{ returnTo: `${location.pathname}${location.search}` }}
-      className="criteria-card group block h-full w-full active:scale-[0.99]"
+      className="criteria-card group block h-full w-full active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
       <div className="relative flex h-24 items-center justify-between overflow-hidden bg-primary-900 px-5 text-white">
         <div className="absolute -right-5 -top-16 h-40 w-40 rounded-full border border-white/10" />
@@ -79,7 +79,7 @@ export function CriteriaCard({ criteria }: { criteria: CriteriaCardData }) {
         {/* Budget */}
         <div className="mb-3">
           <p className="editorial-kicker">Budget</p>
-          <p className="mt-1 text-[25px] font-semibold tracking-[-.045em] text-primary-900">
+          <p className="mt-1 text-[25px] font-semibold tracking-[-.045em] text-foreground">
             {formatPriceRange(criteria.priceMin, criteria.priceMax)}
           </p>
         </div>
@@ -104,7 +104,7 @@ export function CriteriaCard({ criteria }: { criteria: CriteriaCardData }) {
         </div>
 
         {/* Specs */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-primary-200/80 pt-3 text-[13px] font-medium text-foreground/75">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border/80 pt-3 text-[13px] font-medium text-foreground/75">
           {residential && <span className="flex items-center gap-1.5">
             <BedDouble size={14} className="text-muted-foreground/70" />
             {criteria.bedroomsMin}+ bed

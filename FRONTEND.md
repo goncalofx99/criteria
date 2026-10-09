@@ -44,9 +44,9 @@ Property and request forms share section and validation patterns. Property photo
 
 ## Design foundation
 
-Edit semantic HSL variables and shadows in src/index.css. tailwind.config.ts maps them to utilities. src/design-basis.css contains reusable layout, type and surface classes. The palette retains forest green and sand, with warm paper and white surfaces. DM Sans is used for headings and Inter for body text.
+Edit semantic HSL variables and shadows in src/index.css. tailwind.config.ts maps them to utilities. src/design-basis.css contains reusable layout, type and surface classes. The palette retains forest green and sand, with warm paper, white surfaces, and a restrained clay accent. Dark mode changes the same semantic variables rather than adding a second component palette. The visible theme control offers Light, Dark and System; useTheme persists the preference and follows OS changes, while an index.html bootstrap applies it before React renders. DM Sans is used for headings and Inter for body text.
 
-Phones use one bottom navigation bar. Tablets and desktops use one top navigation bar. Search and filters belong to Explore and open as temporary controls; they do not create another permanent app rail. The shell expands at 768px on both web and native. Content has readable width while maps and image layouts use available space. Safe-area insets, keyboard focus, reduced motion and clear loading/empty/error states are part of component behavior.
+Phones use a three-item bottom navigation bar with Create centered; a persistent top brand header contains the CRITERIA logo, theme control and Profile link. Tablets and desktops use one top navigation bar with all four destinations. Search and filters belong to Explore and open as temporary controls; they do not create another permanent app rail. The shell expands at 768px on both web and native. Content has readable width while maps and image layouts use available space. Safe-area insets, keyboard focus, reduced motion and clear loading/empty/error states are part of component behavior.
 
 Prefer existing local CVA components in components/ui for buttons, inputs and labels. Add accessible behavior to those components or small focused primitives rather than introducing a separate themed component library.
 

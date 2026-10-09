@@ -2,8 +2,8 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 /**
- * Sticky page header that respects the iOS notch / status bar inset.
- * The wrapper holds the safe-area padding; children render the actual row(s).
+ * Sticky page header below the persistent phone brand bar. The brand bar owns
+ * the safe-area inset; this offset keeps both controls visible while scrolling.
  */
 export function PageHeader({
   className,
@@ -15,7 +15,7 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        'sticky top-0 z-30 border-b border-border/70 bg-surface/90 pt-safe backdrop-blur-xl md:relative md:pt-0',
+        'sticky top-[calc(56px+env(safe-area-inset-top))] z-30 border-b border-border/70 bg-surface/90 backdrop-blur-xl md:relative md:top-auto',
         className,
       )}
     >

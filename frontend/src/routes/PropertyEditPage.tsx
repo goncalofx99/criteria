@@ -65,7 +65,7 @@ export default function PropertyEditPage() {
   return (
     <div>
       <PageHeader>
-        <div className="flex items-center gap-3 px-5 py-4">
+        <div className="workspace-content flex items-center gap-3 px-5 py-4 md:px-8 lg:px-10">
           <button
             type="button"
             onClick={() => navigate(`/listing/${id}`, { state: { returnTo } })}
@@ -91,9 +91,11 @@ export default function PropertyEditPage() {
           You can only edit your own listings.
         </p>
       ) : (
-        <div className="mx-auto max-w-[840px] px-5 py-7 md:px-8 md:py-10">
+        <div className="mx-auto max-w-[1160px] px-5 py-7 md:px-8 md:py-10 lg:grid lg:grid-cols-[minmax(220px,290px)_minmax(0,1fr)] lg:items-start lg:gap-12 xl:gap-16">
+          <div className="lg:sticky lg:top-28">
           <p className="editorial-kicker">Your listing</p>
-          <h2 className="editorial-title mb-7 mt-2">Refine your post.</h2>
+          <h2 className="editorial-title mb-7 mt-2 lg:mb-0">Refine your post.</h2>
+          </div>
           <PropertyForm
             initial={{
               title: post.title,

@@ -34,7 +34,7 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="app-shell auth-page flex min-h-dvh flex-col px-5 pb-safe pt-safe">
-      <div className="web-content py-5"><Link to="/sign-in" className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-primary"><ArrowLeft size={18} />Back to sign in</Link></div>
+      <div className="web-content flex items-center justify-between gap-3 py-5"><Link to="/sign-in" className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-primary"><ArrowLeft size={18} />Back to sign in</Link><span className="flex h-9 w-9 shrink-0 overflow-hidden rounded-xl bg-accent"><img src="/icon-192.png" alt="CRITERIA" className="h-full w-full scale-[1.8] object-cover" /></span></div>
       <main className="auth-panel web-content my-auto p-6 md:p-9">
         <p className="editorial-kicker">Account access</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">Choose a new password</h1>

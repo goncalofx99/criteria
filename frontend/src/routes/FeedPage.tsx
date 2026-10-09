@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useQuery } from '@apollo/client'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { ArrowRight, ArrowUpDown, Compass, List, Loader2, Map as MapIcon, MapPin, Search, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowRight, ArrowUpDown, List, Loader2, Map as MapIcon, MapPin, Search, SlidersHorizontal, X } from 'lucide-react'
 import { SEARCH_SELLER_POSTS, SEARCH_BUYER_POSTS } from '@/lib/gql'
 import { PropertyCard, type PropertyCardData } from '@/components/posts/PropertyCard'
 import { CriteriaCard, type CriteriaCardData } from '@/components/posts/CriteriaCard'
@@ -116,32 +116,28 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-dvh">
-      <PageHeader className="relative bg-background/95">
-        <div className={cn('workspace-content px-4 sm:px-6 md:px-8 lg:px-10', view === 'map' ? 'pb-4 pt-4 md:pb-5 md:pt-5' : 'pb-5 pt-5 md:pb-7 md:pt-8')}>
-          <p className="editorial-kicker">Explore Portugal</p>
-          <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
-            <div>
+      <PageHeader className="relative !top-auto bg-background/95">
+        <div className={cn('workspace-content px-4 sm:px-6 md:px-8 lg:px-10', view === 'map' ? 'pb-4 pt-3 md:pb-5 md:pt-5' : 'pb-5 pt-3 md:pb-7 md:pt-8')}>
+          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(360px,520px)] lg:items-end lg:gap-10 xl:gap-16">
+            <div className="min-w-0">
+              <p className="editorial-kicker">Explore Portugal</p>
               <h1 className={cn(view === 'map' ? 'text-2xl font-semibold tracking-tight md:text-3xl' : 'editorial-title')}>{view === 'map' ? 'Explore the map.' : 'Find your place.'}</h1>
               {view === 'list' && <p className="editorial-subtitle mt-2 max-w-xl text-sm md:text-base">Homes for sale and requests from people ready to buy.</p>}
             </div>
-            {view === 'list' && <span className="hidden items-center gap-2 rounded-full border border-primary-200 bg-primary-100 px-4 py-2 text-xs font-medium text-primary-700 lg:inline-flex">
-              <Compass className="h-4 w-4" aria-hidden="true" /> Two sides. More possibilities.
-            </span>}
+            <form onSubmit={applySearch} role="search" className="mt-5 flex min-w-0 items-center rounded-2xl border border-border bg-surface p-1 shadow-sm focus-within:ring-2 focus-within:ring-ring lg:mt-0">
+              <Search className="ml-3 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <label htmlFor="feed-search" className="sr-only">Search places, listings, or requests</label>
+              <input
+                id="feed-search"
+                type="search"
+                value={searchDraft}
+                onChange={event => setSearchDraft(event.target.value)}
+                placeholder="City or keyword"
+                className="h-11 min-w-0 flex-1 bg-transparent px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+              />
+              <button type="submit" className="flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-700">Search</button>
+            </form>
           </div>
-
-          <form onSubmit={applySearch} role="search" className={cn('flex max-w-3xl items-center rounded-2xl border border-border bg-surface p-1 shadow-sm focus-within:ring-2 focus-within:ring-ring', view === 'map' ? 'mt-4' : 'mt-6')}>
-            <Search className="ml-3 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <label htmlFor="feed-search" className="sr-only">Search places, listings, or requests</label>
-            <input
-              id="feed-search"
-              type="search"
-              value={searchDraft}
-              onChange={event => setSearchDraft(event.target.value)}
-              placeholder="City or keyword"
-              className="h-11 min-w-0 flex-1 bg-transparent px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-            />
-            <button type="submit" className="flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-700">Search</button>
-          </form>
 
           <div className={cn('flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between', view === 'map' ? 'mt-3' : 'mt-5')}>
             {canViewCriteria ? (
@@ -179,7 +175,7 @@ export default function FeedPage() {
       </PageHeader>
 
       <div className={cn('workspace-content px-4 sm:px-6 md:px-8 lg:px-10', view === 'map' ? 'py-4' : 'py-6 lg:py-8')}>
-        {blockedCriteria && <div role="status" className="mb-5 rounded-2xl border border-primary-200 bg-primary-100 p-4 text-sm text-primary-900">Buyer requests are available to sellers. <Link to="/profile" className="font-semibold underline underline-offset-2">Update your role in Profile</Link> to browse them.</div>}
+        {blockedCriteria && <div role="status" className="mb-5 rounded-2xl border border-primary-200 bg-primary-100 p-4 text-sm text-foreground">Buyer requests are available to sellers. <Link to="/profile" className="font-semibold underline underline-offset-2">Update your role in Profile</Link> to browse them.</div>}
         {type === 'properties' ? (
           <Properties key="properties" view={view} filters={sellerFilters} search={search} bounds={bounds} sort={sort as SellerSort} page={page} onPage={changePage} onBounds={changeBounds} returnTo={returnTo} />
         ) : (
@@ -326,7 +322,7 @@ function Properties({ view, filters, search, bounds, sort, page, onPage, onBound
       <ResultSummary count={result.totalCount} shown={result.items.length} page={page} limit={limit} loading={loading} label="properties" />
       {error && <FeedError message="Results may be out of date." retry={() => void refetch()} />}
       {view === 'map' ? <MapResults properties={result.items} bounds={bounds} onBounds={onBounds} returnTo={returnTo} /> : (
-        <div className="result-card-grid">{result.items.map(property => <PropertyCard key={property.id} property={property} />)}</div>
+        <div className="result-card-grid lg:!grid-cols-3">{result.items.map(property => <PropertyCard key={property.id} property={property} />)}</div>
       )}
       <Pagination page={page} hasNext={result.hasNextPage} total={result.totalCount} limit={limit} onPage={onPage} />
     </>
@@ -353,7 +349,7 @@ function Criteria({ view, filters, search, bounds, sort, page, onPage, onBounds,
       <ResultSummary count={result.totalCount} shown={result.items.length} page={page} limit={limit} loading={loading} label="buyer requests" />
       {error && <FeedError message="Results may be out of date." retry={() => void refetch()} />}
       {view === 'map' ? <MapResults criteria={result.items} bounds={bounds} onBounds={onBounds} returnTo={returnTo} /> : (
-        <div className="result-card-grid">{result.items.map(criteria => <CriteriaCard key={criteria.id} criteria={criteria} />)}</div>
+        <div className="result-card-grid lg:!grid-cols-3">{result.items.map(criteria => <CriteriaCard key={criteria.id} criteria={criteria} />)}</div>
       )}
       <Pagination page={page} hasNext={result.hasNextPage} total={result.totalCount} limit={limit} onPage={onPage} />
     </>
@@ -412,7 +408,7 @@ function MapResults({ properties, criteria, bounds, onBounds, returnTo }: {
           <div className="absolute bottom-3 left-3 right-3 z-[500] max-w-sm rounded-2xl border border-border bg-surface p-4 shadow-lift sm:bottom-5 sm:left-auto sm:right-5">
             <button type="button" onClick={() => setSelectedId(null)} aria-label="Close selected result" className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-accent"><X className="h-4 w-4" aria-hidden="true" /></button>
             <p className="editorial-kicker">{selectedProperty ? 'Property' : 'Buyer request'}</p>
-            <p className="mt-1 pr-10 text-lg font-semibold text-primary-900">{selectedProperty ? formatPrice(selectedProperty.price) : formatPriceRange(selectedCriteria!.priceMin, selectedCriteria!.priceMax)}</p>
+            <p className="mt-1 pr-10 text-lg font-semibold text-foreground">{selectedProperty ? formatPrice(selectedProperty.price) : formatPriceRange(selectedCriteria!.priceMin, selectedCriteria!.priceMax)}</p>
             <p className="mt-1 line-clamp-2 text-sm font-medium">{selectedProperty?.title ?? selectedCriteria?.title}</p>
             <p className="mt-1 text-xs text-muted-foreground">{selectedProperty?.locationText ?? selectedCriteria?.locationText}</p>
             <Link to={selectedProperty ? `/listing/${selectedProperty.id}` : `/criteria/${selectedCriteria!.id}`} state={{ returnTo }} className="mt-3 inline-flex min-h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-700">View details <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
@@ -425,7 +421,7 @@ function MapResults({ properties, criteria, bounds, onBounds, returnTo }: {
           <div role="listitem" key={property.id} className="min-w-[200px] max-w-[240px] shrink-0 snap-start">
             <Link to={`/listing/${property.id}`} state={{ returnTo }} className={cn('block h-full rounded-2xl border bg-surface p-4 transition-colors hover:border-primary-400 hover:bg-primary-100', selectedId === property.id ? 'border-primary' : 'border-border')}>
               <p className="editorial-kicker">Property</p>
-              <p className="mt-1 text-lg font-semibold text-primary-900">{formatCompactPrice(property.price)}</p>
+              <p className="mt-1 text-lg font-semibold text-foreground">{formatCompactPrice(property.price)}</p>
               <p className="mt-1 line-clamp-2 text-sm font-medium">{property.title}</p>
               <p className="mt-1 truncate text-xs text-muted-foreground">{property.locationText}</p>
             </Link>
@@ -435,7 +431,7 @@ function MapResults({ properties, criteria, bounds, onBounds, returnTo }: {
           <div role="listitem" key={request.id} className="min-w-[200px] max-w-[240px] shrink-0 snap-start">
             <Link to={`/criteria/${request.id}`} state={{ returnTo }} className={cn('block h-full rounded-2xl border bg-surface p-4 transition-colors hover:border-primary-400 hover:bg-primary-100', selectedId === request.id ? 'border-primary' : 'border-border')}>
               <p className="editorial-kicker">Buyer request</p>
-              <p className="mt-1 text-lg font-semibold text-primary-900">{formatCompactPrice(request.priceMin)}–{formatCompactPrice(request.priceMax)}</p>
+              <p className="mt-1 text-lg font-semibold text-foreground">{formatCompactPrice(request.priceMin)}–{formatCompactPrice(request.priceMax)}</p>
               <p className="mt-1 line-clamp-2 text-sm font-medium">{request.title}</p>
               <p className="mt-1 truncate text-xs text-muted-foreground">{request.locationText}</p>
             </Link>
