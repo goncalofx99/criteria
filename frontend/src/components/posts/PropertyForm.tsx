@@ -393,7 +393,7 @@ export function Section({
   return (
     <section className="form-section space-y-5 p-5 md:p-7">
       <header>
-        <h3 className="text-lg font-semibold tracking-tight text-primary-900">{title}</h3>
+        <h3 className="text-lg font-semibold tracking-tight text-foreground">{title}</h3>
         {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
       </header>
       {children}

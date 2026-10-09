@@ -58,7 +58,7 @@ export function SocialAuthButtons({ variant = 'compact', onError }: Props) {
         disabled={googleLoading || reviewMode}
         className={cn(
           variant === 'landing'
-            ? 'h-14 w-full rounded-xl bg-white text-foreground shadow-elevation-2 hover:bg-accent text-[15px] font-medium'
+            ? 'h-14 w-full rounded-xl bg-surface text-foreground shadow-elevation-2 hover:bg-overlay text-[15px] font-medium'
             : 'h-12 w-full rounded-xl border-border text-foreground text-[15px] font-medium',
         )}
         variant={variant === 'landing' ? 'default' : 'outline'}

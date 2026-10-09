@@ -43,7 +43,7 @@ export function PropertyCard({ property }: { property: PropertyCardData }) {
         {cover ? (
           <img src={cover} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]" />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 bg-[radial-gradient(circle_at_25%_20%,hsl(var(--accent))_0,transparent_45%),linear-gradient(145deg,hsl(var(--primary-100)),hsl(var(--primary-200)))] px-6 text-center text-primary-700">
+          <div className="listing-photo-placeholder flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
             <Building2 size={44} strokeWidth={1.25} aria-hidden="true" />
             <span className="text-xs font-medium tracking-wide">Photo coming soon</span>
           </div>
@@ -61,7 +61,7 @@ export function PropertyCard({ property }: { property: PropertyCardData }) {
 
       <div className="flex flex-1 flex-col p-5">
         <p className="text-xs font-medium text-muted-foreground">{timeAgo(property.createdAt)}</p>
-        <p className="mt-2 text-[26px] font-semibold tracking-[-.035em] text-primary-900">{formatPrice(property.price)}</p>
+        <p className="mt-2 text-[26px] font-semibold tracking-[-.035em] text-foreground">{formatPrice(property.price)}</p>
         <h3 className="mt-1 line-clamp-2 text-base font-semibold leading-snug text-foreground">{property.title}</h3>
         <p className="mt-2 flex items-start gap-1.5 text-sm text-muted-foreground">
           <MapPin size={15} className="mt-0.5 shrink-0" aria-hidden="true" />

@@ -25,6 +25,9 @@
     --accent:             40 35% 93%;   /* #f5f0e8 */
     --accent-foreground: 150 20% 25%;   /* #344e41 */
     --accent-dark:        38 28% 87%;   /* #e8e0d0 */
+    --warm-accent:        18 48% 41%;  /* restrained clay for editorial detail */
+    --warm-accent-soft:   25 43% 92%;
+    --warm-accent-border: 23 35% 74%;
 
     /* Surfaces */
     --background:         42 30% 96%;   /* warm paper */
@@ -67,6 +70,59 @@
     --shadow-lift: 0 30px 70px -34px rgba(26, 46, 34, .35), 0 10px 24px -14px rgba(26, 46, 34, .18);
   }
 
+  /* The same semantic tokens power Tailwind and the component basis. Dark
+     mode keeps forest green as the action colour and warms secondary surfaces
+     with sand, rather than replacing the brand with neutral charcoal. */
+  :root.dark {
+    color-scheme: dark;
+    --primary:           151 29% 29%;  /* action green, white text passes AA */
+    --primary-foreground: 0 0% 100%;
+    --primary-900:       154 35% 11%;  /* fixed dark masthead / card banners */
+    --primary-700:       151 25% 37%;
+    --primary-600:       147 27% 52%;
+    --primary-400:       139 31% 72%;
+    --primary-200:       137 21% 68%;
+    --primary-100:       150 25% 21%;
+
+    --accent:             38 16% 21%;
+    --accent-foreground:  39 55% 88%;
+    --accent-dark:        36 17% 28%;
+    --warm-accent:        20 65% 72%;
+    --warm-accent-soft:   22 16% 18%;
+    --warm-accent-border: 20 34% 42%;
+
+    --background:        153 25%  8%;
+    --surface:           153 20% 13%;
+    --overlay:           151 18% 18%;
+    --border:            149 13% 30%;
+    --border-strong:     146 13% 43%;
+    --foreground:        42 22% 93%;
+    --muted:             151 15% 20%;
+    --muted-foreground: 142 13% 76%;
+    --ring:              141 43% 70%;
+    --input:             149 13% 34%;
+    --input-focus:       141 43% 70%;
+
+    --destructive:        4 53% 34%;
+    --destructive-foreground: 0 0% 100%;
+    --success:           147 39% 29%;
+    --success-foreground: 0 0% 100%;
+    --success-muted:     149 28% 19%;
+    --warning:            35 65% 34%;
+    --warning-foreground: 40 54% 90%;
+    --warning-muted:      35 31% 21%;
+    --info:              207 58% 44%;
+    --info-muted:        210 30% 20%;
+
+    --paper:             153 25%  8%;
+    --paper-strong:      152 19% 12%;
+    --ink:                42 22% 93%;
+    --hairline:          149 13% 30%;
+    --surface-raised:    153 19% 15%;
+    --shadow-soft: 0 20px 60px -32px rgba(0, 0, 0, .7), 0 5px 16px -10px rgba(0, 0, 0, .5);
+    --shadow-lift: 0 30px 70px -34px rgba(0, 0, 0, .8), 0 10px 24px -14px rgba(0, 0, 0, .6);
+  }
+
   /* ── Reset & base styles ──────────────────────────────────────────────── */
   *, *::before, *::after {
     box-sizing: border-box;
@@ -90,6 +146,14 @@
     min-height: 100dvh;
     background: hsl(var(--paper));
   }
+
+  /* Browser-owned controls, selection and scrollbars should follow the theme. */
+  ::selection { background: hsl(var(--primary-400) / .35); }
+  :root.dark input,
+  :root.dark textarea,
+  :root.dark select { color-scheme: dark; }
+  :root.dark input::placeholder,
+  :root.dark textarea::placeholder { color: hsl(var(--muted-foreground) / .8); }
 
   /* Headings */
   h1, h2, h3, h4, h5, h6 {
@@ -201,6 +265,24 @@
   background: hsl(var(--primary-100)) !important;
 }
 
+.leaflet-control-attribution {
+  background: hsl(var(--surface) / .9) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 11px !important;
+  padding: 2px 6px !important;
+}
+
+.leaflet-control-attribution a { color: hsl(var(--primary-600)) !important; }
+
+:root.dark .leaflet-control-zoom a { color: hsl(var(--primary-400)) !important; }
+
+/* The shipped OSM tiles are light. Filter only their raster pane, leaving
+   markers, buyer radii, attribution and controls in their true colours. A
+   configured tile provider is not filtered and may provide its own dark URL. */
+:root.dark .criteria-map--default-tiles .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(.92) saturate(.55) contrast(1.35);
+}
+
 /* Map controls must retain a visible keyboard focus indicator. */
 .leaflet-container :focus-visible {
   outline: 2px solid hsl(var(--ring));
@@ -217,6 +299,7 @@
 
 /* Popup styling */
 .leaflet-popup-content-wrapper {
+  background: hsl(var(--surface)) !important;
   border-radius: 0.75rem !important;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
   border: 1px solid hsl(var(--border)) !important;
@@ -231,6 +314,7 @@
 }
 
 .leaflet-popup-tip {
+  background: hsl(var(--surface)) !important;
   box-shadow: none !important;
   border: 1px solid hsl(var(--border)) !important;
 }
@@ -240,3 +324,21 @@
   background: transparent !important;
   border: none !important;
 }
+
+/* A few legacy utilities use one brand shade for both a dark background and
+   light-mode heading text. Preserve the dark masthead while lifting foreground
+   utility colours to readable sage on dark surfaces. */
+:root.dark .text-primary,
+:root.dark .hover\:text-primary:hover { color: hsl(var(--primary-400)); }
+:root.dark .text-primary-900 { color: hsl(var(--foreground)); }
+:root.dark .text-primary-700 { color: hsl(var(--primary-400)); }
+:root.dark .text-destructive { color: hsl(6 83% 79%); }
+:root.dark .text-success { color: hsl(144 46% 72%); }
+:root.dark .bg-white.text-primary,
+:root.dark .bg-white.text-primary-900 { color: hsl(155 24% 14%); }
+:root.dark .bg-primary.text-white,
+:root.dark .bg-primary-700.text-white,
+:root.dark .bg-primary-900.text-white { color: #fff; }
+
+/* Static OpenStreetMap raster tiles are light. Keep map controls token based;
+   map providers can supply theme-specific tiles without a global inversion. */

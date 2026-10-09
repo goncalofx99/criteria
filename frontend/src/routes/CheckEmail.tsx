@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 export default function CheckEmail() {
   return (
     <div className="app-shell auth-page flex flex-col items-center justify-center px-6 text-center">
+      <div className="mb-8 inline-flex items-center gap-2 text-xs font-semibold tracking-[.16em] text-foreground"><span className="flex h-9 w-9 overflow-hidden rounded-xl bg-accent"><img src="/icon-192.png" alt="" className="h-full w-full scale-[1.8] object-cover" /></span>CRITERIA</div>
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-100 mb-6">
         <Mail className="h-8 w-8 text-primary" />
       </div>

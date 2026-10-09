@@ -8,7 +8,8 @@ import { formatCompactPrice } from '@/lib/format'
 const PRIMARY = '#344e41'
 const BUYER_GREEN = '#5a8060'
 const LISBON: [number, number] = [38.7223, -9.1393]
-const TILE_URL = import.meta.env.VITE_MAP_TILE_URL?.trim() || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+const CUSTOM_TILE_URL = import.meta.env.VITE_MAP_TILE_URL?.trim()
+const TILE_URL = CUSTOM_TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 const TILE_ATTRIBUTION = import.meta.env.VITE_MAP_TILE_ATTRIBUTION?.trim() || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 const EMPTY_PROPERTIES: PropertyMarker[] = []
 const EMPTY_CRITERIA: CriteriaMarker[] = []
@@ -105,7 +106,7 @@ export default function PostsMap({
   }
 
   return (
-    <div role="region" aria-label={pin || approximate ? 'Location map' : 'Results map'} className="relative z-0 overflow-hidden rounded-2xl border border-primary-200 bg-overlay shadow-sm" style={{ height, width: '100%' }}>
+    <div role="region" aria-label={pin || approximate ? 'Location map' : 'Results map'} className={`criteria-map relative z-0 overflow-hidden rounded-2xl border border-border bg-overlay shadow-sm ${CUSTOM_TILE_URL ? '' : 'criteria-map--default-tiles'}`} style={{ height, width: '100%' }}>
       <MapContainer
         center={LISBON}
         zoom={6}

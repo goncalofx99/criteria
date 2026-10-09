@@ -53,13 +53,14 @@ export default function AuthCallback() {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-primary px-6">
       <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+        <img src="/icon-192.png" alt="CRITERIA" className="mb-3 h-12 w-12 rounded-2xl object-cover" />
         {error ? <>
           <p role="alert" className="text-lg font-semibold text-white">Sign-in needs another try</p>
-          <p className="text-sm text-primary-100">{error}</p>
+          <p className="text-sm text-primary-200">{error}</p>
           <Link to="/sign-in" className="mt-3 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-primary">Back to sign-in</Link>
         </> : <>
           <Loader2 className="h-8 w-8 animate-spin text-white" aria-hidden="true" />
-          <p className="text-sm text-primary-100">Signing you in…</p>
+          <p className="text-sm text-primary-200">Signing you in…</p>
         </>}
       </div>
     </div>

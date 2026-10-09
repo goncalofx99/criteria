@@ -148,13 +148,13 @@ export default function CriteriaDetailPage() {
           <Link to={error?.graphQLErrors.some(item => item.extensions?.code === 'FORBIDDEN') ? '/profile' : '/feed'} className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-semibold text-white">{error?.graphQLErrors.some(item => item.extensions?.code === 'FORBIDDEN') ? 'Manage role' : 'Explore posts'}</Link>
         </div>
       ) : (
-        <article className="mx-auto max-w-[940px] px-5 pb-8 pt-5 md:px-8 lg:pt-9">
+        <article className="mx-auto max-w-[1180px] px-5 pb-8 pt-5 md:px-8 lg:pt-9">
           <div className="detail-frame">
-            <div className="bg-primary-900 px-6 py-6 text-white md:px-9">
+            <div className="bg-primary-900 px-6 py-5 text-white md:px-8">
               <p className="text-[11px] font-semibold uppercase tracking-[.18em] text-primary-200">A buyer is searching</p>
               <p className="mt-2 text-2xl font-semibold tracking-tight">A place that fits their life.</p>
             </div>
-            <div className="p-6 md:p-9">
+            <div className="p-6 md:p-8 xl:p-9">
               <div className="flex items-center gap-3">
                 <div
                   className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-semibold text-white"
@@ -177,99 +177,105 @@ export default function CriteriaDetailPage() {
                 )}
               </div>
 
-              <h2 className="mt-6 text-[28px] font-semibold leading-tight tracking-[-.04em] text-primary-900">{post.title}</h2>
+              <div className="mt-5 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] lg:gap-10 xl:gap-14">
+              <div className="min-w-0">
+                <h2 className="text-[28px] font-semibold leading-tight tracking-[-.04em] text-foreground md:text-[36px]">{post.title}</h2>
 
-              <div className="mt-4">
-                <p className="editorial-kicker">Budget</p>
-                <p className="mt-1 text-3xl font-semibold tracking-[-.04em] text-primary-900">
-                  {formatPriceRange(post.priceMin, post.priceMax)}
+                <div className="mt-4">
+                  <p className="editorial-kicker">Budget</p>
+                  <p className="mt-1 text-3xl font-semibold tracking-[-.04em] text-foreground">
+                    {formatPriceRange(post.priceMin, post.priceMax)}
+                  </p>
+                </div>
+
+                <p className="mt-3 flex items-center gap-1.5 text-sm text-foreground/70">
+                  <MapPin size={14} className="text-muted-foreground/70" />
+                  {post.locationText}
+                  <span className="text-muted-foreground/70">· {post.radiusKm}km radius</span>
                 </p>
-              </div>
 
-              <p className="mt-3 flex items-center gap-1.5 text-sm text-foreground/70">
-                <MapPin size={14} className="text-muted-foreground/70" />
-                {post.locationText}
-                <span className="text-muted-foreground/70">· {post.radiusKm}km radius</span>
-              </p>
-
-              <div className="mt-3">
-                <span className="rounded-full bg-accent px-3 py-1 text-xs font-medium text-foreground/70">
-                  {PROPERTY_TYPE_LABEL[post.propertyType]}
-                </span>
-              </div>
-
-              <div className="mt-4 flex items-center gap-5 text-sm text-foreground/80">
-                {(post.propertyType === 'apartment' || post.propertyType === 'house') && <span className="flex items-center gap-1.5">
-                  <BedDouble size={16} className="text-muted-foreground/70" />
-                  {post.bedroomsMin}+ bed
-                </span>}
-                {(post.propertyType === 'apartment' || post.propertyType === 'house') && <span className="flex items-center gap-1.5">
-                  <Bath size={16} className="text-muted-foreground/70" />
-                  {post.bathroomsMin}+ bath
-                </span>}
-                {post.areaSqmMin != null && (
-                  <span className="flex items-center gap-1.5">
-                    <Maximize2 size={16} className="text-muted-foreground/70" />
-                    {post.areaSqmMin.toLocaleString()}+ m²
+                <div className="mt-3">
+                  <span className="rounded-full bg-accent px-3 py-1 text-xs font-medium text-foreground/70">
+                    {PROPERTY_TYPE_LABEL[post.propertyType]}
                   </span>
+                </div>
+
+                <div className="mt-4 flex items-center gap-5 text-sm text-foreground/80">
+                  {(post.propertyType === 'apartment' || post.propertyType === 'house') && <span className="flex items-center gap-1.5">
+                    <BedDouble size={16} className="text-muted-foreground/70" />
+                    {post.bedroomsMin}+ bed
+                  </span>}
+                  {(post.propertyType === 'apartment' || post.propertyType === 'house') && <span className="flex items-center gap-1.5">
+                    <Bath size={16} className="text-muted-foreground/70" />
+                    {post.bathroomsMin}+ bath
+                  </span>}
+                  {post.areaSqmMin != null && (
+                    <span className="flex items-center gap-1.5">
+                      <Maximize2 size={16} className="text-muted-foreground/70" />
+                      {post.areaSqmMin.toLocaleString()}+ m²
+                    </span>
+                  )}
+                </div>
+
+                {prefRows.length > 0 && (
+                  <div className="mt-5 grid grid-cols-2 gap-2">
+                    {prefRows.map(row => (
+                      <div key={row.label} className="rounded-lg border border-border px-3 py-2">
+                        <p className="text-2xs font-medium uppercase tracking-widest text-muted-foreground">
+                          {row.label}
+                        </p>
+                        <p className="mt-0.5 text-sm font-medium text-foreground">{row.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {post.requiredAmenities.length > 0 && (
+                  <div className="mt-5">
+                    <p className="text-2xs font-medium uppercase tracking-widest text-muted-foreground">
+                      Required amenities
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {post.requiredAmenities.map(a => (
+                        <span key={a} className="rounded-full bg-accent px-3 py-1 text-xs font-medium text-foreground/70">
+                          {AMENITY_LABEL[a] ?? a}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {post.description && (
+                  <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-foreground/80">
+                    {post.description}
+                  </p>
                 )}
               </div>
 
-              {prefRows.length > 0 && (
-                <div className="mt-5 grid grid-cols-2 gap-2">
-                  {prefRows.map(row => (
-                    <div key={row.label} className="rounded-lg border border-border px-3 py-2">
-                      <p className="text-2xs font-medium uppercase tracking-widest text-muted-foreground">
-                        {row.label}
-                      </p>
-                      <p className="mt-0.5 text-sm font-medium text-foreground">{row.value}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {post.requiredAmenities.length > 0 && (
-                <div className="mt-5">
-                  <p className="text-2xs font-medium uppercase tracking-widest text-muted-foreground">
-                    Required amenities
+              <aside className="mt-7 lg:mt-0" aria-label="Search area and contact">
+                {canContact && <div>
+                  {contactError && <p role="alert" className="mb-2 text-sm text-destructive">{contactError}</p>}
+                  <Button type="button" size="lg" className="w-full rounded-xl" disabled={contacting} onClick={() => void contactBuyer()}><MessageCircle size={17} /> {contacting ? 'Opening conversation…' : 'Message buyer'}</Button>
+                </div>}
+                <section className={canContact ? 'mt-6' : ''}>
+                  <p className="text-2xs font-medium uppercase tracking-widest text-muted-foreground mb-2">
+                    Approximate search area
                   </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {post.requiredAmenities.map(a => (
-                      <span key={a} className="rounded-full bg-accent px-3 py-1 text-xs font-medium text-foreground/70">
-                        {AMENITY_LABEL[a] ?? a}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {post.description && (
-                <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-foreground/80">
-                  {post.description}
-                </p>
-              )}
-
-              <section className="mt-5">
-                <p className="text-2xs font-medium uppercase tracking-widest text-muted-foreground mb-2">
-                  Approximate search area
-                </p>
-                <LazyPostsMap
-                  criteria={[{
-                    id: post.id,
-                    lat: post.lat,
-                    lng: post.lng,
-                    radiusKm: post.radiusKm,
-                  }]}
-                  interactive={false}
-                  height="clamp(200px, 30vh, 360px)"
-                />
-              </section>
-              {canContact && <div className="mt-6">
-                {contactError && <p role="alert" className="mb-2 text-sm text-destructive">{contactError}</p>}
-                <Button type="button" size="lg" className="w-full rounded-xl" disabled={contacting} onClick={() => void contactBuyer()}><MessageCircle size={17} /> {contacting ? 'Opening conversation…' : 'Message buyer'}</Button>
-              </div>}
+                  <LazyPostsMap
+                    criteria={[{
+                      id: post.id,
+                      lat: post.lat,
+                      lng: post.lng,
+                      radiusKm: post.radiusKm,
+                    }]}
+                    interactive={false}
+                    height="clamp(200px, 30vh, 360px)"
+                  />
+                </section>
+              </aside>
+              </div>
               {isOwner && post.isActive && <section className="mt-8 border-t border-border pt-7">
-                <h3 className="text-xl font-semibold text-primary-900">Matching properties</h3>
+                <h3 className="text-xl font-semibold text-foreground">Matching properties</h3>
                 <p className="mb-4 mt-1 text-sm text-muted-foreground">Listings that fit your budget and preferences.</p>
                 {!canMatch ? <p className="rounded-xl bg-accent/50 p-4 text-sm text-muted-foreground">Add the buyer role in <Link to="/profile" className="font-semibold text-primary underline">your profile</Link> to see matching properties.</p> : matchesLoading ? <Loader2 className="animate-spin text-primary" aria-label="Loading matches" /> : matchesError ? <div><p role="alert" className="text-sm text-destructive">Could not load matches.</p><button type="button" onClick={() => void refetchMatches()} className="mt-2 text-sm font-semibold text-primary underline">Retry</button></div> : (matchesData?.matchingSellerPosts.length ?? 0) > 0 ? <div className="result-card-grid">{matchesData?.matchingSellerPosts.map(item => <PropertyCard key={item.id} property={item} />)}</div> : <p className="rounded-xl bg-accent/50 p-4 text-sm text-muted-foreground">No matching listings yet. Sellers can still discover your request.</p>}
               </section>}

@@ -21,7 +21,7 @@ export function ReviewControls() {
   }
 
   return (
-    <details className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-3 z-[9999] text-slate-900 md:bottom-4 md:right-4">
+    <details className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-3 z-[60] text-slate-900 md:bottom-4 md:right-4">
       <summary className="flex min-h-10 cursor-pointer list-none items-center rounded-full border border-amber-400 bg-amber-100 px-3 text-xs font-bold shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700">
         Review
       </summary>

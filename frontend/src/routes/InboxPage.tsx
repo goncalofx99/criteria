@@ -77,14 +77,14 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="workspace-content px-4 pb-5 pt-5 md:px-8 md:py-8 lg:px-10">
+    <div className="workspace-content max-w-[1180px] px-4 pb-5 pt-5 md:px-8 md:py-8 lg:px-10">
       <div className="mb-6">
         <p className="editorial-kicker">Stay connected</p>
         <h1 className="editorial-title mt-1">Inbox</h1>
         <p className="editorial-subtitle mt-2 text-sm">Conversations about your listings and buyer requests.</p>
       </div>
-      <div className="surface-panel grid min-h-[min(72dvh,760px)] overflow-hidden md:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]">
-        <aside className={`${id ? 'hidden md:block' : 'block'} border-r border-border/70`} aria-label="Conversations">
+      <div className="surface-panel grid min-h-[min(72dvh,760px)] overflow-hidden md:grid-cols-[minmax(270px,320px)_minmax(0,1fr)] lg:h-[calc(100dvh-250px)] lg:min-h-[560px] lg:max-h-[820px]">
+        <aside className={`${id ? 'hidden md:block' : 'block'} min-h-0 overflow-y-auto md:border-r md:border-border/70`} aria-label="Conversations">
           <div className="border-b border-border/70 px-5 py-4 text-sm font-semibold">Messages</div>
           {listLoading && !listData && <div className="flex justify-center p-10"><Loader2 className="animate-spin text-primary" aria-label="Loading conversations" /></div>}
           {listError && <div className="p-5 text-sm"><p role="alert" className="text-destructive">Couldn’t load conversations.</p><button type="button" onClick={() => void refetchList()} className="mt-3 font-semibold text-primary underline">Retry</button></div>}
@@ -116,11 +116,11 @@ export default function InboxPage() {
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white" aria-hidden="true">{initialsOf(conversationTitle(conversation, me?.id))}</span>
                 <div className="min-w-0"><h2 className="truncate text-sm font-semibold">{conversationTitle(conversation, me?.id)}</h2><p className="truncate text-xs text-muted-foreground">{conversationSubject(conversation)}</p></div>
               </div>
-              <div className="flex max-h-[55dvh] min-h-[280px] flex-1 flex-col gap-3 overflow-y-auto bg-background/60 p-4 md:p-6" aria-live="polite">
+              <div className="flex max-h-[55dvh] min-h-[280px] flex-1 flex-col gap-3 overflow-y-auto bg-background/60 p-4 md:p-6 lg:max-h-none lg:min-h-0" aria-live="polite">
                 {conversation.messages.length === 0 && <p className="my-auto text-center text-sm text-muted-foreground">Start the conversation with a helpful introduction.</p>}
                 {conversation.messages.map(message => {
                   const own = message.sender.id === me?.id
-                  return <div key={message.id} className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${own ? 'self-end rounded-br-sm bg-primary text-white' : 'self-start rounded-bl-sm border border-border bg-surface text-foreground'}`}>
+                  return <div key={message.id} className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed lg:max-w-[640px] ${own ? 'self-end rounded-br-sm bg-primary text-white' : 'self-start rounded-bl-sm border border-border bg-surface text-foreground'}`}>
                     <p className="whitespace-pre-wrap break-words">{message.body}</p>
                     <time className={`mt-1 block text-[11px] ${own ? 'text-primary-200' : 'text-muted-foreground'}`} dateTime={message.createdAt}>{new Date(message.createdAt).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })}</time>
                   </div>

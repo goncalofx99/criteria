@@ -1,6 +1,6 @@
 # CRITERIA experience specification and work plan
 
-Status: implementation on `codex/full-ux-overhaul`. This is the product and design reference for the overhaul. Code determines shipped behavior; the verification section distinguishes local review from external-service testing. This task does not push or open a PR.
+Status: implementation on `codex/full-ux-overhaul`, reviewed in draft PR #8. This is the product and design reference for the overhaul. Code determines shipped behavior; the verification section distinguishes local review from external-service testing. Subsequent desktop, navigation, brand, and theme refinements are documented below.
 
 ## Product, routes, and roles
 
@@ -46,9 +46,9 @@ Real-environment verification remains necessary for migrations on a deployed dat
 
 | Surface | Phone web and phone Capacitor | Tablet, desktop, wide Capacitor |
 | --- | --- | --- |
-| Primary navigation | Four fixed tabs: Explore, Create, Inbox, Profile; safe-area aware. | One forest-green top bar with the same destinations and account actions; no side rail. |
+| Primary navigation | Three fixed tabs: Explore, **Create centered**, Inbox; safe-area aware. A persistent branded header links to Explore and places Profile at the top right. At 320px Profile is an accessible icon to preserve the wordmark. | One forest-green top bar with Explore, Create, Inbox, Profile, theme control, and account actions; no side rail. |
 | Explore | Search and result type above cards; Filter dialog; list/map switch; count, sort and pagination. | Same controls on a wider canvas; multi-column cards or a larger map. Filters remain a dialog, not a competing permanent panel. |
-| Detail | Image, value/specs, description, approximate map, person, contact/match action in reading order. | Image/content composition with a restrained text width. |
+| Detail | Image, value/specs, description, approximate map, person, contact/match action in reading order. | Balanced split hero at 1024px+: image beside price, summary, and seller/contact actions; deeper details and map follow below. |
 | Create/edit | Stacked sections, type-aware fields, address preview and photos. | Centered form up to about 840px with more whitespace. |
 | Inbox | Thread list then thread; visible back to list. | Two-pane inbox inside the content area. |
 
@@ -60,14 +60,16 @@ The navigation destinations are role-neutral. Explore shows properties to buyers
 
 | Foundation | Rule |
 | --- | --- |
-| Color | Forest green `#344e41` for actions, deep green `#1a2e22` for navigation, sand `#f5f0e8` and warm paper for canvases, white raised surfaces. Semantic status tokens require readable foreground contrast. |
+| Color | Forest green `#344e41` for actions, deep green `#1a2e22` for navigation, sand `#f5f0e8` and warm paper for canvases, white raised surfaces. Restrained clay appears in small editorial accents and card treatment. Dark mode uses deep forest surfaces, warm text, sage links and the same action green. Semantic status tokens require readable foreground contrast. |
 | Type | DM Sans headings, Inter body. Page titles 32–48px, sections 18–24px, body 14–16px with comfortable leading, metadata 12–13px. Avoid all-caps prose. |
 | Space | 4px rhythm; page gutters 16–24px on phones and 32–40px on wide screens; 24–32px between sections. Reading width stays restrained. |
 | Shape/depth | 12px inputs, 16–24px cards/panels, pill chips. Hairline borders and soft green shadows establish hierarchy without decorating every item. |
 | Images | 4:3 listing cards, generous detail hero, `object-cover`; a designed fallback when no photo exists. Alt text reflects content. |
 | Interaction | At least 44px targets, visible focus, names for icon controls, `aria-pressed` for choices, dialog focus restoration, disabled/loading/error/retry states. |
 | Motion | Short 150–200ms transitions and `prefers-reduced-motion`; no forced smooth scroll. |
-| Breakpoints | Under 768px stack and bottom tabs; 768px+ top nav and wider grid; 1536px+ additional columns without stretched text. Capacitor follows viewport width. |
+| Breakpoints | Under 768px stack with brand/profile header and centered three-tab navigation; 768px+ top nav and wider grid; 1024px+ structured detail/form/profile layouts; wide screens add columns without stretched text. Capacitor follows viewport width. |
+
+The existing roof-and-C mark from `frontend/public/icon-192.png` identifies the app in the shell and landing page. The visible theme control offers Light, Dark, and System; System follows OS changes. The preference persists locally, and a synchronous document-head script applies it before React paints. The `dark` class changes semantic CSS variables in `index.css`; Tailwind uses the same variables, so components do not need a parallel palette. Only the default OpenStreetMap raster pane receives a dark treatment; map markers, popups, controls and custom map providers retain their own colors.
 
 Use plain, accurate copy: “Archive listing”, “Republish”, “Message seller”, “Buyer requests”. State who can see buyer requests. Mark a nonowner map as approximate. Empty states suggest the next action. Prices are full euro amounts and areas use m².
 
@@ -79,13 +81,15 @@ Local Vite review mode opts in with `?review=1`. It uses in-memory fixtures and 
 
 Review matrix: signed-out and unfinished-onboarding direct links; buyer, seller and both-role navigation; own, other and archived listings/requests; new and edited posts; matching and no matches; inbox empty/thread/send/error; list and map with active filters, pagination and no results; photos present/missing/upload failure; and slow or failed requests. Confirm the URL, focus target, visible loading/error copy, and role permission at each transition. Run the same journeys at phone, tablet and desktop widths and in the native WebView where available.
 
+Theme and layout checks additionally cover Light/Dark/System on landing and auth, Explore list/map/filter dialog, both detail types, create/edit, Inbox and Profile. Verify theme persistence on reload and OS preference changes, map label readability, keyboard focus and contrast on every surface. At 320px and 390px check the top-right Profile affordance, centered Create tab and safe-area padding; at 768px, 1024px and 1440px check nav fit, horizontal overflow, page gutters, grid density and split-detail balance. The development fixture illustrates structure and states; production photos and external identity providers still require their own smoke tests.
+
 ## Priorities and acceptance gates
 
 1. **Foundation/data (P0):** server search/count/sort/bounds, role/ownership gates, location privacy, upload keys, onboarding/OAuth. Gate: schema validation, server typecheck/tests, direct-link safety.
 2. **Navigation/discovery (P0):** one responsive navigation model and URL-backed Explore list/map/filter/search/sort/page. Gate: direct link and back/forward reproduce results across phone/tablet/desktop.
 3. **Create/detail/profile/messaging (P0/P1):** type-aware fields, photo upload, archive/republish, matches, contact, Inbox, owned states. Gate: buyer/seller/both and own/other/archived journeys; no inert CTA.
 4. **Auth/polish (P1):** sign-in/up, onboarding, recovery, native callback, design states and accessibility. Gate: keyboard, zoom, network error and native smoke checks.
-5. **Release checks:** frontend/server typecheck, lint, tests and build; staging migration and external-service smoke test; production mock exclusion. Run migrations before server deploy. User instruction for this task is local-only: no push or PR.
+5. **Release checks:** frontend/server typecheck, lint, tests and build; staging migration and external-service smoke test; production mock exclusion. Run migrations before server deploy. Keep follow-up work in the existing draft PR until reviewed and approved for merge.
 
 ## Dependencies, risks, and owner decisions
 

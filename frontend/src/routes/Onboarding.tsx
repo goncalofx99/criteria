@@ -74,8 +74,10 @@ export default function Onboarding() {
   return (
     <div className="app-shell auth-page flex flex-col">
       {/* Header */}
-      <div className="web-content flex items-center justify-center px-4 pt-safe pt-6 pb-2">
+      <div className="web-content flex items-center justify-between px-4 pt-safe pt-6 pb-2">
+        <span className="flex h-9 w-9 overflow-hidden rounded-xl bg-accent"><img src="/icon-192.png" alt="CRITERIA" className="h-full w-full scale-[1.8] object-cover" /></span>
         <StepIndicator current={step} total={2} />
+        <span className="h-9 w-9" aria-hidden="true" />
       </div>
 
       {/* Content */}
