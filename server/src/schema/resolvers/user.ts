@@ -21,6 +21,8 @@ export const userResolvers = {
   User: {
     email: (user: User, _: unknown, ctx: Context) =>
       ctx.userId === user.id ? user.email : null,
+    hasPassword: (user: User, _: unknown, ctx: Context) =>
+      ctx.userId === user.id ? Boolean(user.passwordHash) : null,
     onboardingComplete: (user: User) => Boolean(user.onboardingCompletedAt),
   },
 

@@ -1,11 +1,12 @@
 import { Hono } from 'hono'
 import { Google, generateCodeVerifier, generateState } from 'arctic'
 import { hash, verify } from '@node-rs/argon2'
-import { eq, and, gt } from 'drizzle-orm'
+import { eq, and, gt, sql } from 'drizzle-orm'
 import crypto from 'crypto'
+import { z } from 'zod'
 import { env } from '../lib/env.js'
 import { db } from '../db/index.js'
-import { users, sessions, passwordResetTokens } from '../db/schema.js'
+import { users, sessions, passwordResetTokens, accountActionTokens } from '../db/schema.js'
 import { signAccessToken } from '../middleware/auth.js'
 import { resolveOAuthRedirect } from '../lib/oauthRedirect.js'
 
@@ -25,6 +26,7 @@ const google = new Google(
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const REFRESH_TOKEN_EXPIRY_DAYS = 30
+const emailSchema = z.string().trim().toLowerCase().email().max(254)
 
 function hashResetToken(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex')
@@ -34,17 +36,18 @@ function generateRefreshToken(): string {
   return crypto.randomBytes(48).toString('base64url')
 }
 
-async function createSession(userId: string) {
+async function createSession(userId: string, authVersion: number) {
   const refreshToken = generateRefreshToken()
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
 
   await db.insert(sessions).values({
     userId,
+    authVersion,
     refreshToken,
     expiresAt,
   })
 
-  const accessToken = await signAccessToken(userId)
+  const accessToken = await signAccessToken(userId, authVersion)
   return { accessToken, refreshToken, expiresAt }
 }
 
@@ -73,26 +76,29 @@ export const authRoutes = new Hono()
 
 authRoutes.post('/auth/signup', async (c) => {
   const body = await c.req.json<{
-    email: string
-    password: string
-    fullName?: string
-    avatarUrl?: string
-    role?: 'buyer' | 'seller' | 'both'
-    age?: number
-  }>()
+    email?: unknown
+    password?: unknown
+    fullName?: unknown
+    avatarUrl?: unknown
+    role?: unknown
+    age?: unknown
+  }>().catch(() => null)
+
+  if (!body) return c.json({ error: 'Enter valid account details' }, 400)
 
   const { email, password, fullName, avatarUrl, role, age } = body
-
-  if (!email || !password) {
-    return c.json({ error: 'Email and password are required' }, 400)
+  const parsedEmail = emailSchema.safeParse(email)
+  if (!parsedEmail.success) return c.json({ error: 'Enter a valid email address' }, 400)
+  if (typeof password !== 'string' || password.length < 8 || password.length > 1024) {
+    return c.json({ error: 'Password must be between 8 and 1024 characters' }, 400)
   }
-  if (password.length < 8) {
-    return c.json({ error: 'Password must be at least 8 characters' }, 400)
+  if (fullName != null && (typeof fullName !== 'string' || !fullName.trim() || fullName.length > 150)) {
+    return c.json({ error: 'Name must be 1 to 150 characters' }, 400)
   }
-  if (!Number.isInteger(age) || age! < 18 || age! > 120) {
+  if (typeof age !== 'number' || !Number.isInteger(age) || age < 18 || age > 120) {
     return c.json({ error: 'You must be 18 or older to create an account' }, 400)
   }
-  if (role && !['buyer', 'seller', 'both'].includes(role)) {
+  if (role != null && role !== 'buyer' && role !== 'seller' && role !== 'both') {
     return c.json({ error: 'Choose a valid account role' }, 400)
   }
   // A new account cannot have uploaded an owned avatar yet. The client may
@@ -100,10 +106,11 @@ authRoutes.post('/auth/signup', async (c) => {
   if (avatarUrl != null) {
     return c.json({ error: 'Add a profile photo after creating your account' }, 400)
   }
+  const normalizedEmail = parsedEmail.data
 
   // Check if user already exists
   const existing = await db.query.users.findFirst({
-    where: (u, { eq }) => eq(u.email, email.toLowerCase()),
+    where: (u, { eq }) => eq(u.email, normalizedEmail),
   })
   if (existing) {
     return c.json({ error: 'An account with this email already exists' }, 409)
@@ -112,15 +119,15 @@ authRoutes.post('/auth/signup', async (c) => {
   const passwordHash = await hash(password)
 
   const [user] = await db.insert(users).values({
-    email: email.toLowerCase(),
-    fullName: fullName ?? null,
+    email: normalizedEmail,
+    fullName: typeof fullName === 'string' ? fullName.trim() : null,
     avatarUrl: null,
     role: role ?? 'buyer',
     passwordHash,
     onboardingCompletedAt: new Date(),
   }).returning()
 
-  const session = await createSession(user.id)
+  const session = await createSession(user.id, user.authVersion)
 
   return c.json({
     user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role, avatarUrl: user.avatarUrl, onboardingComplete: true },
@@ -132,15 +139,15 @@ authRoutes.post('/auth/signup', async (c) => {
 // ── Email/password sign in ────────────────────────────────────────────────────
 
 authRoutes.post('/auth/signin', async (c) => {
-  const body = await c.req.json<{ email: string; password: string }>()
-  const { email, password } = body
-
-  if (!email || !password) {
-    return c.json({ error: 'Email and password are required' }, 400)
+  const body = await c.req.json<{ email?: unknown; password?: unknown }>().catch(() => null)
+  const parsedEmail = emailSchema.safeParse(body?.email)
+  const password = body?.password
+  if (!parsedEmail.success || typeof password !== 'string' || !password || password.length > 1024) {
+    return c.json({ error: 'Invalid email or password' }, 400)
   }
 
   const user = await db.query.users.findFirst({
-    where: (u, { eq }) => eq(u.email, email.toLowerCase()),
+    where: (u, { eq }) => eq(u.email, parsedEmail.data),
   })
 
   if (!user || !user.passwordHash) {
@@ -152,7 +159,7 @@ authRoutes.post('/auth/signin', async (c) => {
     return c.json({ error: 'Invalid email or password' }, 401)
   }
 
-  const session = await createSession(user.id)
+  const session = await createSession(user.id, user.authVersion)
 
   return c.json({
     user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role, avatarUrl: user.avatarUrl, onboardingComplete: Boolean(user.onboardingCompletedAt) },
@@ -184,11 +191,30 @@ authRoutes.post('/auth/refresh', async (c) => {
   const newRefreshToken = generateRefreshToken()
   const newExpiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
 
-  await db.update(sessions)
+  const [rotated] = await db.update(sessions)
     .set({ refreshToken: newRefreshToken, expiresAt: newExpiresAt })
-    .where(eq(sessions.id, session.id))
+    .where(and(
+      eq(sessions.id, session.id),
+      eq(sessions.refreshToken, refreshToken),
+      gt(sessions.expiresAt, new Date()),
+    ))
+    .returning()
+  if (!rotated) {
+    return c.json({ error: 'Invalid or expired refresh token' }, 401)
+  }
 
-  const accessToken = await signAccessToken(session.userId)
+  const owner = await db.query.users.findFirst({
+    columns: { authVersion: true },
+    where: eq(users.id, rotated.userId),
+  })
+  if (!owner || owner.authVersion !== rotated.authVersion) {
+    await db.delete(sessions).where(eq(sessions.id, rotated.id))
+    return c.json({ error: 'Invalid or expired refresh token' }, 401)
+  }
+
+  // A concurrent password/email change can delete the session after the first
+  // read. Never mint at the user's newer auth version from an old session.
+  const accessToken = await signAccessToken(rotated.userId, rotated.authVersion)
 
   return c.json({
     accessToken,
@@ -212,14 +238,15 @@ authRoutes.post('/auth/signout', async (c) => {
 // ── Password recovery ────────────────────────────────────────────────────────
 
 authRoutes.post('/auth/password-reset/request', async (c) => {
+  const body = await c.req.json<{ email?: unknown }>().catch(() => null)
+  const parsedEmail = emailSchema.safeParse(body?.email)
+  if (!parsedEmail.success) {
+    return c.json({ error: 'Enter a valid email address' }, 400)
+  }
   if (!env.RESEND_API_KEY || !env.PASSWORD_RESET_FROM || !env.FRONTEND_URL) {
     return c.json({ error: 'Password recovery is temporarily unavailable' }, 503)
   }
-  const body = await c.req.json<{ email?: string }>()
-  const email = body.email?.trim().toLowerCase()
-  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
-    return c.json({ error: 'Enter a valid email address' }, 400)
-  }
+  const email = parsedEmail.data
   c.header('Cache-Control', 'no-store')
   const ok = { ok: true, message: 'If an account exists, a reset link has been sent.' }
   const user = await db.query.users.findFirst({ where: eq(users.email, email) })
@@ -265,8 +292,9 @@ authRoutes.post('/auth/password-reset/request', async (c) => {
 })
 
 authRoutes.post('/auth/password-reset/confirm', async (c) => {
-  const body = await c.req.json<{ token?: string; password?: string }>()
-  if (!body.token || body.token.length > 128 || !body.password || body.password.length < 8) {
+  const body = await c.req.json<{ token?: unknown; password?: unknown }>().catch(() => null)
+  if (typeof body?.token !== 'string' || !/^[A-Za-z0-9_-]{40,128}$/.test(body.token) ||
+      typeof body.password !== 'string' || body.password.length < 8 || body.password.length > 1024) {
     return c.json({ error: 'A valid reset link and password of at least 8 characters are required' }, 400)
   }
   const tokenHash = hashResetToken(body.token)
@@ -276,9 +304,14 @@ authRoutes.post('/auth/password-reset/confirm', async (c) => {
       .where(and(eq(passwordResetTokens.tokenHash, tokenHash), gt(passwordResetTokens.expiresAt, new Date())))
       .returning()
     if (!record) return false
-    await tx.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, record.userId))
+    await tx.update(users).set({
+      passwordHash,
+      authVersion: sql`${users.authVersion} + 1`,
+      updatedAt: new Date(),
+    }).where(eq(users.id, record.userId))
     await tx.delete(sessions).where(eq(sessions.userId, record.userId))
     await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, record.userId))
+    await tx.delete(accountActionTokens).where(eq(accountActionTokens.userId, record.userId))
     return true
   })
   c.header('Cache-Control', 'no-store')
@@ -342,10 +375,17 @@ authRoutes.get('/auth/google/callback', async (c) => {
     }
 
     // Find or create user
+    // A user may have changed their CRITERIA email while keeping the same
+    // Google account connected. Resolve by Google's stable subject first so
+    // another account later using the old email cannot shadow that link.
     let user = await db.query.users.findFirst({
-      where: (u, { or, eq }) =>
-        or(eq(u.googleId, googleUser.id), eq(u.email, googleUser.email.toLowerCase())),
+      where: eq(users.googleId, googleUser.id),
     })
+    if (!user) {
+      user = await db.query.users.findFirst({
+        where: eq(users.email, googleUser.email.toLowerCase()),
+      })
+    }
 
     if (user) {
       if (user.googleId && user.googleId !== googleUser.id) {
@@ -394,7 +434,9 @@ authRoutes.post('/auth/google/exchange', async (c) => {
   if (!pending || Date.now() - pending.createdAt > 2 * 60 * 1000) {
     return c.json({ error: 'Invalid or expired exchange code' }, 401)
   }
-  const session = await createSession(pending.userId)
+  const user = await db.query.users.findFirst({ where: eq(users.id, pending.userId) })
+  if (!user) return c.json({ error: 'Account no longer exists' }, 401)
+  const session = await createSession(user.id, user.authVersion)
   c.header('Cache-Control', 'no-store')
   return c.json({ accessToken: session.accessToken, refreshToken: session.refreshToken })
 })

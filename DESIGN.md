@@ -1,12 +1,12 @@
 # CRITERIA experience specification and work plan
 
-Status: implementation on `codex/full-ux-overhaul`, reviewed in draft PR #8. This is the product and design reference for the overhaul. Code determines shipped behavior; the verification section distinguishes local review from external-service testing. Subsequent desktop, navigation, brand, and theme refinements are documented below.
+Status: historical experience specification for the initial overhaul, updated with the account and privacy follow-up. The current code determines shipped behavior; `FRONTEND.md` and `BACKEND.md` document its routes and contracts. The verification section distinguishes local review from external-service testing.
 
 ## Product, routes, and roles
 
 CRITERIA is a two-sided Portuguese property marketplace. Sellers post properties; buyers post their criteria publicly to eligible sellers. Matching works in both directions. Conversations connect a buyer and seller around a listing or request. A member may have a buyer, seller, or both role. Buyers discover properties and publish requests. Sellers discover buyer requests and publish properties. Both-role members can do both. Owners can see and edit their own posts even after changing roles; publishing or republishing requires the relevant current role.
 
-Routes are landing `/`, sign-in/up, forgot/reset password, OAuth callback, onboarding, Explore `/feed`, Create `/create`, Inbox `/inbox` and `/inbox/:id`, Profile `/profile`, listing `/listing/:id` and edit, and buyer request `/criteria/:id` and edit. Protected direct links preserve the intended destination through sign-in and onboarding. Feed URLs preserve search, type, filters, sort, page, list/map view, and map bounds.
+Routes are landing `/`, sign-in/up, forgot/reset password, OAuth callback, onboarding, Explore `/feed`, Create `/create`, Inbox `/inbox` and `/inbox/:id`, Profile `/profile`, Settings `/settings`, public email/deletion confirmation pages, browser privacy information `/privacy`, listing `/listing/:id` and edit, and buyer request `/criteria/:id` and edit. Protected direct links preserve the intended destination through sign-in and onboarding. Feed URLs preserve search, type, filters, sort, page, list/map view, and map bounds.
 
 | Journey | Signed out | Buyer | Seller | Both |
 | --- | --- | --- | --- | --- |
@@ -46,7 +46,7 @@ Real-environment verification remains necessary for migrations on a deployed dat
 
 | Surface | Phone web and phone Capacitor | Tablet, desktop, wide Capacitor |
 | --- | --- | --- |
-| Primary navigation | Three fixed tabs: Explore, **Create centered**, Inbox; safe-area aware. A persistent branded header links to Explore and places Profile at the top right. At 320px Profile is an accessible icon to preserve the wordmark. | One forest-green top bar with Explore, Create, Inbox, Profile, theme control, and account actions; no side rail. |
+| Primary navigation | Three fixed tabs: Explore, **Create centered**, Inbox; safe-area aware. A persistent branded header links to Explore and places Profile at the top right. At 320px Profile is an accessible icon to preserve the wordmark. | One forest-green top bar with Explore, Create and Inbox; the top-right name/avatar opens Profile. No side rail or separate Profile tab. |
 | Explore | Search and result type above cards; Filter dialog; list/map switch; count, sort and pagination. | Same controls on a wider canvas; multi-column cards or a larger map. Filters remain a dialog, not a competing permanent panel. |
 | Detail | Image, value/specs, description, approximate map, person, contact/match action in reading order. | Balanced split hero at 1024px+: image beside price, summary, and seller/contact actions; deeper details and map follow below. |
 | Create/edit | Stacked sections, type-aware fields, address preview and photos. | Centered form up to about 840px with more whitespace. |
@@ -69,7 +69,7 @@ The navigation destinations are role-neutral. Explore shows properties to buyers
 | Motion | Short 150–200ms transitions and `prefers-reduced-motion`; no forced smooth scroll. |
 | Breakpoints | Under 768px stack with brand/profile header and centered three-tab navigation; 768px+ top nav and wider grid; 1024px+ structured detail/form/profile layouts; wide screens add columns without stretched text. Capacitor follows viewport width. |
 
-The existing roof-and-C mark from `frontend/public/icon-192.png` identifies the app in the shell and landing page. The visible theme control offers Light, Dark, and System; System follows OS changes. The preference persists locally, and a synchronous document-head script applies it before React paints. The `dark` class changes semantic CSS variables in `index.css`; Tailwind uses the same variables, so components do not need a parallel palette. Only the default OpenStreetMap raster pane receives a dark treatment; map markers, popups, controls and custom map providers retain their own colors.
+The existing roof-and-C mark from `frontend/public/icon-192.png` identifies the app in the shell and landing page. Settings offers Light, Dark, and System; System follows OS changes. The preference persists locally, and a synchronous document-head script applies it before React paints. The `dark` class changes semantic CSS variables in `index.css`; Tailwind uses the same variables, so components do not need a parallel palette. Only the default OpenStreetMap raster pane receives a dark treatment; map markers, popups, controls and custom map providers retain their own colors. Settings also groups name/photo, email, password, browser storage information and account deletion; security changes use explicit confirmation states and one-use email links.
 
 Use plain, accurate copy: “Archive listing”, “Republish”, “Message seller”, “Buyer requests”. State who can see buyer requests. Mark a nonowner map as approximate. Empty states suggest the next action. Prices are full euro amounts and areas use m².
 
@@ -89,11 +89,11 @@ Theme and layout checks additionally cover Light/Dark/System on landing and auth
 2. **Navigation/discovery (P0):** one responsive navigation model and URL-backed Explore list/map/filter/search/sort/page. Gate: direct link and back/forward reproduce results across phone/tablet/desktop.
 3. **Create/detail/profile/messaging (P0/P1):** type-aware fields, photo upload, archive/republish, matches, contact, Inbox, owned states. Gate: buyer/seller/both and own/other/archived journeys; no inert CTA.
 4. **Auth/polish (P1):** sign-in/up, onboarding, recovery, native callback, design states and accessibility. Gate: keyboard, zoom, network error and native smoke checks.
-5. **Release checks:** frontend/server typecheck, lint, tests and build; staging migration and external-service smoke test; production mock exclusion. Run migrations before server deploy. Keep follow-up work in the existing draft PR until reviewed and approved for merge.
+5. **Release checks:** frontend/server typecheck, lint, tests and build; staging migration and external-service smoke test; production mock exclusion. Run migrations before server deploy.
 
 ## Dependencies, risks, and owner decisions
 
-- Run migrations `0003` and `0004` before deploying server changes. Existing Google users without an onboarding-completed marker may be asked to complete onboarding once; existing password users are backfilled as complete.
+- Run migrations `0003`, `0004` and `0005` before deploying server changes that read their columns. Existing Google users without an onboarding-completed marker may be asked to complete onboarding once; existing password users are backfilled as complete. `0005` supports account changes, immediate access revocation and durable image erasure jobs.
 - Recovery needs Resend credentials, a verified sender and frontend origin. Google requires exact callback registration and a matching `FRONTEND_URL` per environment; preview and LAN origins need their own trusted configuration. One-time OAuth state/code currently lives in process memory, so multiple API instances need shared short-lived storage.
 - Browser image PUTs need R2 CORS for the site origin. The app re-encodes photos to remove GPS and other camera metadata, but the direct R2 upload flow does not enforce this for other clients; a server-side image pipeline is needed for that guarantee. Removed photos remain publicly accessible to anyone with their old URL. Reference tracking and an asynchronous cleanup job are needed before deletion can be reliable.
 - Public location labels and location search currently recognize a conservative set of Portuguese cities. Unknown places fall back to “Portugal” or “Approximate area”, and a district in a geocoder label can appear as its city. Add a structured locality field from geocoding before promising accurate public labels/search across the whole country; keep the street-level address owner-only. Owners can still type an address into the title or description, so public copy should remind them not to include private location details there.

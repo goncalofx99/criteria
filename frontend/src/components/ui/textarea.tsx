@@ -9,6 +9,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, error, ...props }, ref) => (
     <textarea
       ref={ref}
+      aria-invalid={error || undefined}
       className={cn(
         'flex min-h-24 w-full rounded-md border bg-surface px-4 py-3 text-sm text-foreground',
         'placeholder:text-muted-foreground',

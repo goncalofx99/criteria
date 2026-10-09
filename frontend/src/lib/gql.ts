@@ -10,6 +10,7 @@ export const UPSERT_USER = gql`
       email
       role
       avatarUrl
+      hasPassword
       onboardingComplete
       createdAt
     }
@@ -24,6 +25,7 @@ export const GET_ME = gql`
       email
       role
       avatarUrl
+      hasPassword
       onboardingComplete
       createdAt
     }

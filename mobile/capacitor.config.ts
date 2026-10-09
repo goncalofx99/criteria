@@ -48,6 +48,7 @@ if (existsSync(devPath)) {
 }
 
 const PROD_URL = 'https://criteria-app.com'
+const usingHttpDevServer = androidServerUrl?.startsWith('http://') ?? false
 
 const config: CapacitorConfig = {
   appId: 'com.criteria.app',
@@ -55,7 +56,7 @@ const config: CapacitorConfig = {
   webDir: 'launcher',
 
   server: {
-    cleartext: true,
+    cleartext: usingHttpDevServer,
     allowNavigation: [
       '192.168.*.*',
       '10.*.*.*',
@@ -79,7 +80,7 @@ const config: CapacitorConfig = {
   },
 
   android: {
-    allowMixedContent: true,
+    allowMixedContent: usingHttpDevServer,
     captureInput: true,
   },
 }

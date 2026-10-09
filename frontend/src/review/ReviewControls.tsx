@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { getReviewRole, getReviewScenario, leaveReviewMode, reviewMode, setReviewSettings, type ReviewRole, type ReviewScenario } from './mode'
 
 const destinations = [
-  ['Explore', '/feed'], ['Create', '/create'], ['Inbox', '/inbox'], ['Profile', '/profile'],
+  ['Explore', '/feed'], ['Create', '/create'], ['Inbox', '/inbox'], ['Profile', '/profile'], ['Settings', '/settings'],
   ['Listing · other', '/listing/review-listing-lisbon'], ['Listing · own', '/listing/review-listing-own'],
   ['Listing · archived', '/listing/review-listing-archived'], ['Edit listing', '/listing/review-listing-own/edit'],
   ['Request · other', '/criteria/review-request-lisbon'], ['Request · own', '/criteria/review-request-own'],

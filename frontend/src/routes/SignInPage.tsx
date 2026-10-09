@@ -13,6 +13,7 @@ export default function SignInPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const resetSuccess = new URLSearchParams(location.search).get('reset') === 'success'
+  const passwordChanged = new URLSearchParams(location.search).get('passwordChanged') === '1'
   const oauthFailed = new URLSearchParams(location.search).get('error') === 'oauth_failed'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -83,6 +84,7 @@ export default function SignInPage() {
         {/* Form */}
         <form onSubmit={handleSignIn} className="space-y-4">
           {resetSuccess && <p role="status" className="rounded-xl bg-success-muted p-3 text-sm text-success">Password updated. Sign in with your new password.</p>}
+          {passwordChanged && <p role="status" className="rounded-xl bg-success-muted p-3 text-sm text-success">Password changed. Sign in again on this device.</p>}
           {oauthFailed && <p role="alert" className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">Google sign-in could not be completed. Please try again.</p>}
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>

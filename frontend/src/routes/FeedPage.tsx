@@ -17,6 +17,7 @@ import {
 import { formatCompactPrice, formatPrice, formatPriceRange } from '@/lib/format'
 import { useMe } from '@/hooks/useMe'
 import { cn } from '@/lib/utils'
+import { ResultCardSkeleton, Skeleton } from '@/components/ui/skeleton'
 
 const LIST_LIMIT = 24
 const MAP_LIMIT = 200
@@ -111,8 +112,14 @@ export default function FeedPage() {
   }
 
   const changeBounds = (next?: MapBounds) => updateParams(params => writeBounds(params, next))
+  const clearSearchFilters = () => updateParams(params => {
+    params.delete('q')
+    writeSellerFilters(params, {})
+    writeBuyerFilters(params, {})
+    writeBounds(params)
+  })
 
-  if (meLoading && !me) return <FeedLoading />
+  if (meLoading && !me) return <FeedLoading fullPage />
 
   return (
     <div className="min-h-dvh">
@@ -177,9 +184,9 @@ export default function FeedPage() {
       <div className={cn('workspace-content px-4 sm:px-6 md:px-8 lg:px-10', view === 'map' ? 'py-4' : 'py-6 lg:py-8')}>
         {blockedCriteria && <div role="status" className="mb-5 rounded-2xl border border-primary-200 bg-primary-100 p-4 text-sm text-foreground">Buyer requests are available to sellers. <Link to="/profile" className="font-semibold underline underline-offset-2">Update your role in Profile</Link> to browse them.</div>}
         {type === 'properties' ? (
-          <Properties key="properties" view={view} filters={sellerFilters} search={search} bounds={bounds} sort={sort as SellerSort} page={page} onPage={changePage} onBounds={changeBounds} returnTo={returnTo} />
+          <Properties key="properties" view={view} filters={sellerFilters} search={search} bounds={bounds} sort={sort as SellerSort} page={page} onPage={changePage} onBounds={changeBounds} onClear={clearSearchFilters} returnTo={returnTo} />
         ) : (
-          <Criteria key="criteria" view={view} filters={buyerFilters} search={search} bounds={bounds} sort={sort as BuyerSort} page={page} onPage={changePage} onBounds={changeBounds} returnTo={returnTo} />
+          <Criteria key="criteria" view={view} filters={buyerFilters} search={search} bounds={bounds} sort={sort as BuyerSort} page={page} onPage={changePage} onBounds={changeBounds} onClear={clearSearchFilters} returnTo={returnTo} />
         )}
       </div>
 
@@ -287,6 +294,7 @@ interface ResultsProps<TFilters, TSort> {
   page: number
   onPage: (page: number) => void
   onBounds: (bounds?: MapBounds) => void
+  onClear: () => void
   returnTo: string
 }
 
@@ -302,7 +310,7 @@ function useResultScroll(returnTo: string, ready: boolean) {
   }, [ready, returnTo])
 }
 
-function Properties({ view, filters, search, bounds, sort, page, onPage, onBounds, returnTo }: ResultsProps<SellerPostFilterValues, SellerSort>) {
+function Properties({ view, filters, search, bounds, sort, page, onPage, onBounds, onClear, returnTo }: ResultsProps<SellerPostFilterValues, SellerSort>) {
   const gqlFilters = useMemo(() => cleanFilters(filters), [JSON.stringify(filters)]) // URL values are immutable; avoid a new query on each render.
   const limit = view === 'map' ? MAP_LIMIT : LIST_LIMIT
   const { data, loading, error, refetch } = useQuery<{ sellerPostSearch: SearchResult<PropertyCardData> }>(SEARCH_SELLER_POSTS, {
@@ -313,9 +321,10 @@ function Properties({ view, filters, search, bounds, sort, page, onPage, onBound
   const result = data?.sellerPostSearch
   useResultScroll(returnTo, Boolean(result))
 
-  if (loading && !result) return <FeedLoading />
+  if (loading && !result) return <FeedLoading view={view} />
   if (error && (!result || result.totalCount === 0)) return <FeedError message={error.message} retry={() => void refetch()} />
-  if (!result || result.totalCount === 0) return <FeedEmpty search={search} filtered={Boolean(gqlFilters || bounds)} kind="properties" />
+  if (!result || result.totalCount === 0) return <FeedEmpty search={search} filtered={Boolean(gqlFilters || bounds)} kind="properties" onClear={onClear} />
+  if (result.items.length === 0) return <FeedEmpty kind="properties" emptyPage onClear={() => onPage(1)} />
 
   return (
     <>
@@ -329,7 +338,7 @@ function Properties({ view, filters, search, bounds, sort, page, onPage, onBound
   )
 }
 
-function Criteria({ view, filters, search, bounds, sort, page, onPage, onBounds, returnTo }: ResultsProps<BuyerPostFilterValues, BuyerSort>) {
+function Criteria({ view, filters, search, bounds, sort, page, onPage, onBounds, onClear, returnTo }: ResultsProps<BuyerPostFilterValues, BuyerSort>) {
   const gqlFilters = useMemo(() => cleanFilters(filters), [JSON.stringify(filters)])
   const limit = view === 'map' ? MAP_LIMIT : LIST_LIMIT
   const { data, loading, error, refetch } = useQuery<{ buyerPostSearch: SearchResult<CriteriaCardData> }>(SEARCH_BUYER_POSTS, {
@@ -340,9 +349,10 @@ function Criteria({ view, filters, search, bounds, sort, page, onPage, onBounds,
   const result = data?.buyerPostSearch
   useResultScroll(returnTo, Boolean(result))
 
-  if (loading && !result) return <FeedLoading />
+  if (loading && !result) return <FeedLoading view={view} />
   if (error && (!result || result.totalCount === 0)) return <FeedError message={error.message} retry={() => void refetch()} />
-  if (!result || result.totalCount === 0) return <FeedEmpty search={search} filtered={Boolean(gqlFilters || bounds)} kind="buyer requests" />
+  if (!result || result.totalCount === 0) return <FeedEmpty search={search} filtered={Boolean(gqlFilters || bounds)} kind="buyer requests" onClear={onClear} />
+  if (result.items.length === 0) return <FeedEmpty kind="buyer requests" emptyPage onClear={() => onPage(1)} />
 
   return (
     <>
@@ -442,8 +452,19 @@ function MapResults({ properties, criteria, bounds, onBounds, returnTo }: {
   )
 }
 
-function FeedLoading() {
-  return <div role="status" className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden="true" /> Loading results…</div>
+function FeedLoading({ view = 'list', fullPage = false }: { view?: ResultView; fullPage?: boolean }) {
+  return <div role="status" aria-label="Loading results" className={fullPage ? 'workspace-content px-4 py-6 sm:px-6 md:px-8 lg:px-10' : ''}>
+    <span className="sr-only">Loading results…</span>
+    {fullPage && <div aria-hidden="true" className="mb-9 space-y-4">
+      <Skeleton className="h-3 w-32" />
+      <Skeleton className="h-10 w-64 max-w-full" />
+      <Skeleton className="h-12 w-full max-w-xl" />
+      <div className="flex gap-3"><Skeleton className="h-10 w-32 rounded-full" /><Skeleton className="h-10 w-32 rounded-full" /></div>
+    </div>}
+    {view === 'map'
+      ? <Skeleton className="h-[min(62dvh,640px)] w-full rounded-2xl" />
+      : <div className="result-card-grid lg:!grid-cols-3">{Array.from({ length: 6 }, (_, index) => <ResultCardSkeleton key={index} />)}</div>}
+  </div>
 }
 
 function FeedError({ message, retry }: { message: string; retry: () => void }) {
@@ -453,9 +474,12 @@ function FeedError({ message, retry }: { message: string; retry: () => void }) {
   </div>
 }
 
-function FeedEmpty({ search, filtered, kind }: { search: string; filtered: boolean; kind: string }) {
+function FeedEmpty({ search, filtered, kind, emptyPage = false, onClear }: { search?: string; filtered?: boolean; kind: string; emptyPage?: boolean; onClear: () => void }) {
   return <div className="mt-6 rounded-2xl border border-dashed border-border bg-surface px-6 py-12 text-center">
-    <p className="text-lg font-semibold">No {kind} found</p>
-    <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">{search || filtered ? 'Try a broader place or fewer filters.' : `New ${kind} will appear here as they are published.`}</p>
+    <p className="text-lg font-semibold">{emptyPage ? 'No posts on this page' : `No ${kind} found`}</p>
+    <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">{emptyPage ? 'Return to the first page to see current posts.' : search || filtered ? 'Try a broader place or fewer filters.' : `New ${kind} will appear here as they are published.`}</p>
+    {emptyPage || search || filtered
+      ? <button type="button" onClick={onClear} className="mt-5 inline-flex min-h-11 items-center rounded-full bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-700">{emptyPage ? 'Go to first page' : 'Clear search and filters'}</button>
+      : <Link to="/create" className="mt-5 inline-flex min-h-11 items-center rounded-full bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-700">Create a post</Link>}
   </div>
 }

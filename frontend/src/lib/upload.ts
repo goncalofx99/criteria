@@ -13,7 +13,11 @@ async function prepareImage(file: File): Promise<Blob> {
   try {
     bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
   } catch {
-    throw new Error('This photo could not be read. Choose another image.')
+    try {
+      bitmap = await createImageBitmap(file)
+    } catch {
+      throw new Error('This photo could not be read. Choose another image.')
+    }
   }
 
   try {
@@ -25,10 +29,15 @@ async function prepareImage(file: File): Promise<Blob> {
     if (!context) throw new Error('This photo could not be prepared. Choose another image.')
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
 
-    const targetType = file.type === 'image/gif' ? 'image/png' : file.type
-    const prepared = await new Promise<Blob | null>(resolve => {
-      canvas.toBlob(resolve, targetType, 0.88)
+    const encode = (type: string, quality: number) => new Promise<Blob | null>(resolve => {
+      canvas.toBlob(resolve, type, quality)
     })
+    // Canvas re-encoding removes EXIF/GPS metadata. Prefer the smaller result;
+    // PNG remains the fallback for photos with transparency on older browsers.
+    const fallbackType = file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png'
+    const fallback = await encode(fallbackType, 0.84).catch(() => null)
+    const webp = await encode('image/webp', 0.82).catch(() => null)
+    const prepared = webp?.type === 'image/webp' && (!fallback || webp.size < fallback.size) ? webp : fallback
     if (!prepared) throw new Error('This photo could not be prepared. Choose another image.')
     validateUploadImage(prepared)
     return prepared

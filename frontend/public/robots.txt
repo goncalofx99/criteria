@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# Only the public landing page is approved for indexing. Legal drafts and
+# account routes carry noindex response headers so crawlers can read that rule.
+Sitemap: https://criteria-app.com/sitemap.xml

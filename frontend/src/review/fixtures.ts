@@ -9,6 +9,7 @@ export interface ReviewUser {
   fullName: string | null
   role: ReviewRole
   avatarUrl: string | null
+  hasPassword?: boolean
   onboardingComplete: boolean
   createdAt: string
   updatedAt: string
@@ -71,7 +72,7 @@ const imageAlgarve = illustration('#a9d4d8', '#fbf5e8', '#b88768')
 export function makeReviewStore(role: ReviewRole): ReviewStore {
   const me: ReviewUser = {
     id: 'review-current', email: 'alex@example.test', fullName: 'Alex Ribeiro', role,
-    avatarUrl: null, onboardingComplete: true, createdAt: daysAgo(240), updatedAt: now(),
+    avatarUrl: null, hasPassword: true, onboardingComplete: true, createdAt: daysAgo(240), updatedAt: now(),
   }
   const seller: ReviewUser = {
     id: 'review-seller', email: null, fullName: 'Sofia Martins', role: 'seller',

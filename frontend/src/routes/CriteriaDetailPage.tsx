@@ -16,8 +16,10 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { PostMenu } from '@/components/posts/PostMenu'
 import { PropertyCard, type PropertyCardData } from '@/components/posts/PropertyCard'
 import { Button } from '@/components/ui/button'
+import { DetailSkeleton } from '@/components/ui/skeleton'
+import { MemberAvatar } from '@/components/ui/member-avatar'
 import { safeInternalPath } from '@/lib/returnTo'
-import { formatPriceRange, initialsOf, avatarColorFor, timeAgo } from '@/lib/format'
+import { formatPriceRange, timeAgo } from '@/lib/format'
 import { PROPERTY_TYPE_LABEL, type PropertyType } from '@/lib/propertyType'
 import {
   AMENITY_LABEL,
@@ -57,6 +59,7 @@ export default function CriteriaDetailPage() {
   const navigate = useNavigate()
   const routeLocation = useLocation()
   const returnTo = safeInternalPath((routeLocation.state as { returnTo?: string } | null)?.returnTo, '/feed')
+  const sourceLabel = returnTo.startsWith('/profile') ? 'Profile' : 'Explore'
   const { me } = useMe()
   const [contactError, setContactError] = useState<string | null>(null)
   const { data, loading, error, refetch } = useQuery<{ buyerPost: BuyerPostData | null }>(GET_BUYER_POST, {
@@ -111,13 +114,17 @@ export default function CriteriaDetailPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-            onClick={() => navigate(returnTo)}
-            aria-label="Back to results"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
+              onClick={() => navigate(returnTo)}
+              aria-label={`Back to ${sourceLabel}`}
+              className="flex h-11 w-11 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
             >
               <ArrowLeft size={20} />
             </button>
             <h1 className="text-lg font-semibold text-foreground">Buyer request</h1>
+            <nav aria-label="Breadcrumb" className="hidden items-center gap-2 text-sm text-muted-foreground md:flex">
+              <span aria-hidden="true">/</span><Link to={returnTo} className="hover:text-primary hover:underline">{sourceLabel}</Link>
+              <span aria-hidden="true">/</span><span aria-current="page">Request</span>
+            </nav>
           </div>
           {post && isOwner && (
             <PostMenu
@@ -137,11 +144,7 @@ export default function CriteriaDetailPage() {
         </div>
       </PageHeader>
 
-      {loading && !post ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
-      ) : error || !post ? (
+      {loading && !post ? <DetailSkeleton variant="criteria" /> : error || !post ? (
         <div className="mx-auto max-w-lg px-6 py-16 text-center">
           <h2 className="text-xl font-semibold">{error?.graphQLErrors.some(item => item.extensions?.code === 'FORBIDDEN') ? 'Buyer requests are for sellers' : 'Request unavailable'}</h2>
           <p className="mt-2 text-sm text-muted-foreground">{error?.graphQLErrors.some(item => item.extensions?.code === 'FORBIDDEN') ? 'Add the seller role in your profile to browse and contact buyers.' : 'This request may have been removed or the link may be incorrect.'}</p>
@@ -156,12 +159,7 @@ export default function CriteriaDetailPage() {
             </div>
             <div className="p-6 md:p-8 xl:p-9">
               <div className="flex items-center gap-3">
-                <div
-                  className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-semibold text-white"
-                  style={{ backgroundColor: avatarColorFor(post.buyer.id) }}
-                >
-                  {initialsOf(post.buyer.fullName)}
-                </div>
+                <MemberAvatar member={post.buyer} className="h-12 w-12 text-sm" />
                 <div className="flex-1">
                   <p className="font-semibold text-foreground">
                     {post.buyer.fullName ?? 'Anonymous'}

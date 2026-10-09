@@ -1,26 +1,24 @@
 import { useState, useEffect, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client'
-import { Loader2, LogOut } from 'lucide-react'
+import { Loader2, Settings2 } from 'lucide-react'
 import { GET_ME, GET_MY_SELLER_POSTS, GET_MY_BUYER_POSTS, UPSERT_USER, REACTIVATE_SELLER_POST, REACTIVATE_BUYER_POST } from '@/lib/gql'
 import { useMe, type UserRole } from '@/hooks/useMe'
-import { signOut } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { PropertyCard, type PropertyCardData } from '@/components/posts/PropertyCard'
 import { CriteriaCard, type CriteriaCardData } from '@/components/posts/CriteriaCard'
-import { initialsOf } from '@/lib/format'
+import { MemberAvatar } from '@/components/ui/member-avatar'
 import { cn } from '@/lib/utils'
+import { ResultCardSkeleton, Skeleton } from '@/components/ui/skeleton'
 
 type Tab = 'listings' | 'criteria'
 
 export default function ProfilePage() {
-  const navigate = useNavigate()
-  const { me, canCreateProperty, canCreateCriteria, loading: meLoading } = useMe()
+  const { me, canCreateProperty, canCreateCriteria, loading: meLoading, error: meError, refetch: refetchMe } = useMe()
   const [tab, setTab] = useState<Tab | null>(null)
   const [chosenRole, setChosenRole] = useState<UserRole | null>(null)
   const [roleError, setRoleError] = useState<string | null>(null)
   const [roleSaved, setRoleSaved] = useState(false)
-  const [signingOut, setSigningOut] = useState(false)
   const [saveRole, { loading: roleSaving }] = useMutation(UPSERT_USER)
 
   // Sync tab once role loads
@@ -31,11 +29,11 @@ export default function ProfilePage() {
   }, [meLoading, canCreateProperty, tab])
 
   if (!me) {
+    if (meLoading) return <ProfilePageSkeleton />
     return (
-      <div className="flex justify-center py-16">
-        {meLoading
-          ? <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          : <p className="text-sm text-muted-foreground">Couldn't load profile.</p>}
+      <div className="flex flex-col items-center gap-3 px-5 py-16 text-center">
+        {meError ? <><p role="alert" className="text-sm text-muted-foreground">Couldn't load profile.</p><Button type="button" variant="outline" onClick={refetchMe} className="min-h-11">Try again</Button></>
+            : <><p role="status" className="text-sm text-muted-foreground">Your account is no longer available. Sign in again to continue.</p><Button asChild variant="outline" className="min-h-11"><Link to="/sign-in">Sign in</Link></Button></>}
       </div>
     )
   }
@@ -63,19 +61,12 @@ export default function ProfilePage() {
     }
   }
 
-  async function handleSignOut() {
-    setSigningOut(true)
-    await signOut()
-    navigate('/', { replace: true })
-  }
-
   return (
     <div className="workspace-content px-5 py-7 md:px-8 lg:px-10 lg:py-10">
       <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
         <div><p className="editorial-kicker">Your account</p><h1 className="editorial-title mt-2">Profile and posts</h1></div>
-        <Button variant="outline" onClick={() => { void handleSignOut() }} disabled={signingOut} className="min-h-11">
-          {signingOut ? <Loader2 className="animate-spin" aria-hidden="true" /> : <LogOut aria-hidden="true" />}
-          Sign out
+        <Button asChild variant="outline" className="min-h-11">
+          <Link to="/settings"><Settings2 aria-hidden="true" />Settings</Link>
         </Button>
       </div>
       <div className="lg:grid lg:grid-cols-[minmax(270px,350px)_minmax(0,1fr)] lg:items-start lg:gap-8 xl:gap-10">
@@ -83,13 +74,7 @@ export default function ProfilePage() {
           <div className="surface-panel overflow-hidden">
             <div className="h-20 bg-primary-900 md:h-28" />
             <div className="px-5 pb-6 md:px-8">
-              <div className="-mt-9 mb-3 flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-full border-4 border-surface bg-primary md:h-20 md:w-20">
-                {me.avatarUrl ? (
-                  <img src={me.avatarUrl} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-2xl font-bold text-white">{initialsOf(me.fullName)}</span>
-                )}
-              </div>
+              <MemberAvatar member={me} className="-mt-9 mb-3 h-[72px] w-[72px] border-4 border-surface text-2xl md:h-20 md:w-20" />
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="text-2xl font-semibold text-foreground">{me.fullName ?? 'Unnamed user'}</h2>
                 <span
@@ -268,10 +253,22 @@ function PostCollection<T extends { id: string; isActive: boolean }>({ items, no
 
 function ProfileLoading() {
   return (
-    <div className="flex justify-center py-10">
-      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+    <div role="status" aria-label="Loading your posts" className="result-card-grid mt-4">
+      <span className="sr-only">Loading your posts…</span>
+      {[0, 1, 2].map(index => <ResultCardSkeleton key={index} />)}
     </div>
   )
+}
+
+function ProfilePageSkeleton() {
+  return <div role="status" aria-label="Loading profile" className="workspace-content w-full px-5 py-7 md:px-8 lg:px-10 lg:py-10">
+    <span className="sr-only">Loading profile…</span>
+    <Skeleton className="mb-7 h-10 w-56" />
+    <div className="grid gap-8 lg:grid-cols-[minmax(270px,350px)_minmax(0,1fr)]">
+      <div className="space-y-6"><Skeleton className="h-56 rounded-2xl" /><Skeleton className="h-64 rounded-2xl" /></div>
+      <div className="space-y-5"><Skeleton className="h-8 w-40" /><div className="result-card-grid"><ResultCardSkeleton /><ResultCardSkeleton /></div></div>
+    </div>
+  </div>
 }
 
 function ProfileError({ onRetry }: { onRetry: () => void }) {

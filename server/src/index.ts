@@ -12,12 +12,14 @@ import type { Server } from 'http'
 import { env } from './lib/env.js'
 import { db } from './db/index.js'
 import { authMiddleware, verifyJwt } from './middleware/auth.js'
-import { rateLimitMiddleware } from './middleware/rateLimit.js'
+import { rateLimitMiddleware, sensitiveRateLimitMiddleware } from './middleware/rateLimit.js'
 import { typeDefs } from './schema/typeDefs.js'
 import { resolvers } from './schema/resolvers/index.js'
 import { createLoaders } from './lib/dataloaders.js'
 import { authRoutes } from './routes/auth.js'
+import { accountRoutes } from './routes/account.js'
 import { uploadRoutes } from './routes/upload.js'
+import { startAccountDeletionCleanup } from './lib/accountDeletion.js'
 import type { Context } from './context.js'
 
 // ─── Executable schema (shared between Apollo HTTP and graphql-ws) ─────────────
@@ -80,6 +82,7 @@ app.use(
 
 // Rate limiting — 60 req/min per IP in production, 500 in development
 app.use('*', rateLimitMiddleware)
+app.use('*', sensitiveRateLimitMiddleware)
 
 // JWT auth — sets userId on context (null if unauthenticated)
 app.use('*', authMiddleware)
@@ -88,6 +91,7 @@ app.use('*', authMiddleware)
 
 // Auth routes (signup, signin, google oauth, refresh, signout)
 app.route('/', authRoutes)
+app.route('/', accountRoutes)
 
 // Upload routes (presigned URLs for R2)
 app.route('/', uploadRoutes)
@@ -139,6 +143,7 @@ app.on(['GET', 'POST'], '/graphql', async (c) => {
 // serve() returns ServerType which includes Http2Server — cast to http.Server
 // since we know @hono/node-server uses plain HTTP by default.
 const httpServer = serve({ fetch: app.fetch, port: env.PORT }) as unknown as Server
+startAccountDeletionCleanup()
 
 // Attach a WebSocket server to the same HTTP server for GraphQL subscriptions.
 // The client sends the auth token in connectionParams.authorization.
@@ -149,11 +154,17 @@ useServer(
     schema,
     context: async (wsCtx) => {
       const authHeader = (wsCtx.connectionParams?.authorization ?? wsCtx.connectionParams?.Authorization) as string | undefined
+      const authToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined
       let userId: string | null = null
-      if (authHeader?.startsWith('Bearer ')) {
-        userId = await verifyJwt(authHeader.slice(7))
+      if (authToken) {
+        userId = await verifyJwt(authToken)
       }
-      return { db, userId, loaders: createLoaders(db) }
+      return {
+        db,
+        userId,
+        revalidateAuth: () => authToken ? verifyJwt(authToken) : Promise.resolve(null),
+        loaders: createLoaders(db),
+      }
     },
   },
   wss

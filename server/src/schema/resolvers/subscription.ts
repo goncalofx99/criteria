@@ -41,8 +41,25 @@ export const subscriptionResolvers = {
         return pubsub.asyncIterableIterator(`${EVENTS.MESSAGE_SENT}.${conversationId}`)
       },
 
-      // Extracts the message from the published payload for the GraphQL response.
-      resolve: (payload: { messageSent: Message }) => payload.messageSent,
+      // A subscription can stay open longer than an access token or account
+      // session. Re-check every event before exposing the new message.
+      resolve: async (payload: { messageSent: Message }, _: unknown, ctx: Context) => {
+        const userId = ctx.revalidateAuth ? await ctx.revalidateAuth() : null
+        if (!userId || userId !== ctx.userId) {
+          throw new GraphQLError('Not authenticated', {
+            extensions: { code: 'UNAUTHENTICATED' },
+          })
+        }
+        const conv = await ctx.db.query.conversations.findFirst({
+          where: eq(conversations.id, payload.messageSent.conversationId),
+        })
+        if (!conv || (conv.buyerId !== userId && conv.sellerId !== userId)) {
+          throw new GraphQLError('Conversation not available', {
+            extensions: { code: 'FORBIDDEN' },
+          })
+        }
+        return payload.messageSent
+      },
     },
   },
 }

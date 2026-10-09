@@ -11,6 +11,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       <input
         type={type}
         ref={ref}
+        aria-invalid={error || undefined}
         className={cn(
           // Base
           'flex h-12 w-full rounded-xl border bg-surface px-4 py-3 text-sm text-foreground',
