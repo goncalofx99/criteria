@@ -2,9 +2,8 @@
  * Post-Google-OAuth onboarding.
  * Google gives us name + avatar — we still need age and role.
  */
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useKeyboardHeight } from '@/hooks/useKeyboardHeight'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client'
 import { Building2, Search, LayoutGrid, Loader2 } from 'lucide-react'
 import { UPSERT_USER, GET_ME } from '@/lib/gql'
@@ -13,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StepIndicator } from '@/components/auth/StepIndicator'
 import { cn } from '@/lib/utils'
+import { rememberAuthDestination, safeInternalPath, takeAuthDestination } from '@/lib/returnTo'
 
 type Role = 'buyer' | 'seller' | 'both'
 
@@ -24,32 +24,38 @@ const roles = [
 
 export default function Onboarding() {
   const navigate = useNavigate()
+  const location = useLocation()
+  useEffect(() => {
+    const next = new URLSearchParams(location.search).get('next')
+    if (next) rememberAuthDestination(safeInternalPath(next))
+  }, [location.search])
   const [step, setStep] = useState(0) // 0 = age, 1 = role
   const [age, setAge] = useState('')
   const [role, setRole] = useState<Role | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [upsertUser] = useMutation(UPSERT_USER)
-  const { data: meData } = useQuery(GET_ME)
-  const keyboardHeight = useKeyboardHeight()
+  const { data: meData, loading: meLoading } = useQuery(GET_ME)
 
-  const ageNum = parseInt(age)
-  const ageValid = !isNaN(ageNum) && ageNum >= 18 && ageNum <= 120
+  const ageNum = Number(age)
+  const ageValid = age !== '' && Number.isInteger(ageNum) && ageNum >= 18 && ageNum <= 120
 
   async function finish() {
-    if (!role) return
+    if (!role || !ageValid) return
     setLoading(true)
     setError(null)
     try {
       const me = meData?.me
+      if (!me?.email) throw new Error('Your account is still loading. Please try again.')
 
       await upsertUser({
         variables: {
           input: {
-            email: me?.email ?? '',
-            fullName: me?.fullName ?? null,
-            avatarUrl: me?.avatarUrl ?? null,
+            email: me.email,
+            ...(me.fullName ? { fullName: me.fullName } : {}),
+            ...(me.avatarUrl ? { avatarUrl: me.avatarUrl } : {}),
             role,
+            age: ageNum,
           },
         },
         update: (cache, { data }) => {
@@ -58,7 +64,7 @@ export default function Onboarding() {
           }
         },
       })
-      navigate('/feed', { replace: true })
+      navigate(takeAuthDestination('/feed'), { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
       setLoading(false)
@@ -87,7 +93,6 @@ export default function Onboarding() {
                 type="number"
                 inputMode="numeric"
                 placeholder="25"
-                autoFocus
                 min={18}
                 max={120}
                 value={age}
@@ -111,6 +116,7 @@ export default function Onboarding() {
                   key={value}
                   type="button"
                   onClick={() => setRole(value)}
+                  aria-pressed={role === value}
                   className={cn(
                     'flex w-full items-start gap-4 rounded-xl border-2 bg-surface p-4 text-left transition-all duration-150',
                     role === value
@@ -141,14 +147,11 @@ export default function Onboarding() {
       </div>
 
       {/* Footer */}
-      <div
-        className="web-content px-6 pb-10 pb-safe transition-transform duration-200"
-        style={keyboardHeight > 0 ? { transform: `translateY(-${keyboardHeight}px)` } : undefined}
-      >
+      <div className="web-content px-6 pb-10 pb-safe">
         <Button
           size="lg"
           className="w-full rounded-xl"
-          disabled={step === 0 ? !ageValid : !role || loading}
+          disabled={step === 0 ? !ageValid : !role || loading || meLoading}
           onClick={() => {
             if (step === 0) setStep(1)
             else finish()

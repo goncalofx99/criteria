@@ -1,11 +1,49 @@
 import { GraphQLError } from 'graphql'
-import { eq, desc, and, gte, lte, type SQL } from 'drizzle-orm'
+import { eq, desc, asc, and, or, gte, lte, count, type SQL } from 'drizzle-orm'
 import { buyerPosts, users } from '../../db/schema.js'
 import { validate, createBuyerPostSchema, updateBuyerPostSchema } from '../../lib/validate.js'
 import type { Context } from '../../context.js'
 import type { BuyerPost } from '../../db/schema.js'
+import { assertFilterRange, boundsCondition, publicLocalitySearchCondition, publicMapCoordinate, searchPage, textCondition, type MapBounds } from '../../lib/search.js'
+import { publicCoordinate, publicLocationText } from '../../lib/publicLocation.js'
 
-const MAX_PAGE_SIZE = 50
+const MAX_PAGE_SIZE = 200
+
+type BuyerFilters = {
+  propertyType?: string; budgetMin?: number; budgetMax?: number;
+  bedroomsMin?: number; bathroomsMin?: number; radiusKmMax?: number
+}
+type BuyerSort = 'newest' | 'oldest' | 'budget_asc' | 'budget_desc'
+
+export function buyerWhere(filters?: BuyerFilters | null, search?: string | null, bounds?: MapBounds | null) {
+  const conditions: SQL[] = [eq(buyerPosts.isActive, true)]
+  if (filters) {
+    assertFilterRange(filters.budgetMin, filters.budgetMax, 'budget')
+    assertFilterRange(filters.bedroomsMin, undefined, 'bedrooms')
+    assertFilterRange(filters.bathroomsMin, undefined, 'bathrooms')
+    assertFilterRange(filters.radiusKmMax, undefined, 'radius')
+    if (filters.propertyType) conditions.push(eq(buyerPosts.propertyType, filters.propertyType as typeof buyerPosts.propertyType.enumValues[number]))
+    if (filters.budgetMin != null) conditions.push(gte(buyerPosts.priceMax, String(filters.budgetMin)))
+    if (filters.budgetMax != null) conditions.push(lte(buyerPosts.priceMin, String(filters.budgetMax)))
+    if (filters.bedroomsMin != null) conditions.push(gte(buyerPosts.bedroomsMin, filters.bedroomsMin))
+    if (filters.bathroomsMin != null) conditions.push(gte(buyerPosts.bathroomsMin, filters.bathroomsMin))
+    if (filters.radiusKmMax != null) conditions.push(lte(buyerPosts.radiusKm, filters.radiusKmMax))
+  }
+  const text = textCondition(search, buyerPosts.title, buyerPosts.description)
+  const locality = publicLocalitySearchCondition(search, buyerPosts.locationText)
+  if (text) conditions.push(locality ? or(text, locality)! : text)
+  const location = boundsCondition(bounds, publicMapCoordinate(buyerPosts.lat), publicMapCoordinate(buyerPosts.lng))
+  if (location) conditions.push(location)
+  return and(...conditions)!
+}
+
+function buyerOrder(sort: BuyerSort = 'newest'): SQL[] {
+  const first: SQL = {
+    newest: desc(buyerPosts.createdAt), oldest: asc(buyerPosts.createdAt),
+    budget_asc: asc(buyerPosts.priceMax), budget_desc: desc(buyerPosts.priceMax),
+  }[sort] ?? desc(buyerPosts.createdAt)
+  return [first, desc(buyerPosts.createdAt), desc(buyerPosts.id)]
+}
 
 function requireAuth(ctx: Context) {
   if (!ctx.userId) {
@@ -27,10 +65,22 @@ function requireOwnership(post: BuyerPost, userId: string) {
 async function requireBuyerRole(ctx: Context, userId: string) {
   const user = await ctx.db.query.users.findFirst({
     where: eq(users.id, userId),
-    columns: { role: true },
+    columns: { role: true, onboardingCompletedAt: true },
   })
-  if (!user || (user.role !== 'buyer' && user.role !== 'both')) {
+  if (!user || !user.onboardingCompletedAt || (user.role !== 'buyer' && user.role !== 'both')) {
     throw new GraphQLError('Your account role does not allow posting criteria', {
+      extensions: { code: 'FORBIDDEN' },
+    })
+  }
+}
+
+async function requireSellerView(ctx: Context) {
+  const userId = requireAuth(ctx)
+  const user = await ctx.db.query.users.findFirst({
+    where: eq(users.id, userId), columns: { role: true, onboardingCompletedAt: true },
+  })
+  if (!user?.onboardingCompletedAt || (user.role !== 'seller' && user.role !== 'both')) {
+    throw new GraphQLError('Your account role cannot browse buyer requests', {
       extensions: { code: 'FORBIDDEN' },
     })
   }
@@ -43,10 +93,13 @@ export const buyerPostResolvers = {
     // Drizzle returns numeric as string — coerce for GraphQL Float
     priceMin: (post: BuyerPost) => Number(post.priceMin),
     priceMax: (post: BuyerPost) => Number(post.priceMax),
+    lat: (post: BuyerPost, _: unknown, ctx: Context) => post.buyerId === ctx.userId ? post.lat : publicCoordinate(post.lat),
+    lng: (post: BuyerPost, _: unknown, ctx: Context) => post.buyerId === ctx.userId ? post.lng : publicCoordinate(post.lng),
+    locationText: (post: BuyerPost, _: unknown, ctx: Context) => post.buyerId === ctx.userId ? post.locationText : publicLocationText(post.locationText),
   },
 
   Query: {
-    buyerPosts: (
+    buyerPosts: async (
       _: unknown,
       { limit = 20, offset = 0, filters }: {
         limit?: number
@@ -62,31 +115,38 @@ export const buyerPostResolvers = {
       },
       ctx: Context
     ) => {
-      const conditions: SQL[] = [eq(buyerPosts.isActive, true)]
-
-      if (filters) {
-        if (filters.propertyType) conditions.push(eq(buyerPosts.propertyType, filters.propertyType as typeof buyerPosts.propertyType.enumValues[number]))
-        // budgetMin: buyer's max budget must be >= this value
-        if (filters.budgetMin != null) conditions.push(gte(buyerPosts.priceMax, String(filters.budgetMin)))
-        // budgetMax: buyer's min budget must be <= this value
-        if (filters.budgetMax != null) conditions.push(lte(buyerPosts.priceMin, String(filters.budgetMax)))
-        if (filters.bedroomsMin != null) conditions.push(gte(buyerPosts.bedroomsMin, filters.bedroomsMin))
-        if (filters.bathroomsMin != null) conditions.push(gte(buyerPosts.bathroomsMin, filters.bathroomsMin))
-        if (filters.radiusKmMax != null) conditions.push(lte(buyerPosts.radiusKm, filters.radiusKmMax))
-      }
+      await requireSellerView(ctx)
+      const page = searchPage(limit, offset)
 
       return ctx.db.query.buyerPosts.findMany({
-        where: and(...conditions),
+        where: buyerWhere(filters),
         orderBy: (bp) => desc(bp.createdAt),
-        limit: Math.min(limit, MAX_PAGE_SIZE),
-        offset,
+        limit: Math.min(page.limit, MAX_PAGE_SIZE),
+        offset: page.offset,
       })
     },
 
+    buyerPostSearch: async (_: unknown, { limit = 20, offset = 0, filters, search, bounds, sort }: {
+      limit?: number; offset?: number; filters?: BuyerFilters; search?: string;
+      bounds?: MapBounds; sort?: BuyerSort
+    }, ctx: Context) => {
+      await requireSellerView(ctx)
+      const page = searchPage(limit, offset)
+      const where = buyerWhere(filters, search, bounds)
+      const [items, totals] = await Promise.all([
+        ctx.db.query.buyerPosts.findMany({ where, orderBy: buyerOrder(sort), ...page }),
+        ctx.db.select({ total: count() }).from(buyerPosts).where(where),
+      ])
+      const totalCount = totals[0]?.total ?? 0
+      return { items, totalCount, hasNextPage: page.offset + items.length < totalCount }
+    },
+
     buyerPost: async (_: unknown, { id }: { id: string }, ctx: Context) => {
+      const userId = requireAuth(ctx)
       const post = await ctx.db.query.buyerPosts.findFirst({
         where: (bp, { eq }) => eq(bp.id, id),
       })
+      if (post && post.buyerId !== userId) await requireSellerView(ctx)
       if (post && !post.isActive && post.buyerId !== ctx.userId) return null
       return post ?? null
     },
@@ -123,8 +183,8 @@ export const buyerPostResolvers = {
           propertyType: data.propertyType,
           priceMin: String(data.priceMin),
           priceMax: String(data.priceMax),
-          bedroomsMin: data.bedroomsMin,
-          bathroomsMin: data.bathroomsMin,
+          bedroomsMin: data.bedroomsMin ?? 0,
+          bathroomsMin: data.bathroomsMin ?? 0,
           areaSqmMin: data.areaSqmMin ?? null,
           yearBuiltMin: data.yearBuiltMin ?? null,
           conditions: data.conditions ?? null,
@@ -152,6 +212,14 @@ export const buyerPostResolvers = {
       })
       if (!existing) throw new GraphQLError('Post not found', { extensions: { code: 'NOT_FOUND' } })
       requireOwnership(existing, userId)
+
+      const priceMin = data.priceMin ?? Number(existing.priceMin)
+      const priceMax = data.priceMax ?? Number(existing.priceMax)
+      const floorMin = data.floorMin !== undefined ? data.floorMin : existing.floorMin
+      const floorMax = data.floorMax !== undefined ? data.floorMax : existing.floorMax
+      if (priceMin >= priceMax || (floorMin != null && floorMax != null && floorMin > floorMax)) {
+        throw new GraphQLError('Price or floor range is invalid', { extensions: { code: 'BAD_USER_INPUT' } })
+      }
 
       const updates: Partial<typeof buyerPosts.$inferInsert> = { updatedAt: new Date() }
       if (data.title !== undefined) updates.title = data.title
@@ -202,6 +270,18 @@ export const buyerPostResolvers = {
         .where(eq(buyerPosts.id, id))
         .returning()
 
+      return updated
+    },
+
+    reactivateBuyerPost: async (_: unknown, { id }: { id: string }, ctx: Context) => {
+      const userId = requireAuth(ctx)
+      await requireBuyerRole(ctx, userId)
+      const existing = await ctx.db.query.buyerPosts.findFirst({ where: eq(buyerPosts.id, id) })
+      if (!existing) throw new GraphQLError('Post not found', { extensions: { code: 'NOT_FOUND' } })
+      requireOwnership(existing, userId)
+      const [updated] = await ctx.db.update(buyerPosts)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(eq(buyerPosts.id, id)).returning()
       return updated
     },
   },

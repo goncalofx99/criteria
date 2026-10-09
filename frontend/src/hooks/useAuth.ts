@@ -13,25 +13,36 @@ export function useAuth(): AuthState & { signOut: () => Promise<void> } {
   })
 
   useEffect(() => {
-    // Check if we have a valid session on mount
+    let active = true
+    // Expired access tokens must not leave protected screens appearing signed in.
     async function check() {
       const token = getAccessToken()
       if (token) {
-        setState({ isAuthenticated: true, loading: false })
+        if (active) setState({ isAuthenticated: true, loading: false })
       } else {
-        // Try refreshing
         const refreshed = await refreshAccessToken()
-        setState({ isAuthenticated: !!refreshed, loading: false })
+        if (active) setState({ isAuthenticated: !!refreshed, loading: false })
       }
     }
-    check()
+    void check()
+
+    const interval = window.setInterval(() => { void check() }, 60_000)
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void check()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
 
     // Listen for auth state changes (login, logout, refresh)
     const unsub = onAuthChange((token) => {
       setState((prev) => ({ ...prev, isAuthenticated: !!token }))
     })
 
-    return unsub
+    return () => {
+      active = false
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisibility)
+      unsub()
+    }
   }, [])
 
   return {

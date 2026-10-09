@@ -1,223 +1,183 @@
-import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Circle, useMap } from "react-leaflet";
-import L from "leaflet";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from 'react'
+import { AttributionControl, Circle, MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import L from 'leaflet'
+import { useNavigate } from 'react-router-dom'
+import type { MapBounds } from '@/components/feed/feedState'
+import { formatCompactPrice } from '@/lib/format'
 
-const PRIMARY = "#344e41";
-const CRITERIA_GREEN = "#5a8060";
-const LISBON: [number, number] = [38.7223, -9.1393];
-
-// ─── divIcons ────────────────────────────────────────────────────────────────
-// We avoid the default Leaflet marker because Vite mangles its image URLs.
-// divIcons render arbitrary HTML/SVG, no image assets needed.
-
-const propertyIcon = L.divIcon({
-  className: "criteria-marker",
-  html: `<div style="
-    width:38px;height:38px;background:${PRIMARY};
-    border-radius:19px 19px 19px 4px;
-    display:flex;align-items:center;justify-content:center;
-    box-shadow:0 2px 6px rgba(52,78,65,0.35);border:2.5px solid white;
-  ">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-      <polyline points="9 22 9 12 15 12 15 22"/>
-    </svg>
-  </div>`,
-  iconSize: [38, 38],
-  iconAnchor: [19, 38],
-});
-
-const criteriaIcon = L.divIcon({
-  className: "criteria-marker",
-  html: `<div style="
-    width:38px;height:38px;background:${CRITERIA_GREEN};
-    border-radius:19px 19px 19px 4px;
-    display:flex;align-items:center;justify-content:center;
-    box-shadow:0 2px 6px rgba(90,128,96,0.35);border:2.5px solid white;
-  ">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-      <circle cx="12" cy="7" r="4"/>
-    </svg>
-  </div>`,
-  iconSize: [38, 38],
-  iconAnchor: [19, 38],
-});
-
-// ─── Types ──────────────────────────────────────────────────────────────────
+const PRIMARY = '#344e41'
+const BUYER_GREEN = '#5a8060'
+const LISBON: [number, number] = [38.7223, -9.1393]
+const TILE_URL = import.meta.env.VITE_MAP_TILE_URL?.trim() || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+const TILE_ATTRIBUTION = import.meta.env.VITE_MAP_TILE_ATTRIBUTION?.trim() || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+const EMPTY_PROPERTIES: PropertyMarker[] = []
+const EMPTY_CRITERIA: CriteriaMarker[] = []
 
 interface PropertyMarker {
-  id: string;
-  lat: number;
-  lng: number;
+  id: string
+  lat: number
+  lng: number
+  price?: number
+  title?: string
 }
 
 interface CriteriaMarker {
-  id: string;
-  lat: number;
-  lng: number;
-  radiusKm: number;
+  id: string
+  lat: number
+  lng: number
+  radiusKm: number
+  priceMax?: number
+  title?: string
 }
 
 export interface PostsMapProps {
-  properties?: PropertyMarker[];
-  criteria?: CriteriaMarker[];
-  /** Single pin shown in form preview / detail mini-map. Not navigable. */
-  pin?: { lat: number; lng: number; draggable?: boolean };
-  /** Approximate area circle (privacy mode for non-owners). Mutually exclusive with `pin`. */
-  approximate?: { lat: number; lng: number; radiusM?: number };
-  /** Fired when the draggable preview pin is moved. */
-  onPinDrag?: (lat: number, lng: number) => void;
-  /** Disable user interaction (used in detail mini-map). */
-  interactive?: boolean;
-  /** Tailwind-friendly explicit height. Defaults to 320px. */
-  height?: number | string;
+  properties?: PropertyMarker[]
+  criteria?: CriteriaMarker[]
+  pin?: { lat: number; lng: number; draggable?: boolean }
+  approximate?: { lat: number; lng: number; radiusM?: number }
+  onPinDrag?: (lat: number, lng: number) => void
+  interactive?: boolean
+  height?: number | string
+  selectedId?: string | null
+  onSelectPost?: (id: string) => void
+  onBoundsChange?: (bounds: MapBounds) => void
+  bounds?: MapBounds
 }
 
-// ─── Internal: fit map to whichever points exist ─────────────────────────────
+function markerIcon(kind: 'property' | 'criteria' | 'pin', amount?: number, selected = false): L.DivIcon {
+  const color = kind === 'criteria' ? BUYER_GREEN : PRIMARY
+  const label = amount !== undefined && Number.isFinite(amount) ? formatCompactPrice(amount) : (kind === 'criteria' ? 'Buyer' : 'Home')
+  // Label comes only from a formatted number or fixed copy, never from user-provided HTML.
+  const html = `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:60px;max-width:110px;min-height:34px;padding:5px 9px;border:2px solid ${selected ? color : '#fff'};border-radius:999px;background:${selected ? color : '#fff'};color:${selected ? '#fff' : color};box-shadow:0 3px 14px rgba(26,46,34,.25);font:700 12px/1 Inter,system-ui,sans-serif;white-space:nowrap">${label}</span>`
+  return L.divIcon({ className: 'criteria-marker', html, iconSize: [68, 36], iconAnchor: [34, 18] })
+}
 
-function FitBounds({
-  properties = [],
-  criteria = [],
-  pin,
-  approximate,
-}: Pick<PostsMapProps, "properties" | "criteria" | "pin" | "approximate">) {
-  const map = useMap();
+function FitBounds({ properties, criteria, pin, approximate, bounds }: Required<Pick<PostsMapProps, 'properties' | 'criteria'>> & Pick<PostsMapProps, 'pin' | 'approximate' | 'bounds'>) {
+  const map = useMap()
   useEffect(() => {
-    const points: [number, number][] = [];
-    properties.forEach((p) => points.push([p.lat, p.lng]));
-    criteria.forEach((c) => points.push([c.lat, c.lng]));
-    if (pin) points.push([pin.lat, pin.lng]);
-    if (approximate) points.push([approximate.lat, approximate.lng]);
-
-    if (points.length === 0) {
-      map.setView(LISBON, 6);
-      return;
+    if (bounds) {
+      map.fitBounds([[bounds.south, bounds.west], [bounds.north, bounds.east]], { padding: [30, 30], maxZoom: 15 })
+      return
     }
-    if (points.length === 1) {
-      map.setView(points[0]!, 14);
-      return;
-    }
-    map.fitBounds(L.latLngBounds(points), {
-      padding: [40, 40],
-      maxZoom: 13,
-    });
-  }, [map, properties, criteria, pin, approximate]);
-  return null;
+    const points: [number, number][] = []
+    properties.forEach(item => points.push([item.lat, item.lng]))
+    criteria.forEach(item => points.push([item.lat, item.lng]))
+    if (pin) points.push([pin.lat, pin.lng])
+    if (approximate) points.push([approximate.lat, approximate.lng])
+    if (points.length === 0) map.setView(LISBON, 6)
+    else if (points.length === 1) map.setView(points[0]!, 13)
+    else map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 13 })
+  }, [map, properties, criteria, pin, approximate, bounds?.north, bounds?.south, bounds?.east, bounds?.west])
+  return null
 }
 
-// ─── Component ──────────────────────────────────────────────────────────────
+function MapViewport({ onBoundsChange }: { onBoundsChange: (bounds: MapBounds) => void }) {
+  const map = useMapEvents({ moveend: report })
+  function report() {
+    const next = map.getBounds()
+    onBoundsChange({ north: next.getNorth(), south: next.getSouth(), east: next.getEast(), west: next.getWest() })
+  }
+  useEffect(() => { report() }, [map, onBoundsChange])
+  return null
+}
 
 export default function PostsMap({
-  properties = [],
-  criteria = [],
+  properties = EMPTY_PROPERTIES,
+  criteria = EMPTY_CRITERIA,
   pin,
   approximate,
   onPinDrag,
   interactive = true,
   height = 320,
+  selectedId,
+  onSelectPost,
+  onBoundsChange,
+  bounds,
 }: PostsMapProps) {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
+  const [tileErrors, setTileErrors] = useState(0)
+  const selectedPropertyIcon = useMemo(() => markerIcon('property', undefined, true), [])
+
+  const openPost = (kind: 'property' | 'criteria', id: string) => {
+    if (!interactive) return
+    if (onSelectPost) onSelectPost(id)
+    else navigate(kind === 'property' ? `/listing/${id}` : `/criteria/${id}`)
+  }
 
   return (
-    <div
-      className="overflow-hidden rounded-2xl border border-primary-200 shadow-sm z-0"
-      style={{ height, width: "100%" }}
-    >
+    <div role="region" aria-label={pin || approximate ? 'Location map' : 'Results map'} className="relative z-0 overflow-hidden rounded-2xl border border-primary-200 bg-overlay shadow-sm" style={{ height, width: '100%' }}>
       <MapContainer
         center={LISBON}
         zoom={6}
-        style={{ height: "100%", width: "100%", zIndex: 0 }}
-        scrollWheelZoom={interactive}
+        style={{ height: '100%', width: '100%', zIndex: 0 }}
+        scrollWheelZoom={false}
         dragging={interactive}
         doubleClickZoom={interactive}
         touchZoom={interactive}
         zoomControl={interactive}
         attributionControl={false}
+        keyboard={interactive}
       >
+        <AttributionControl position="topright" prefix={false} />
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          url={TILE_URL}
+          attribution={TILE_ATTRIBUTION}
+          eventHandlers={{ tileerror: () => setTileErrors(count => count + 1) }}
         />
+        <FitBounds properties={properties} criteria={criteria} pin={pin} approximate={approximate} bounds={bounds} />
+        {onBoundsChange && <MapViewport onBoundsChange={onBoundsChange} />}
 
-        <FitBounds
-          properties={properties}
-          criteria={criteria}
-          pin={pin}
-          approximate={approximate}
-        />
-
-        {properties.map((p) => (
+        {properties.map(item => (
           <Marker
-            key={p.id}
-            position={[p.lat, p.lng]}
-            icon={propertyIcon}
-            eventHandlers={{
-              click: () => interactive && navigate(`/listing/${p.id}`),
-            }}
+            key={item.id}
+            position={[item.lat, item.lng]}
+            icon={item.price !== undefined ? markerIcon('property', item.price, selectedId === item.id) : selectedPropertyIcon}
+            title={item.title ?? 'Property'}
+            keyboard={interactive}
+            zIndexOffset={selectedId === item.id ? 1000 : 0}
+            eventHandlers={{ click: () => openPost('property', item.id) }}
           />
         ))}
 
-        {criteria.map((c) => (
+        {criteria.map(item => (
           <Circle
-            key={`circle-${c.id}`}
-            center={[c.lat, c.lng]}
-            radius={Math.max(c.radiusKm, 1) * 1000}
-            pathOptions={{
-              color: CRITERIA_GREEN,
-              fillColor: CRITERIA_GREEN,
-              fillOpacity: 0.12,
-              weight: 1.5,
-            }}
-            eventHandlers={{
-              click: () => interactive && navigate(`/criteria/${c.id}`),
-            }}
+            key={`circle-${item.id}`}
+            center={[item.lat, item.lng]}
+            radius={Math.max(item.radiusKm, 1) * 1000}
+            pathOptions={{ color: BUYER_GREEN, fillColor: BUYER_GREEN, fillOpacity: 0.08, weight: 1.5 }}
+            eventHandlers={{ click: () => openPost('criteria', item.id) }}
           />
         ))}
 
-        {criteria.map((c) => (
+        {criteria.map(item => (
           <Marker
-            key={`pin-${c.id}`}
-            position={[c.lat, c.lng]}
-            icon={criteriaIcon}
-            eventHandlers={{
-              click: () => interactive && navigate(`/criteria/${c.id}`),
-            }}
+            key={item.id}
+            position={[item.lat, item.lng]}
+            icon={markerIcon('criteria', item.priceMax, selectedId === item.id)}
+            title={item.title ?? 'Buyer request'}
+            keyboard={interactive}
+            zIndexOffset={selectedId === item.id ? 1000 : 0}
+            eventHandlers={{ click: () => openPost('criteria', item.id) }}
           />
         ))}
 
         {approximate && (
-          <Circle
-            center={[approximate.lat, approximate.lng]}
-            radius={approximate.radiusM ?? 500}
-            pathOptions={{
-              color: PRIMARY,
-              fillColor: PRIMARY,
-              fillOpacity: 0.1,
-              weight: 1.5,
-              dashArray: "6 4",
-            }}
-          />
+          <Circle center={[approximate.lat, approximate.lng]} radius={approximate.radiusM ?? 1000} pathOptions={{ color: PRIMARY, fillColor: PRIMARY, fillOpacity: 0.1, weight: 1.5, dashArray: '6 4' }} />
         )}
-
         {pin && (
           <Marker
             position={[pin.lat, pin.lng]}
-            icon={propertyIcon}
-            draggable={!!pin.draggable}
-            eventHandlers={
-              pin.draggable && onPinDrag
-                ? {
-                    dragend: (e) => {
-                      const { lat, lng } = (e.target as L.Marker).getLatLng();
-                      onPinDrag(lat, lng);
-                    },
-                  }
-                : undefined
-            }
+            icon={markerIcon('pin')}
+            draggable={Boolean(pin.draggable)}
+            keyboard={interactive || Boolean(pin.draggable)}
+            eventHandlers={pin.draggable && onPinDrag ? { dragend: event => {
+              const position = (event.target as L.Marker).getLatLng()
+              onPinDrag(position.lat, position.lng)
+            } } : undefined}
           />
         )}
       </MapContainer>
+      {tileErrors > 3 && <div className="absolute bottom-2 left-2 right-2 z-[500] rounded-lg bg-surface/95 p-2 text-center text-xs text-foreground shadow-sm">Map tiles are unavailable. Switch to list view to browse results.</div>}
     </div>
-  );
+  )
 }

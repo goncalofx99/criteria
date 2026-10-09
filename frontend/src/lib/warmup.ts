@@ -3,9 +3,11 @@
  * Useful on auth pages — by the time the user finishes typing/OAuthing,
  * a sleeping Railway container has had a head-start at booting.
  */
+import { reviewMode } from '@/review/mode'
 let warmedAt = 0
 
 export function warmUpBackend(): void {
+  if (reviewMode) return
   // Don't spam — once every 30s is plenty.
   if (Date.now() - warmedAt < 30_000) return
   warmedAt = Date.now()

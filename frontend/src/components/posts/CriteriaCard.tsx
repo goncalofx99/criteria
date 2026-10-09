@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { ArrowUpRight, BedDouble, Bath, Maximize2, MapPin, Search } from 'lucide-react'
 import { formatPriceRange, initialsOf, avatarColorFor, timeAgo } from '@/lib/format'
 import { PROPERTY_TYPE_LABEL, type PropertyType } from '@/lib/propertyType'
@@ -23,6 +23,7 @@ export interface CriteriaCardData {
   requiresBalcony: boolean | null
   requiresCentralHeating: boolean | null
   requiredAmenities: string[]
+  isActive: boolean
   createdAt: string
   buyer: {
     id: string
@@ -32,12 +33,15 @@ export interface CriteriaCardData {
 }
 
 export function CriteriaCard({ criteria }: { criteria: CriteriaCardData }) {
+  const location = useLocation()
   const initials = initialsOf(criteria.buyer.fullName)
   const avatarBg = avatarColorFor(criteria.buyer.id)
+  const residential = criteria.propertyType === 'apartment' || criteria.propertyType === 'house'
 
   return (
     <Link
       to={`/criteria/${criteria.id}`}
+      state={{ returnTo: `${location.pathname}${location.search}` }}
       className="criteria-card group block h-full w-full active:scale-[0.99]"
     >
       <div className="relative flex h-24 items-center justify-between overflow-hidden bg-primary-900 px-5 text-white">
@@ -64,11 +68,11 @@ export function CriteriaCard({ criteria }: { criteria: CriteriaCardData }) {
               {criteria.buyer.fullName ?? 'Anonymous buyer'}
             </p>
             <p className="text-xs text-muted-foreground">
-              Active buyer · {timeAgo(criteria.createdAt)}
+              {criteria.isActive ? 'Buyer request' : 'Archived request'} · {timeAgo(criteria.createdAt)}
             </p>
           </div>
           <span className="shrink-0 rounded-full bg-primary-100 px-2.5 py-1 text-[11px] font-semibold text-primary">
-            Looking now
+            {criteria.isActive ? 'Looking now' : 'Archived'}
           </span>
         </div>
 
@@ -101,14 +105,14 @@ export function CriteriaCard({ criteria }: { criteria: CriteriaCardData }) {
 
         {/* Specs */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-primary-200/80 pt-3 text-[13px] font-medium text-foreground/75">
-          <span className="flex items-center gap-1.5">
+          {residential && <span className="flex items-center gap-1.5">
             <BedDouble size={14} className="text-muted-foreground/70" />
             {criteria.bedroomsMin}+ bed
-          </span>
-          <span className="flex items-center gap-1.5">
+          </span>}
+          {residential && <span className="flex items-center gap-1.5">
             <Bath size={14} className="text-muted-foreground/70" />
             {criteria.bathroomsMin}+ bath
-          </span>
+          </span>}
           {criteria.areaSqmMin != null && (
             <span className="flex items-center gap-1.5">
               <Maximize2 size={14} className="text-muted-foreground/70" />

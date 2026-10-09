@@ -32,7 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <p className="mt-2 max-w-sm text-sm text-muted-foreground">
             An unexpected error occurred. Please try refreshing the page.
           </p>
-          {this.state.error && (
+          {import.meta.env.DEV && this.state.error && (
             <p className="mt-3 max-w-sm text-xs text-muted-foreground/70 font-mono break-all">
               {this.state.error.message}
             </p>

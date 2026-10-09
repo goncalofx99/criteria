@@ -4,7 +4,7 @@ import { GraphQLError } from 'graphql'
 // ─── Shared field schemas ─────────────────────────────────────────────────────
 
 const title = z.string().min(1, 'Title is required').max(200)
-const description = z.string().max(2000).optional()
+const description = z.string().max(2000).nullish()
 const locationText = z.string().min(1, 'Location is required').max(300)
 const lat = z.number().min(-90).max(90)
 const lng = z.number().min(-180).max(180)
@@ -13,7 +13,7 @@ const propertyCondition = z.enum(['new', 'renovated', 'good', 'needs_renovation'
 const positivePrice = z.number().positive('Price must be greater than 0')
 const nonNegativeInt = z.number().int().min(0)
 const positiveArea = z.number().positive()
-const positiveAreaOptional = positiveArea.optional()
+const positiveAreaOptional = positiveArea.nullish()
 const currentYear = new Date().getFullYear()
 const yearBuilt = z
   .number()
@@ -27,10 +27,11 @@ const amenityList = z.array(amenityKey).max(40)
 // ─── Input schemas ────────────────────────────────────────────────────────────
 
 export const upsertUserSchema = z.object({
-  email: z.string().email(),
-  fullName: z.string().max(150).optional(),
-  avatarUrl: z.string().url().optional(),
+  email: z.string().email().optional(),
+  fullName: z.string().max(150).nullish(),
+  avatarUrl: z.string().url().nullish(),
   role: z.enum(['buyer', 'seller', 'both']).optional(),
+  age: z.number().int().min(18, 'You must be 18 or older').max(120).optional(),
 })
 
 export const createSellerPostSchema = z.object({
@@ -41,20 +42,36 @@ export const createSellerPostSchema = z.object({
   lng,
   propertyType,
   price: positivePrice,
-  bedrooms: nonNegativeInt,
-  bathrooms: nonNegativeInt,
-  areaSqm: positiveArea,
-  yearBuilt,
-  condition: propertyCondition,
-  floor: floor.optional(),
-  totalFloors: z.number().int().positive().max(200).optional(),
-  hasBalcony: z.boolean(),
-  hasCentralHeating: z.boolean(),
+  bedrooms: nonNegativeInt.optional(),
+  bathrooms: nonNegativeInt.optional(),
+  areaSqm: positiveAreaOptional,
+  yearBuilt: yearBuilt.nullish(),
+  condition: propertyCondition.optional(),
+  floor: floor.nullish(),
+  totalFloors: z.number().int().positive().max(200).nullish(),
+  hasBalcony: z.boolean().optional(),
+  hasCentralHeating: z.boolean().optional(),
   amenities: amenityList.optional(),
   images: z.array(z.string().url()).max(20).optional(),
+}).superRefine((data, ctx) => {
+  if (data.propertyType !== 'apartment' && data.propertyType !== 'house') return
+  for (const field of ['bedrooms', 'bathrooms', 'areaSqm', 'yearBuilt', 'condition', 'hasBalcony', 'hasCentralHeating'] as const) {
+    if (data[field] == null) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field], message: 'Required for residential properties' })
+    }
+  }
 })
 
-export const updateSellerPostSchema = createSellerPostSchema.partial()
+export const updateSellerPostSchema = z.object({
+  title: title.optional(), description, locationText: locationText.optional(),
+  lat: lat.optional(), lng: lng.optional(), propertyType: propertyType.optional(),
+  price: positivePrice.optional(), bedrooms: nonNegativeInt.optional(),
+  bathrooms: nonNegativeInt.optional(), areaSqm: positiveAreaOptional,
+  yearBuilt: yearBuilt.nullish(), condition: propertyCondition.optional(),
+  floor: floor.nullish(), totalFloors: z.number().int().positive().max(200).nullish(),
+  hasBalcony: z.boolean().optional(), hasCentralHeating: z.boolean().optional(),
+  amenities: amenityList.optional(), images: z.array(z.string().url()).max(20).optional(),
+})
 
 export const createBuyerPostSchema = z
   .object({
@@ -67,15 +84,15 @@ export const createBuyerPostSchema = z
     propertyType,
     priceMin: z.number().min(0),
     priceMax: positivePrice,
-    bedroomsMin: nonNegativeInt,
-    bathroomsMin: nonNegativeInt,
+    bedroomsMin: nonNegativeInt.optional(),
+    bathroomsMin: nonNegativeInt.optional(),
     areaSqmMin: positiveAreaOptional,
-    yearBuiltMin: yearBuilt.optional(),
-    conditions: z.array(propertyCondition).max(4).optional(),
-    floorMin: floor.optional(),
-    floorMax: floor.optional(),
-    requiresBalcony: z.boolean().optional(),
-    requiresCentralHeating: z.boolean().optional(),
+    yearBuiltMin: yearBuilt.nullish(),
+    conditions: z.array(propertyCondition).max(4).nullish(),
+    floorMin: floor.nullish(),
+    floorMax: floor.nullish(),
+    requiresBalcony: z.boolean().nullish(),
+    requiresCentralHeating: z.boolean().nullish(),
     requiredAmenities: amenityList.optional(),
   })
   .refine((d) => d.priceMin < d.priceMax, {
@@ -84,8 +101,8 @@ export const createBuyerPostSchema = z
   })
   .refine(
     (d) =>
-      d.floorMin === undefined ||
-      d.floorMax === undefined ||
+      d.floorMin == null ||
+      d.floorMax == null ||
       d.floorMin <= d.floorMax,
     { message: 'floorMin must be ≤ floorMax', path: ['floorMin'] }
   )
@@ -104,12 +121,12 @@ export const updateBuyerPostSchema = z
     bedroomsMin: nonNegativeInt.optional(),
     bathroomsMin: nonNegativeInt.optional(),
     areaSqmMin: positiveAreaOptional,
-    yearBuiltMin: yearBuilt.optional(),
-    conditions: z.array(propertyCondition).max(4).optional(),
-    floorMin: floor.optional(),
-    floorMax: floor.optional(),
-    requiresBalcony: z.boolean().optional(),
-    requiresCentralHeating: z.boolean().optional(),
+    yearBuiltMin: yearBuilt.nullish(),
+    conditions: z.array(propertyCondition).max(4).nullish(),
+    floorMin: floor.nullish(),
+    floorMax: floor.nullish(),
+    requiresBalcony: z.boolean().nullish(),
+    requiresCentralHeating: z.boolean().nullish(),
     requiredAmenities: amenityList.optional(),
   })
   .refine(
@@ -121,8 +138,8 @@ export const updateBuyerPostSchema = z
   )
   .refine(
     (d) =>
-      d.floorMin === undefined ||
-      d.floorMax === undefined ||
+      d.floorMin == null ||
+      d.floorMax == null ||
       d.floorMin <= d.floorMax,
     { message: 'floorMin must be ≤ floorMax', path: ['floorMin'] }
   )

@@ -25,23 +25,31 @@ export function CriteriaFilters({ filters, onChange, onClear }: Props) {
 
   const setNum = (key: keyof BuyerPostFilterValues, raw: string) => {
     const n = raw === '' ? undefined : Number(raw)
-    set(key, (n != null && !isNaN(n)) ? n : undefined)
+    set(key, (n != null && Number.isFinite(n) && n >= 0) ? n : undefined)
+  }
+  const hasRooms = filters.propertyType !== 'land' && filters.propertyType !== 'commercial'
+  const setPropertyType = (propertyType: BuyerPostFilterValues['propertyType']) => {
+    onChange({
+      ...filters,
+      propertyType: filters.propertyType === propertyType ? undefined : propertyType,
+      ...(propertyType === 'land' || propertyType === 'commercial' ? { bedroomsMin: undefined, bathroomsMin: undefined } : {}),
+    })
   }
 
   return (
-    <div className="filter-panel space-y-5 p-5">
+    <div className="space-y-5">
       {/* Property type */}
       <div>
-        <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Property type</Label>
-        <div className="flex flex-wrap gap-1.5">
+        <p className="mb-1.5 text-sm font-medium text-foreground">Property type</p>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Property type">
           {PROPERTY_TYPES.map(t => (
             <button
               key={t}
               type="button"
-              onClick={() => set('propertyType', filters.propertyType === t ? undefined : t)}
+              onClick={() => setPropertyType(t)}
               aria-pressed={filters.propertyType === t}
               className={cn(
-                'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                'min-h-11 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
                 filters.propertyType === t
                   ? 'bg-primary text-white'
                   : 'bg-accent text-foreground hover:bg-accent/80',
@@ -56,60 +64,70 @@ export function CriteriaFilters({ filters, onChange, onClear }: Props) {
       {/* Budget range */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Budget min</Label>
+          <Label htmlFor="filter-budget-min" className="mb-1.5 text-sm font-medium text-foreground">Budget min (€)</Label>
           <Input
+            id="filter-budget-min"
             type="number"
+            min="0"
             placeholder="No min"
             value={filters.budgetMin ?? ''}
             onChange={e => setNum('budgetMin', e.target.value)}
-            className="h-10"
+            className="h-11"
           />
         </div>
         <div>
-          <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Budget max</Label>
+          <Label htmlFor="filter-budget-max" className="mb-1.5 text-sm font-medium text-foreground">Budget max (€)</Label>
           <Input
+            id="filter-budget-max"
             type="number"
+            min="0"
             placeholder="No max"
             value={filters.budgetMax ?? ''}
             onChange={e => setNum('budgetMax', e.target.value)}
-            className="h-10"
+            className="h-11"
           />
         </div>
       </div>
 
       {/* Bedrooms & Bathrooms */}
-      <div className="grid grid-cols-2 gap-3">
+      {hasRooms && <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Bedrooms min</Label>
+          <Label htmlFor="filter-criteria-bedrooms" className="mb-1.5 text-sm font-medium text-foreground">Bedrooms min</Label>
           <Input
+            id="filter-criteria-bedrooms"
             type="number"
+            min="0"
             placeholder="Any"
             value={filters.bedroomsMin ?? ''}
             onChange={e => setNum('bedroomsMin', e.target.value)}
-            className="h-10"
+            className="h-11"
           />
         </div>
         <div>
-          <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Bathrooms min</Label>
+          <Label htmlFor="filter-criteria-bathrooms" className="mb-1.5 text-sm font-medium text-foreground">Bathrooms min</Label>
           <Input
+            id="filter-criteria-bathrooms"
             type="number"
+            min="0"
             placeholder="Any"
             value={filters.bathroomsMin ?? ''}
             onChange={e => setNum('bathroomsMin', e.target.value)}
-            className="h-10"
+            className="h-11"
           />
         </div>
-      </div>
+      </div>}
 
       {/* Max search radius */}
       <div>
-        <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Max search radius (km)</Label>
+        <Label htmlFor="filter-radius" className="mb-1.5 text-sm font-medium text-foreground">Max search radius (km)</Label>
         <Input
+          id="filter-radius"
           type="number"
+          min="0"
           placeholder="Any"
           value={filters.radiusKmMax ?? ''}
           onChange={e => setNum('radiusKmMax', e.target.value)}
-          className="h-10"
+          className="h-11"
         />
       </div>
 

@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useMutation } from '@apollo/client'
 import { ArrowLeft, Building2, Search, Loader2, Check } from 'lucide-react'
 import {
   CREATE_SELLER_POST,
   CREATE_BUYER_POST,
-  GET_SELLER_POSTS,
-  GET_BUYER_POSTS,
   GET_MY_SELLER_POSTS,
   GET_MY_BUYER_POSTS,
 } from '@/lib/gql'
@@ -16,11 +14,14 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { PropertyForm, type PropertyFormValues } from '@/components/posts/PropertyForm'
 import { CriteriaForm, type CriteriaFormValues } from '@/components/posts/CriteriaForm'
 import { cn } from '@/lib/utils'
+import { safeInternalPath } from '@/lib/returnTo'
 
 type Mode = 'property' | 'criteria'
 
 export default function CreatePostPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const returnTo = safeInternalPath((location.state as { returnTo?: string } | null)?.returnTo, '/feed')
   const { me, canCreateProperty, canCreateCriteria, loading: meLoading } = useMe()
   const [mode, setMode] = useState<Mode | null>(null)
 
@@ -30,25 +31,19 @@ export default function CreatePostPage() {
       setMode(canCreateProperty ? 'property' : 'criteria')
     }
   }, [meLoading, canCreateProperty, mode])
-  const [submitted, setSubmitted] = useState(false)
+  const [createdPath, setCreatedPath] = useState<string | null>(null)
 
   const [createSellerPost] = useMutation(CREATE_SELLER_POST, {
-    refetchQueries: [
-      { query: GET_SELLER_POSTS, variables: { limit: 50, offset: 0 } },
-      { query: GET_MY_SELLER_POSTS },
-    ],
+    refetchQueries: [{ query: GET_MY_SELLER_POSTS }],
   })
   const [createBuyerPost] = useMutation(CREATE_BUYER_POST, {
-    refetchQueries: [
-      { query: GET_BUYER_POSTS, variables: { limit: 50, offset: 0 } },
-      { query: GET_MY_BUYER_POSTS },
-    ],
+    refetchQueries: [{ query: GET_MY_BUYER_POSTS }],
   })
 
   if (!me) {
     return (
       <div>
-        <Header onBack={() => navigate(-1)} />
+        <Header onBack={() => navigate(returnTo)} />
         <div className="flex justify-center py-16">
           {meLoading
             ? <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -61,7 +56,7 @@ export default function CreatePostPage() {
   if (!canCreateProperty && !canCreateCriteria) {
     return (
       <div>
-        <Header onBack={() => navigate(-1)} />
+        <Header onBack={() => navigate(returnTo)} />
         <p className="px-6 py-10 text-center text-sm text-muted-foreground">
           Your account doesn't have a posting role yet.
         </p>
@@ -76,7 +71,7 @@ export default function CreatePostPage() {
       ? 'property'
       : 'criteria'
 
-  if (submitted) {
+  if (createdPath) {
     return (
       <div
         className="flex min-h-dvh flex-col items-center justify-center px-6 text-center"
@@ -96,28 +91,29 @@ export default function CreatePostPage() {
             ? 'Your property is now live and visible to buyers.'
             : 'Sellers can now find you and reach out directly.'}
         </p>
-        <Button className="mt-8 rounded-xl" onClick={() => navigate('/feed')}>
-          Back to feed
+        <Button className="mt-8 rounded-xl" onClick={() => navigate(createdPath, { replace: true })}>
+          View your post
         </Button>
+        <Button variant="ghost" className="mt-2" onClick={() => navigate('/profile', { replace: true })}>Your profile</Button>
       </div>
     )
   }
 
   async function handleProperty(values: PropertyFormValues) {
-    await createSellerPost({
-      variables: { input: { ...values, images: [] } },
+    const { data } = await createSellerPost({
+      variables: { input: values },
     })
-    setSubmitted(true)
+    setCreatedPath(`/listing/${data.createSellerPost.id}`)
   }
 
   async function handleCriteria(values: CriteriaFormValues) {
-    await createBuyerPost({ variables: { input: values } })
-    setSubmitted(true)
+    const { data } = await createBuyerPost({ variables: { input: values } })
+    setCreatedPath(`/criteria/${data.createBuyerPost.id}`)
   }
 
   return (
     <div className="min-h-dvh">
-      <Header onBack={() => navigate(-1)} />
+      <Header onBack={() => navigate(returnTo)} />
 
       <div className="mx-auto max-w-[840px] px-5 py-7 md:px-8 md:py-10">
         <p className="editorial-kicker">Make your move</p>
@@ -142,9 +138,10 @@ export default function CreatePostPage() {
           </div>
         )}
 
-        {activeMode === 'property' ? (
-          <PropertyForm submitLabel="Publish listing" onSubmit={handleProperty} />
-        ) : (
+        <div hidden={activeMode !== 'property'}>
+          <PropertyForm submitLabel="Publish listing" uploadOwnerId={me.id} onSubmit={handleProperty} />
+        </div>
+        <div hidden={activeMode !== 'criteria'}>
           <CriteriaForm
             submitLabel="Post my criteria"
             intro={
@@ -156,10 +153,10 @@ export default function CreatePostPage() {
             }
             onSubmit={handleCriteria}
           />
-        )}
+        </div>
 
         <p className="mt-3 text-center text-xs text-muted-foreground">
-          Your post will be visible to all CRITERIA users immediately.
+          Listings are visible to signed-in members. Buyer requests are visible to sellers, and exact addresses stay private.
         </p>
       </div>
     </div>
@@ -173,6 +170,7 @@ function Header({ onBack }: { onBack: () => void }) {
         <button
           type="button"
           onClick={onBack}
+          aria-label="Go back"
           className="flex h-9 w-9 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
         >
           <ArrowLeft size={20} />

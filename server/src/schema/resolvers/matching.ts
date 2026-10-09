@@ -1,7 +1,8 @@
 import { GraphQLError } from 'graphql'
-import { and, eq, gte, lte, isNull, or, sql, arrayContains } from 'drizzle-orm'
-import { buyerPosts, sellerPosts } from '../../db/schema.js'
+import { and, eq, gte, lte, isNull, or, sql, arrayContains, inArray, ne, type SQL } from 'drizzle-orm'
+import { buyerPosts, sellerPosts, users } from '../../db/schema.js'
 import type { Context } from '../../context.js'
+import { searchPage } from '../../lib/search.js'
 
 // ─── Haversine distance (km) ──────────────────────────────────────────────────
 // Returns a Drizzle SQL expression for the great-circle distance between a
@@ -38,13 +39,15 @@ function boundingBoxConditions(
   lngCol: typeof buyerPosts.lng | typeof sellerPosts.lng
 ) {
   const deltaLat = radiusKm / 111.0
-  const deltaLng = radiusKm / (111.0 * Math.cos((centerLat * Math.PI) / 180))
-  return [
-    gte(latCol, centerLat - deltaLat),
-    lte(latCol, centerLat + deltaLat),
-    gte(lngCol, centerLng - deltaLng),
-    lte(lngCol, centerLng + deltaLng),
-  ]
+  const latitude = [gte(latCol, Math.max(-90, centerLat - deltaLat)), lte(latCol, Math.min(90, centerLat + deltaLat))]
+  const maxAbsLat = Math.min(89.999, Math.max(Math.abs(centerLat - deltaLat), Math.abs(centerLat + deltaLat)))
+  const deltaLng = radiusKm / (111.0 * Math.cos((maxAbsLat * Math.PI) / 180))
+  if (deltaLng >= 180 || centerLat + deltaLat >= 90 || centerLat - deltaLat <= -90) return latitude
+  const west = centerLng - deltaLng
+  const east = centerLng + deltaLng
+  if (west < -180) return [...latitude, or(gte(lngCol, west + 360), lte(lngCol, east))!]
+  if (east > 180) return [...latitude, or(gte(lngCol, west), lte(lngCol, east - 360))!]
+  return [...latitude, gte(lngCol, west), lte(lngCol, east)]
 }
 
 function requireAuth(ctx: Context) {
@@ -58,6 +61,23 @@ function requireAuth(ctx: Context) {
 
 const MAX_MATCHING_RESULTS = 100
 
+export function requiredAmenitiesCondition(amenities: string[]): SQL {
+  return amenities.length
+    ? sql`ARRAY[${sql.join(amenities.map((amenity) => sql`${amenity}`), sql`, `)}]::text[] @> ${buyerPosts.requiredAmenities}`
+    : sql`cardinality(${buyerPosts.requiredAmenities}) = 0`
+}
+
+async function requireOwnerRole(ctx: Context, userId: string, role: 'buyer' | 'seller') {
+  const user = await ctx.db.query.users.findFirst({
+    where: eq(users.id, userId), columns: { role: true, onboardingCompletedAt: true },
+  })
+  if (!user?.onboardingCompletedAt || (user.role !== role && user.role !== 'both')) {
+    throw new GraphQLError('Your account role cannot view these matches', {
+      extensions: { code: 'FORBIDDEN' },
+    })
+  }
+}
+
 export const matchingResolvers = {
   Query: {
     // Given a seller post, find all active buyer criteria that it satisfies.
@@ -66,7 +86,9 @@ export const matchingResolvers = {
       { sellerPostId, limit = 50, offset = 0 }: { sellerPostId: string; limit?: number; offset?: number },
       ctx: Context
     ) => {
-      requireAuth(ctx)
+      const userId = requireAuth(ctx)
+      await requireOwnerRole(ctx, userId, 'seller')
+      const page = searchPage(limit, offset)
 
       const [post] = await ctx.db
         .select()
@@ -79,13 +101,16 @@ export const matchingResolvers = {
           extensions: { code: 'NOT_FOUND' },
         })
       }
+      if (post.sellerId !== userId) throw new GraphQLError('Forbidden', { extensions: { code: 'FORBIDDEN' } })
+      if (!post.isActive) return []
 
-      // We need to check against each buyer's own radiusKm, so we use a generous
-      // bounding box (max realistic radius = 200km) and let Haversine refine.
-      const MAX_BUYER_RADIUS_KM = 200
-      const conditions = [
+      // Buyer radius is validated up to 500km; use that maximum for the
+      // preliminary box and the row's actual radius for exact distance.
+      const MAX_BUYER_RADIUS_KM = 500
+      const conditions: SQL[] = [
         eq(buyerPosts.isActive, true),
         eq(buyerPosts.propertyType, post.propertyType),
+        ne(buyerPosts.buyerId, userId),
         // Bounding-box pre-filter for lat/lng
         ...boundingBoxConditions(post.lat, post.lng, MAX_BUYER_RADIUS_KM, buyerPosts.lat, buyerPosts.lng),
         // Buyer's price range must contain seller's asking price
@@ -110,6 +135,7 @@ export const matchingResolvers = {
           )!
         )
       }
+      else conditions.push(isNull(buyerPosts.areaSqmMin))
 
       // ── v2 filters: buyer preferences that must be met by the seller's property ──
 
@@ -155,13 +181,20 @@ export const matchingResolvers = {
           or(isNull(buyerPosts.floorMax), gte(buyerPosts.floorMax, post.floor))!
         )
       }
+      else conditions.push(isNull(buyerPosts.floorMin), isNull(buyerPosts.floorMax))
+
+      conditions.push(sql`(
+        ${buyerPosts.conditions} IS NULL OR cardinality(${buyerPosts.conditions}) = 0
+        OR ${post.condition} = ANY(${buyerPosts.conditions})
+      )`)
+      conditions.push(requiredAmenitiesCondition(post.amenities))
 
       return ctx.db
         .select()
         .from(buyerPosts)
         .where(and(...conditions))
-        .limit(Math.min(limit, MAX_MATCHING_RESULTS))
-        .offset(offset)
+        .limit(Math.min(page.limit, MAX_MATCHING_RESULTS))
+        .offset(page.offset)
     },
 
     // Given a buyer post, find all active seller listings that match the criteria.
@@ -170,7 +203,9 @@ export const matchingResolvers = {
       { buyerPostId, limit = 50, offset = 0 }: { buyerPostId: string; limit?: number; offset?: number },
       ctx: Context
     ) => {
-      requireAuth(ctx)
+      const userId = requireAuth(ctx)
+      await requireOwnerRole(ctx, userId, 'buyer')
+      const page = searchPage(limit, offset)
 
       const [post] = await ctx.db
         .select()
@@ -183,10 +218,13 @@ export const matchingResolvers = {
           extensions: { code: 'NOT_FOUND' },
         })
       }
+      if (post.buyerId !== userId) throw new GraphQLError('Forbidden', { extensions: { code: 'FORBIDDEN' } })
+      if (!post.isActive) return []
 
-      const conditions = [
+      const conditions: SQL[] = [
         eq(sellerPosts.isActive, true),
         eq(sellerPosts.propertyType, post.propertyType),
+        ne(sellerPosts.sellerId, userId),
         // Bounding-box pre-filter
         ...boundingBoxConditions(post.lat, post.lng, post.radiusKm, sellerPosts.lat, sellerPosts.lng),
         // Seller's price must be within buyer's range
@@ -203,30 +241,18 @@ export const matchingResolvers = {
       ]
 
       if (post.areaSqmMin !== null) {
-        conditions.push(
-          or(
-            isNull(sellerPosts.areaSqm),
-            gte(sellerPosts.areaSqm, post.areaSqmMin)
-          )!
-        )
+        conditions.push(gte(sellerPosts.areaSqm, post.areaSqmMin))
       }
 
       // ── v2 filters: buyer's preferences ──
 
       if (post.yearBuiltMin !== null) {
-        conditions.push(
-          or(
-            isNull(sellerPosts.yearBuilt),
-            gte(sellerPosts.yearBuilt, post.yearBuiltMin)
-          )!
-        )
+        conditions.push(gte(sellerPosts.yearBuilt, post.yearBuiltMin))
       }
 
       if (post.conditions && post.conditions.length > 0) {
         // Seller's condition must be one of the buyer's acceptable conditions
-        conditions.push(
-          sql`${sellerPosts.condition}::text = ANY(${post.conditions})`
-        )
+        conditions.push(inArray(sellerPosts.condition, post.conditions as (typeof sellerPosts.condition.enumValues[number])[]))
       }
 
       if (post.requiresBalcony === true) {
@@ -238,15 +264,11 @@ export const matchingResolvers = {
       }
 
       if (post.floorMin !== null) {
-        conditions.push(
-          or(isNull(sellerPosts.floor), gte(sellerPosts.floor, post.floorMin))!
-        )
+        conditions.push(gte(sellerPosts.floor, post.floorMin))
       }
 
       if (post.floorMax !== null) {
-        conditions.push(
-          or(isNull(sellerPosts.floor), lte(sellerPosts.floor, post.floorMax))!
-        )
+        conditions.push(lte(sellerPosts.floor, post.floorMax))
       }
 
       if (post.requiredAmenities.length > 0) {
@@ -257,8 +279,8 @@ export const matchingResolvers = {
         .select()
         .from(sellerPosts)
         .where(and(...conditions))
-        .limit(Math.min(limit, MAX_MATCHING_RESULTS))
-        .offset(offset)
+        .limit(Math.min(page.limit, MAX_MATCHING_RESULTS))
+        .offset(page.offset)
     },
   },
 }

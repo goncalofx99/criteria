@@ -1,174 +1,74 @@
 # CRITERIA
 
-> A fully bidirectional real estate marketplace.
+CRITERIA is a two-sided property marketplace. Sellers publish property listings; buyers publish what they want to buy. The same matching model connects both sides.
 
-For the visual system, component basis, and responsive rules, see [DESIGN.md](DESIGN.md).
+See FRONTEND.md for routes, auth, design implementation and local review mode; BACKEND.md for the API and schema; MOBILE.md for the Capacitor shell; and DESIGN.md for the visual direction.
 
-Most real estate platforms only let buyers search for sellers. **CRITERIA flips this on its head** — buyers can post what they're looking for, and sellers can browse a pool of active, qualified demand and reach out directly. Both the traditional model (sellers post, buyers browse) and the new model (buyers post, sellers browse) coexist in one platform.
+## Workspace
 
----
+| Package | Purpose |
+| --- | --- |
+| frontend/ | React 18, React Router 6, Vite, Tailwind and Apollo Client |
+| server/ | Hono, Apollo GraphQL, Drizzle ORM and PostgreSQL |
+| mobile/ | Capacitor 7 shell and native OAuth bridge; product logic remains in frontend/ |
 
-## Tech Stack
+The server issues JWTs for email/password and Google OAuth, stores data in PostgreSQL and signs Cloudflare R2 uploads. GraphQL subscriptions power in-app conversations. The frontend runs in a browser or inside the Capacitor WebView.
 
-| Layer | Technology |
-|---|---|
-| Frontend | React Router v7 + TypeScript |
-| Styling | Tailwind CSS + shadcn/ui |
-| API client | Apollo Client (GraphQL) |
-| Mobile | Capacitor (iOS + Android wrapper) |
-| Server | Hono + Apollo Server |
-| ORM | Drizzle ORM |
-| Database | Supabase PostgreSQL |
-| Auth | Supabase Auth (Google OAuth) |
-| Storage | Supabase Storage |
-| Live chat | GraphQL Subscriptions (`graphql-ws`) |
-| Package manager | pnpm |
-| CI/CD | GitHub Actions |
-| Web deploy | Vercel |
-| Server deploy | Railway |
+## Requirements
 
----
+- Node.js 22 or newer and pnpm 10 or newer.
+- PostgreSQL for live API development.
+- Google OAuth credentials for live Google sign-in.
+- Cloudflare R2 credentials for live image uploads.
+- Xcode or Android Studio only for the corresponding native build.
 
-## Architecture
+## Local setup
 
-```
-┌──────────────────────────────────────────────┐
-│     Client (Browser / Capacitor shell)       │
-│     React Router v7 + TypeScript             │
-│     Apollo Client                            │
-│       queries/mutations  ──► HTTP/GraphQL    │
-│       subscriptions (chat) ► WebSocket       │
-└──────────────────┬───────────────────────────┘
-                   │
-       ┌───────────▼───────────┐
-       │  server/              │
-       │  Hono + Apollo Server │
-       │  Drizzle ORM          │
-       └──────┬────────────────┘
-              │
-   ┌──────────┼──────────────┐
-   │          │              │
-┌──▼───┐ ┌───▼────┐ ┌───────▼──────┐
-│  DB  │ │  Auth  │ │   Storage    │
-│  PG  │ │ Google │ │   (images)   │
-│Supa. │ │ OAuth  │ │    Supa.     │
-└──────┘ └────────┘ └──────────────┘
-```
-
----
-
-## Repo Structure
-
-```
-CRITERIA/
-├── frontend/          # React Router v7 web app
-├── server/            # Hono + Apollo GraphQL API
-├── mobile/            # Capacitor native iOS/Android wrapper
-├── .github/workflows/ # GitHub Actions CI pipeline
-├── package.json       # pnpm workspace root
-└── pnpm-workspace.yaml
-```
-
----
-
-## Prerequisites
-
-- [Node.js](https://nodejs.org/) v20+
-- [pnpm](https://pnpm.io/) — `npm install -g pnpm`
-- [Supabase CLI](https://supabase.com/docs/guides/cli) — `brew install supabase/tap/supabase`
-- Xcode (for iOS builds, Mac only)
-- Android Studio (for Android builds)
-
----
-
-## Local Setup
-
-```bash
-# 1. Clone the repo
-git clone https://github.com/<your-username>/criteria.git
-cd criteria
-
-# 2. Install all dependencies
+~~~bash
 pnpm install
-
-# 3. Set up environment variables
 cp server/.env.example server/.env
 cp frontend/.env.example frontend/.env
-# Fill in your Supabase project URL, anon key, and JWT secret
-
-# 4. Apply DB migrations
 pnpm --filter server db:migrate
-
-# 5. Start everything (frontend + server)
 pnpm dev
-```
+~~~
 
-This starts:
-- **Frontend** at `http://localhost:5173`
-- **GraphQL API** at `http://localhost:4000/graphql` (Apollo Sandbox available in dev)
+The frontend runs at http://localhost:5173 and the API at http://localhost:4000. Configure the server env file before starting a live API. The frontend env file needs VITE_API_URL, VITE_GRAPHQL_URL and VITE_GRAPHQL_WS_URL pointed at that same API. The backend example lists the database, JWT, OAuth and R2 variables and the optional password-reset email sender.
 
----
+For a safe UI review without a backend or an account, run the frontend Vite server and open http://localhost:5173/feed?review=1. The development-only switcher provides mock buyer, seller and both roles, ownership states, data, errors and direct route links. All review mutations stay in memory and reset on reload; the production build cannot enable review mode. See FRONTEND.md for details.
 
-## Environment Variables
+## Common commands
 
-### `server/.env`
-```
-DATABASE_URL=          # Supabase PostgreSQL connection string
-SUPABASE_JWT_SECRET=   # Found in Supabase project settings → API
-PORT=4000
-```
+~~~bash
+pnpm dev
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
 
-### `frontend/.env`
-```
-VITE_GRAPHQL_URL=http://localhost:4000/graphql
-VITE_SUPABASE_URL=     # Supabase project URL
-VITE_SUPABASE_ANON_KEY= # Supabase anon/public key
-```
-
----
-
-## CI/CD
-
-Every push and pull request runs:
-
-```
-typecheck → lint → test (Vitest) → build check
-```
-
-On merge to `main`:
-- **Frontend** auto-deploys to Vercel
-- **Server** auto-deploys to Railway
-
----
-
-## Mobile Builds
-
-```bash
-# Build the web app first
+pnpm --filter frontend dev --host
+pnpm --filter frontend typecheck
+pnpm --filter frontend lint
+pnpm --filter frontend test
 pnpm --filter frontend build
 
-# Sync into native projects
-cd mobile && npx cap sync
+pnpm --filter server dev
+pnpm --filter server test
+pnpm --filter server db:generate
+pnpm --filter server db:migrate
+~~~
 
-# Run on simulator / device
-npx cap run ios       # requires Xcode
-npx cap run android   # requires Android Studio
-```
+## Product and access model
 
----
+Buyers browse properties and publish buyer requests. Sellers browse properties and buyer requests and publish properties. A both-role account can do both. Owners can edit, archive and republish their posts. Explore uses server-side search, sort, pagination and map bounds. Direct links to protected routes preserve a return destination through sign-in. The backend enforces role, ownership and inactive-post visibility.
 
-## Environments
+Property coordinates stored for matching are more precise than locations returned by public GraphQL queries. Contact happens through in-app conversations; the UI should not imply unsupported phone, tour or alert features.
 
-| | Local | Production |
-|---|---|---|
-| Frontend | `localhost:5173` | Vercel |
-| Server | `localhost:4000` | Railway |
-| Database | Supabase (dev project) | Supabase (prod project) |
+## Authentication and media
 
----
+Email signup sends an integer age, role and account details to the API. Google OAuth returns a single-use code to an allowed web or native callback, which the frontend exchanges for tokens. New Google accounts complete age and role onboarding. Access tokens are refreshed when expired. Password recovery uses the server reset endpoints and requires its email sender in production.
 
-## Contributing
+Photos upload with a server-issued presigned URL to Cloudflare R2. Property form uploads accept JPEG, PNG and WebP images; the server validates the authenticated user’s upload namespace and MIME/extension pairing.
 
-- Branch naming: `feat/`, `fix/`, `chore/` (e.g. `feat/buyer-post-form`)
-- Open a PR against `main` — CI must pass before merging
-- One approval required for merge
+## Mobile
+
+The mobile package loads the deployed frontend or a LAN-served development frontend. It has no separate product state or API model. The iOS OAuth bridge uses ASWebAuthenticationSession; Android uses a Custom Tab and a deep-link callback. Follow MOBILE.md for native configuration and sync commands.

@@ -1,9 +1,8 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import {
   GET_SELLER_POST,
-  GET_SELLER_POSTS,
   GET_MY_SELLER_POSTS,
   UPDATE_SELLER_POST,
 } from '@/lib/gql'
@@ -12,6 +11,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { PropertyForm, type PropertyFormValues } from '@/components/posts/PropertyForm'
 import type { PropertyType } from '@/lib/propertyType'
 import type { PropertyCondition } from '@/lib/amenities'
+import { safeInternalPath } from '@/lib/returnTo'
 
 interface SellerPostData {
   id: string
@@ -32,12 +32,15 @@ interface SellerPostData {
   hasBalcony: boolean
   hasCentralHeating: boolean
   amenities: string[]
+  images: string[]
   seller: { id: string }
 }
 
 export default function PropertyEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const returnTo = safeInternalPath((location.state as { returnTo?: string } | null)?.returnTo, '/feed')
   const { me } = useMe()
 
   const { data, loading, error } = useQuery<{ sellerPost: SellerPostData | null }>(GET_SELLER_POST, {
@@ -45,10 +48,7 @@ export default function PropertyEditPage() {
     fetchPolicy: 'cache-and-network',
   })
   const [updateSellerPost] = useMutation(UPDATE_SELLER_POST, {
-    refetchQueries: [
-      { query: GET_SELLER_POSTS, variables: { limit: 50, offset: 0 } },
-      { query: GET_MY_SELLER_POSTS },
-    ],
+    refetchQueries: [{ query: GET_MY_SELLER_POSTS }],
   })
 
   const post = data?.sellerPost ?? null
@@ -59,7 +59,7 @@ export default function PropertyEditPage() {
     await updateSellerPost({
       variables: { id: post.id, input: values },
     })
-    navigate(`/listing/${post.id}`, { replace: true })
+    navigate(`/listing/${post.id}`, { replace: true, state: { returnTo } })
   }
 
   return (
@@ -68,7 +68,8 @@ export default function PropertyEditPage() {
         <div className="flex items-center gap-3 px-5 py-4">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(`/listing/${id}`, { state: { returnTo } })}
+            aria-label="Back to listing"
             className="flex h-9 w-9 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
           >
             <ArrowLeft size={20} />
@@ -112,8 +113,10 @@ export default function PropertyEditPage() {
               hasBalcony: post.hasBalcony,
               hasCentralHeating: post.hasCentralHeating,
               amenities: post.amenities,
+              images: post.images,
             }}
             submitLabel="Save changes"
+            uploadOwnerId={post.seller.id}
             onSubmit={handleSubmit}
           />
         </div>

@@ -148,7 +148,7 @@ useServer(
   {
     schema,
     context: async (wsCtx) => {
-      const authHeader = wsCtx.connectionParams?.authorization as string | undefined
+      const authHeader = (wsCtx.connectionParams?.authorization ?? wsCtx.connectionParams?.Authorization) as string | undefined
       let userId: string | null = null
       if (authHeader?.startsWith('Bearer ')) {
         userId = await verifyJwt(authHeader.slice(7))

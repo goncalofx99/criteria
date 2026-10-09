@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { signIn } from '@/lib/auth'
 import { warmUpBackend } from '@/lib/warmup'
 import { Button } from '@/components/ui/button'
@@ -7,9 +7,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Eye, EyeOff, Loader2, ChevronLeft } from 'lucide-react'
 import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons'
+import { rememberAuthDestination, safeInternalPath } from '@/lib/returnTo'
 
 export default function SignInPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const resetSuccess = new URLSearchParams(location.search).get('reset') === 'success'
+  const oauthFailed = new URLSearchParams(location.search).get('error') === 'oauth_failed'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -17,6 +21,10 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => { warmUpBackend() }, [])
+  useEffect(() => {
+    const next = new URLSearchParams(location.search).get('next')
+    if (next) rememberAuthDestination(safeInternalPath(next))
+  }, [location.search])
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault()
@@ -41,7 +49,7 @@ export default function SignInPage() {
           asChild
           className="rounded-full text-muted-foreground"
         >
-          <Link to="/"><ChevronLeft className="h-5 w-5" /></Link>
+          <Link to="/" aria-label="Back to home"><ChevronLeft className="h-5 w-5" /></Link>
         </Button>
         <span className="text-xs font-semibold tracking-[.16em] text-primary">CRITERIA</span>
       </div>
@@ -74,6 +82,8 @@ export default function SignInPage() {
 
         {/* Form */}
         <form onSubmit={handleSignIn} className="space-y-4">
+          {resetSuccess && <p role="status" className="rounded-xl bg-success-muted p-3 text-sm text-success">Password updated. Sign in with your new password.</p>}
+          {oauthFailed && <p role="alert" className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">Google sign-in could not be completed. Please try again.</p>}
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -90,15 +100,9 @@ export default function SignInPage() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Password</Label>
-              <button
-                type="button"
-                onClick={() => {
-                  alert('Please use Google sign-in or contact support to reset your password.')
-                }}
-                className="text-xs text-primary hover:underline underline-offset-4"
-              >
+              <Link to="/forgot-password" className="text-xs text-primary hover:underline underline-offset-4">
                 Forgot password?
-              </button>
+              </Link>
             </div>
             <div className="relative">
               <Input
@@ -114,8 +118,9 @@ export default function SignInPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground tap-target"
-                tabIndex={-1}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-1 flex w-11 items-center justify-center text-muted-foreground"
               >
                 {showPassword
                   ? <EyeOff className="h-4 w-4" />
@@ -126,7 +131,7 @@ export default function SignInPage() {
           </div>
 
           {error && (
-            <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive animate-fade-in">
+            <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive animate-fade-in">
               {error}
             </p>
           )}
@@ -145,7 +150,7 @@ export default function SignInPage() {
       {/* Sign up link */}
       <p className="web-content px-6 pb-10 pb-safe text-center text-sm text-muted-foreground">
         Don't have an account?{' '}
-        <Link to="/sign-up" className="font-medium text-primary hover:underline underline-offset-4">
+        <Link to={`/sign-up${location.search}`} className="font-medium text-primary hover:underline underline-offset-4">
           Sign up
         </Link>
       </p>

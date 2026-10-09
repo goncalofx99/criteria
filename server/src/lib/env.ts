@@ -23,6 +23,12 @@ const envSchema = z.object({
     .default('development'),
   // Allowed frontend origin for CORS — required in production
   FRONTEND_URL: z.string().url().optional(),
+  RESEND_API_KEY: z.string().min(1).optional(),
+  PASSWORD_RESET_FROM: z.string().email().optional(),
+}).superRefine((value, ctx) => {
+  if (value.NODE_ENV === 'production' && !value.FRONTEND_URL) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['FRONTEND_URL'], message: 'FRONTEND_URL is required in production' })
+  }
 })
 
 // Validate on startup and fail immediately if env is misconfigured.
