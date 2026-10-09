@@ -66,14 +66,14 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="app-shell flex flex-col bg-background">
+    <div className="app-shell auth-page flex flex-col">
       {/* Header */}
       <div className="web-content flex items-center justify-center px-4 pt-safe pt-6 pb-2">
         <StepIndicator current={step} total={2} />
       </div>
 
       {/* Content */}
-      <div className="web-content flex flex-1 flex-col px-6 pt-6 animate-slide-in-right">
+      <div className="web-content auth-panel my-auto flex flex-none flex-col px-6 py-7 animate-slide-in-right md:px-9 md:py-9">
         {step === 0 ? (
           <div className="space-y-6">
             <div>

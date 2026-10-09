@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { BedDouble, Bath, Maximize2, MapPin } from 'lucide-react'
+import { ArrowUpRight, BedDouble, Bath, Maximize2, MapPin, Search } from 'lucide-react'
 import { formatPriceRange, initialsOf, avatarColorFor, timeAgo } from '@/lib/format'
 import { PROPERTY_TYPE_LABEL, type PropertyType } from '@/lib/propertyType'
 
@@ -38,11 +38,19 @@ export function CriteriaCard({ criteria }: { criteria: CriteriaCardData }) {
   return (
     <Link
       to={`/criteria/${criteria.id}`}
-      className="block w-full bg-surface rounded-xl overflow-hidden shadow-elevation-1 transition-transform active:scale-[0.99]"
+      className="criteria-card group block h-full w-full active:scale-[0.99]"
     >
-      <div className="h-[3px] bg-primary" />
+      <div className="relative flex h-24 items-center justify-between overflow-hidden bg-primary-900 px-5 text-white">
+        <div className="absolute -right-5 -top-16 h-40 w-40 rounded-full border border-white/10" />
+        <div className="absolute right-3 -top-9 h-32 w-32 rounded-full border border-white/15" />
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15"><Search size={18} /></span>
+          <span className="text-xs font-semibold uppercase tracking-[.17em]">Buyer request</span>
+        </div>
+        <ArrowUpRight size={20} className="relative transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+      </div>
 
-      <div className="p-4">
+      <div className="p-5">
         {/* Header */}
         <div className="mb-4 flex items-center gap-3">
           <div
@@ -59,24 +67,22 @@ export function CriteriaCard({ criteria }: { criteria: CriteriaCardData }) {
               Active buyer · {timeAgo(criteria.createdAt)}
             </p>
           </div>
-          <span className="shrink-0 rounded-full bg-primary-100 px-2.5 py-1 text-[11px] font-semibold tracking-wider text-primary">
-            SEEKING
+          <span className="shrink-0 rounded-full bg-primary-100 px-2.5 py-1 text-[11px] font-semibold text-primary">
+            Looking now
           </span>
         </div>
 
         {/* Budget */}
         <div className="mb-3">
-          <p className="text-2xs font-medium uppercase tracking-widest text-muted-foreground">
-            Budget
-          </p>
-          <p className="text-2xl font-semibold tracking-tight text-foreground">
+          <p className="editorial-kicker">Budget</p>
+          <p className="mt-1 text-[25px] font-semibold tracking-[-.045em] text-primary-900">
             {formatPriceRange(criteria.priceMin, criteria.priceMax)}
           </p>
         </div>
 
         {/* Title */}
         {criteria.title && (
-          <p className="mb-3 text-sm text-foreground/80">{criteria.title}</p>
+          <p className="mb-3 line-clamp-2 text-[15px] font-semibold text-foreground">{criteria.title}</p>
         )}
 
         {/* Location + radius */}
@@ -88,13 +94,13 @@ export function CriteriaCard({ criteria }: { criteria: CriteriaCardData }) {
 
         {/* Type chip */}
         <div className="mb-4 flex flex-wrap gap-1.5">
-          <span className="rounded-full bg-accent px-3 py-1 text-xs font-medium text-foreground/70">
+          <span className="quiet-chip">
             {PROPERTY_TYPE_LABEL[criteria.propertyType]}
           </span>
         </div>
 
         {/* Specs */}
-        <div className="flex items-center gap-4 text-[13px] text-foreground/70">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-primary-200/80 pt-3 text-[13px] font-medium text-foreground/75">
           <span className="flex items-center gap-1.5">
             <BedDouble size={14} className="text-muted-foreground/70" />
             {criteria.bedroomsMin}+ bed

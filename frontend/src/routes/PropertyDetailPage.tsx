@@ -67,7 +67,7 @@ export default function PropertyDetailPage() {
   return (
     <div>
       <PageHeader>
-        <div className="flex items-center justify-between gap-3 px-5 py-4">
+        <div className="workspace-content flex items-center justify-between gap-3 px-5 py-4 md:px-8 lg:px-10">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -76,7 +76,7 @@ export default function PropertyDetailPage() {
             >
               <ArrowLeft size={20} />
             </button>
-            <h1 className="text-lg font-bold text-foreground">Listing</h1>
+            <h1 className="text-lg font-semibold text-foreground">Property details</h1>
           </div>
           {post && isOwner && (
             <PostMenu
@@ -102,8 +102,8 @@ export default function PropertyDetailPage() {
           {error?.message ?? 'Listing not found.'}
         </p>
       ) : (
-        <article className="pb-6">
-          <div className="relative h-56 w-full bg-overlay">
+        <article className="property-detail-layout detail-frame mx-4 mt-4 max-w-[1280px] pb-6 md:mx-8 lg:mx-auto lg:mt-8">
+          <div className="property-detail-image relative h-60 w-full bg-overlay md:h-80">
             {cover ? (
               <img src={cover} alt={post.title} className="h-full w-full object-cover" />
             ) : (
@@ -111,7 +111,7 @@ export default function PropertyDetailPage() {
                 No photo
               </div>
             )}
-            <span className="absolute top-3 left-3 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-primary backdrop-blur-sm">
+            <span className="absolute left-5 top-5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-primary backdrop-blur-sm">
               {PROPERTY_TYPE_LABEL[post.propertyType]}
             </span>
             {!post.isActive && (
@@ -121,17 +121,19 @@ export default function PropertyDetailPage() {
             )}
           </div>
 
-          <div className="px-5 pt-5">
-            <p className="text-3xl font-bold tracking-tight text-primary">
-              {formatPrice(post.price)}
-            </p>
-            <h2 className="mt-1 text-xl font-semibold text-foreground">{post.title}</h2>
+          <div className="px-5 pt-6 lg:p-9 xl:p-12">
+            <p className="editorial-kicker">Property · For sale</p>
+            <h2 className="mt-2 text-[30px] font-semibold leading-tight tracking-[-.045em] text-primary-900 md:text-[38px]">{post.title}</h2>
             <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
               <MapPin size={14} className="text-muted-foreground/70" />
               {isOwner ? post.locationText : approximateLocation(post.locationText)}
             </p>
 
-            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-foreground/80">
+            <p className="mt-5 text-[32px] font-semibold tracking-[-.045em] text-primary-900">
+              {formatPrice(post.price)}
+            </p>
+
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-y border-border/70 py-4 text-sm font-medium text-foreground/80">
               <span className="flex items-center gap-1.5">
                 <BedDouble size={16} className="text-muted-foreground/70" />
                 {post.bedrooms} bed
@@ -183,7 +185,7 @@ export default function PropertyDetailPage() {
 
             {post.amenities.length > 0 && (
               <section className="mt-6">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-primary">
+                <h3 className="text-lg font-semibold text-primary-900">
                   Other amenities
                 </h3>
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -197,13 +199,14 @@ export default function PropertyDetailPage() {
             )}
 
             {post.description && (
-              <p className="mt-6 whitespace-pre-line text-sm leading-relaxed text-foreground/80">
-                {post.description}
-              </p>
+              <section className="mt-6">
+                <h3 className="mb-2 text-lg font-semibold text-primary-900">About this home</h3>
+                <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/80">{post.description}</p>
+              </section>
             )}
 
             <section className="mt-6">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-primary mb-2">
+              <h3 className="mb-2 text-lg font-semibold text-primary-900">
                 {isOwner ? 'Location' : 'Approximate location'}
               </h3>
               <LazyPostsMap
@@ -215,7 +218,7 @@ export default function PropertyDetailPage() {
               />
             </section>
 
-            <div className="mt-6 flex items-center gap-3 rounded-xl border border-border bg-surface p-3">
+            <div className="mt-6 flex items-center gap-3 rounded-[18px] border border-border bg-accent/50 p-4">
               <div
                 className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-semibold text-white"
                 style={{ backgroundColor: avatarColorFor(post.seller.id) }}
@@ -238,7 +241,7 @@ export default function PropertyDetailPage() {
 
 function DetailGrid({ children }: { children: React.ReactNode }) {
   return (
-    <section className="mt-6 grid grid-cols-2 gap-3">
+    <section className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-3">
       {children}
     </section>
   )
@@ -253,7 +256,7 @@ function DetailItem({
   positive?: boolean
 }) {
   return (
-    <div className="rounded-xl border border-border bg-surface px-3 py-2.5">
+    <div className="rounded-[16px] border border-border bg-accent/30 px-3 py-3">
       <p className="flex items-center gap-1.5 text-2xs font-medium uppercase tracking-widest text-muted-foreground">
         {icon}
         {label}

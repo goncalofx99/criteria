@@ -48,7 +48,7 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
   }
 
   return (
-    <div className="space-y-4 rounded-xl border border-border bg-surface p-4">
+    <div className="filter-panel space-y-5 p-5">
       {/* Property type */}
       <div>
         <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Property type</Label>
@@ -58,6 +58,7 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
               key={t}
               type="button"
               onClick={() => set('propertyType', filters.propertyType === t ? undefined : t)}
+              aria-pressed={filters.propertyType === t}
               className={cn(
                 'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
                 filters.propertyType === t
@@ -164,6 +165,7 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
               key={c}
               type="button"
               onClick={() => toggleCondition(c)}
+              aria-pressed={filters.condition?.includes(c) ?? false}
               className={cn(
                 'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
                 filters.condition?.includes(c)
@@ -182,6 +184,7 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
         <button
           type="button"
           onClick={() => set('hasBalcony', filters.hasBalcony === true ? undefined : true)}
+          aria-pressed={filters.hasBalcony === true}
           className={cn(
             'flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
             filters.hasBalcony
@@ -194,6 +197,7 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
         <button
           type="button"
           onClick={() => set('hasCentralHeating', filters.hasCentralHeating === true ? undefined : true)}
+          aria-pressed={filters.hasCentralHeating === true}
           className={cn(
             'flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
             filters.hasCentralHeating
@@ -214,6 +218,7 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
               key={a.key}
               type="button"
               onClick={() => toggleAmenity(a.key)}
+              aria-pressed={filters.amenities?.includes(a.key) ?? false}
               className={cn(
                 'rounded-lg px-2.5 py-1 text-xs font-medium transition-colors',
                 filters.amenities?.includes(a.key)

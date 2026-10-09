@@ -90,7 +90,9 @@ export default function PropertyEditPage() {
           You can only edit your own listings.
         </p>
       ) : (
-        <div className="px-5 py-5">
+        <div className="mx-auto max-w-[840px] px-5 py-7 md:px-8 md:py-10">
+          <p className="editorial-kicker">Your listing</p>
+          <h2 className="editorial-title mb-7 mt-2">Refine your post.</h2>
           <PropertyForm
             initial={{
               title: post.title,

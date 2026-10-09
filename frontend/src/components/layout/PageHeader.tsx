@@ -15,7 +15,7 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        'sticky top-0 z-40 bg-surface border-b border-border/70',
+        'sticky top-0 z-40 border-b border-border/70 bg-surface/90 backdrop-blur-xl',
         className,
       )}
       style={{ paddingTop: 'env(safe-area-inset-top)' }}

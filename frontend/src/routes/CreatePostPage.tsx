@@ -116,12 +116,17 @@ export default function CreatePostPage() {
   }
 
   return (
-    <div>
+    <div className="min-h-dvh">
       <Header onBack={() => navigate(-1)} />
 
-      <div className="px-5 py-5">
+      <div className="mx-auto max-w-[840px] px-5 py-7 md:px-8 md:py-10">
+        <p className="editorial-kicker">Make your move</p>
+        <h2 className="editorial-title mt-2">Put it out there.</h2>
+        <p className="editorial-subtitle mt-2 mb-7 max-w-xl text-sm md:text-base">
+          A clear post helps the right person find you, whether you're offering a home or searching for one.
+        </p>
         {showToggle && (
-          <div className="mb-6 flex rounded-xl bg-accent p-1">
+          <div className="segmented-control mb-7 flex w-full" role="group" aria-label="Post type">
             <ModeButton
               icon={<Building2 size={16} />}
               label="List a Property"
@@ -143,7 +148,7 @@ export default function CreatePostPage() {
           <CriteriaForm
             submitLabel="Post my criteria"
             intro={
-              <div className="rounded-xl border border-primary-200 bg-primary-100/60 p-4">
+              <div className="rounded-[20px] border border-primary-200 bg-primary-100/60 p-5">
                 <p className="text-sm leading-relaxed text-primary-700">
                   <strong>How it works:</strong> publish your search criteria publicly. Sellers with matching properties will reach out to you directly.
                 </p>
@@ -164,7 +169,7 @@ export default function CreatePostPage() {
 function Header({ onBack }: { onBack: () => void }) {
   return (
     <PageHeader>
-      <div className="flex items-center gap-3 px-5 py-4">
+      <div className="workspace-content flex items-center gap-3 px-5 py-4 md:px-8 lg:px-10">
         <button
           type="button"
           onClick={onBack}
@@ -172,7 +177,7 @@ function Header({ onBack }: { onBack: () => void }) {
         >
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-lg font-bold text-foreground">Create post</h1>
+        <h1 className="text-lg font-semibold text-foreground">Create post</h1>
       </div>
     </PageHeader>
   )
@@ -185,8 +190,9 @@ function ModeButton({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        'flex flex-1 items-center justify-center gap-2 rounded-lg h-11 text-sm transition-all',
+        'flex h-11 flex-1 items-center justify-center gap-2 rounded-full text-sm transition-all',
         active ? 'bg-primary text-white font-semibold shadow-elevation-1' : 'text-muted-foreground',
       )}
     >

@@ -135,7 +135,7 @@ export function PropertyForm({ initial, submitLabel, onSubmit }: PropertyFormPro
   }
 
   return (
-    <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+    <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
       <Section title="Basics">
         <Field label="Property title" required>
           <Input
@@ -301,9 +301,9 @@ export function Section({
   title, subtitle, children,
 }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl bg-surface p-4 shadow-elevation-1 space-y-4">
+    <section className="form-section space-y-5 p-5 md:p-7">
       <header>
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-primary">{title}</h3>
+        <h3 className="text-lg font-semibold tracking-tight text-primary-900">{title}</h3>
         {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
       </header>
       {children}

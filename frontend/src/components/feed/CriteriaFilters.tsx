@@ -29,7 +29,7 @@ export function CriteriaFilters({ filters, onChange, onClear }: Props) {
   }
 
   return (
-    <div className="space-y-4 rounded-xl border border-border bg-surface p-4">
+    <div className="filter-panel space-y-5 p-5">
       {/* Property type */}
       <div>
         <Label className="mb-1.5 text-xs font-medium text-muted-foreground">Property type</Label>
@@ -39,6 +39,7 @@ export function CriteriaFilters({ filters, onChange, onClear }: Props) {
               key={t}
               type="button"
               onClick={() => set('propertyType', filters.propertyType === t ? undefined : t)}
+              aria-pressed={filters.propertyType === t}
               className={cn(
                 'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
                 filters.propertyType === t

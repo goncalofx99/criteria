@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 
 export default function CheckEmail() {
   return (
-    <div className="app-shell flex flex-col items-center justify-center bg-background px-6 text-center">
+    <div className="app-shell auth-page flex flex-col items-center justify-center px-6 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-100 mb-6">
         <Mail className="h-8 w-8 text-primary" />
       </div>

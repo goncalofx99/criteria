@@ -2,6 +2,8 @@
 
 > A fully bidirectional real estate marketplace.
 
+For the visual system, component basis, and responsive rules, see [DESIGN.md](DESIGN.md).
+
 Most real estate platforms only let buyers search for sellers. **CRITERIA flips this on its head** — buyers can post what they're looking for, and sellers can browse a pool of active, qualified demand and reach out directly. Both the traditional model (sellers post, buyers browse) and the new model (buyers post, sellers browse) coexist in one platform.
 
 ---

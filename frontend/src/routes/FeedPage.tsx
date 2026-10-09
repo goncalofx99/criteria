@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@apollo/client'
-import { Loader2, List, Map as MapIcon, SlidersHorizontal, ArrowUpDown } from 'lucide-react'
+import { Loader2, List, Map as MapIcon, SlidersHorizontal, ArrowUpDown, Sparkles } from 'lucide-react'
 import { GET_SELLER_POSTS, GET_BUYER_POSTS } from '@/lib/gql'
 import { PropertyCard, type PropertyCardData } from '@/components/posts/PropertyCard'
 import { CriteriaCard, type CriteriaCardData } from '@/components/posts/CriteriaCard'
@@ -54,93 +54,84 @@ export default function FeedPage() {
   }
 
   return (
-    <div>
-      <PageHeader>
-        <div className="px-5 pt-4 pb-3">
-          <h1 className="text-xl font-bold tracking-widest text-primary">CRITERIA</h1>
-        </div>
-
-        {canViewCriteria && (
-          <div className="px-5 pb-3">
-            <div className="flex rounded-xl bg-accent p-1">
-              <TabButton
-                active={activeTab === 'properties'}
-                onClick={() => setTab('properties')}
-                label="Properties"
-              />
-              <TabButton
-                active={activeTab === 'criteria'}
-                onClick={() => setTab('criteria')}
-                label="Buyer Criteria"
-              />
+    <div className="min-h-dvh">
+      <PageHeader className="relative bg-background/95">
+        <div className="workspace-content px-5 pb-5 pt-5 md:px-8 lg:px-10 lg:pb-6 lg:pt-8">
+          <p className="editorial-kicker">Discover · Portugal</p>
+          <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="editorial-title">Find your place.</h1>
+              <p className="editorial-subtitle mt-2 max-w-xl text-sm md:text-base">
+                Explore homes for sale and the people searching for one.
+              </p>
+            </div>
+            <div className="hidden items-center gap-2 rounded-full border border-primary-200 bg-primary-100 px-4 py-2 text-xs font-medium text-primary-700 md:flex">
+              <Sparkles size={15} /> Two sides. More possibilities.
             </div>
           </div>
-        )}
 
-        {/* Toolbar: filters + sort + view toggle */}
-        <div className="flex items-center justify-between gap-1.5 px-5 pb-3">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <button
-              type="button"
-              onClick={() => setShowFilters(v => !v)}
-              className={cn(
-                'relative inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors',
-                showFilters
-                  ? 'border-primary bg-primary text-white'
-                  : 'border-border bg-surface text-foreground hover:bg-accent',
-              )}
-            >
-              <SlidersHorizontal size={15} />
-              Filters
-              {activeFilterCount > 0 && (
-                <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-
-            {activeTab === 'properties' && (
-              <div className="relative inline-flex items-center rounded-xl border border-border bg-surface min-w-0">
-                <ArrowUpDown size={15} className="pointer-events-none absolute left-2.5 shrink-0 text-muted-foreground" />
-                <select
-                  value={`${sort.field}-${sort.dir}`}
-                  onChange={e => handleSortChange(e.target.value)}
-                  className="appearance-none bg-transparent py-2 pl-7 pr-5 text-[13px] font-medium text-foreground outline-none focus:outline-none focus:ring-0 cursor-pointer min-w-0 truncate"
-                >
-                  {SORT_OPTIONS.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            {canViewCriteria ? (
+              <div className="segmented-control w-full sm:w-auto" role="group" aria-label="Browse type">
+                <TabButton active={activeTab === 'properties'} onClick={() => setTab('properties')} label="Properties" />
+                <TabButton active={activeTab === 'criteria'} onClick={() => setTab('criteria')} label="Buyer requests" />
               </div>
-            )}
+            ) : <p className="editorial-kicker">Available properties</p>}
+
+            <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setShowFilters(v => !v)}
+                aria-expanded={showFilters}
+                aria-controls="mobile-feed-filters"
+                className={cn(
+                  'mobile-filter-toggle inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium',
+                  showFilters ? 'border-primary bg-primary text-white' : 'border-border bg-surface text-foreground',
+                )}
+              >
+                <SlidersHorizontal size={16} /> Filters {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
+              </button>
+              {activeTab === 'properties' && (
+                <label className="relative inline-flex min-w-0 items-center rounded-full border border-border bg-surface">
+                  <ArrowUpDown size={15} className="pointer-events-none absolute left-3 text-muted-foreground" />
+                  <span className="sr-only">Sort properties</span>
+                  <select
+                    value={`${sort.field}-${sort.dir}`}
+                    onChange={e => handleSortChange(e.target.value)}
+                    className="max-w-[148px] cursor-pointer appearance-none truncate bg-transparent py-2 pl-9 pr-3 text-xs font-medium text-foreground outline-none sm:max-w-none"
+                  >
+                    {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </label>
+              )}
+              <ViewToggle view={view} onChange={setView} />
+            </div>
           </div>
-          <ViewToggle view={view} onChange={setView} />
         </div>
       </PageHeader>
 
-      <div className="px-5 py-4">
-        {showFilters && activeTab === 'properties' && (
-          <div className="mb-4">
-            <PropertyFilters
-              filters={sellerFilters}
-              onChange={setSellerFilters}
-              onClear={() => setSellerFilters(EMPTY_SELLER_FILTERS)}
-            />
+      <div className="workspace-content px-5 py-6 md:px-8 lg:px-10 lg:py-8">
+        <div id="mobile-feed-filters" className="mobile-filters-panel mb-5" hidden={!showFilters}>
+          {showFilters && (activeTab === 'properties'
+            ? <PropertyFilters filters={sellerFilters} onChange={setSellerFilters} onClear={() => setSellerFilters(EMPTY_SELLER_FILTERS)} />
+            : <CriteriaFilters filters={buyerFilters} onChange={setBuyerFilters} onClear={() => setBuyerFilters(EMPTY_BUYER_FILTERS)} />)}
+        </div>
+        <div className="feed-grid">
+          <aside className="desktop-filters self-start" aria-label="Refine results">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <h2 className="text-sm font-semibold text-primary-900">Refine results</h2>
+              {activeFilterCount > 0 && <span className="quiet-chip">{activeFilterCount} active</span>}
+            </div>
+            {activeTab === 'properties'
+              ? <PropertyFilters filters={sellerFilters} onChange={setSellerFilters} onClear={() => setSellerFilters(EMPTY_SELLER_FILTERS)} />
+              : <CriteriaFilters filters={buyerFilters} onChange={setBuyerFilters} onClear={() => setBuyerFilters(EMPTY_BUYER_FILTERS)} />}
+          </aside>
+          <div className="min-w-0">
+            {activeTab === 'properties'
+              ? <Properties view={view} filters={sellerFilters} sort={sort} />
+              : <Criteria view={view} filters={buyerFilters} />}
           </div>
-        )}
-        {showFilters && activeTab === 'criteria' && (
-          <div className="mb-4">
-            <CriteriaFilters
-              filters={buyerFilters}
-              onChange={setBuyerFilters}
-              onClear={() => setBuyerFilters(EMPTY_BUYER_FILTERS)}
-            />
-          </div>
-        )}
-
-        {activeTab === 'properties'
-          ? <Properties view={view} filters={sellerFilters} sort={sort} />
-          : <Criteria view={view} filters={buyerFilters} />}
+        </div>
       </div>
     </div>
   )
@@ -148,13 +139,14 @@ export default function FeedPage() {
 
 function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => void }) {
   return (
-    <div className="flex shrink-0 rounded-xl border border-border p-0.5">
+    <div className="segmented-control shrink-0" role="group" aria-label="Result view">
       <button
         type="button"
         onClick={() => onChange('list')}
         aria-label="List view"
+        aria-pressed={view === 'list'}
         className={cn(
-          'flex h-9 w-9 items-center justify-center rounded-lg transition-colors',
+          'flex h-8 w-8 items-center justify-center rounded-full transition-colors',
           view === 'list' ? 'bg-primary text-white' : 'text-muted-foreground',
         )}
       >
@@ -164,8 +156,9 @@ function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => voi
         type="button"
         onClick={() => onChange('map')}
         aria-label="Map view"
+        aria-pressed={view === 'map'}
         className={cn(
-          'flex h-9 w-9 items-center justify-center rounded-lg transition-colors',
+          'flex h-8 w-8 items-center justify-center rounded-full transition-colors',
           view === 'map' ? 'bg-primary text-white' : 'text-muted-foreground',
         )}
       >
@@ -180,9 +173,10 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        'flex-1 h-10 rounded-lg text-sm font-medium transition-all',
-        active ? 'bg-primary text-white font-semibold shadow-elevation-1' : 'text-muted-foreground',
+        'h-10 flex-1 rounded-full px-5 text-sm font-medium transition-all sm:flex-none',
+        active ? 'bg-primary text-white font-semibold' : 'text-muted-foreground hover:text-primary',
       )}
     >
       {label}
@@ -256,7 +250,7 @@ function Properties({ view, filters, sort }: { view: View; filters: SellerPostFi
       <p className="mb-3 text-sm text-muted-foreground">
         {properties.length} {properties.length === 1 ? 'property' : 'properties'} found
       </p>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="result-card-grid">
         {properties.map(p => <PropertyCard key={p.id} property={p} />)}
       </div>
     </>
@@ -279,9 +273,9 @@ function Criteria({ view, filters }: { view: View; filters: BuyerPostFilterValue
   }
 
   const intro = (
-    <div className="mb-4 flex items-start gap-3 rounded-xl border border-primary-200 bg-primary-100/60 p-4">
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm">
-        💡
+    <div className="mb-5 flex items-start gap-3 rounded-[20px] border border-primary-200 bg-primary-100/70 p-4">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+        <Sparkles size={15} />
       </div>
       <div>
         <p className="text-[13px] font-semibold text-primary">You're browsing buyer requests</p>
@@ -308,7 +302,7 @@ function Criteria({ view, filters }: { view: View; filters: BuyerPostFilterValue
     <>
       {intro}
       <p className="mb-3 text-sm text-muted-foreground">{criteria.length} active buyers</p>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="result-card-grid">
         {criteria.map(c => <CriteriaCard key={c.id} criteria={c} />)}
       </div>
     </>

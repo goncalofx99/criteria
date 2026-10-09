@@ -157,7 +157,7 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
   }
 
   return (
-    <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+    <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
       {intro}
 
       <Section title="Basics">
