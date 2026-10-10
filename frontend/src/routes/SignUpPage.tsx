@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useMutation } from '@apollo/client'
-import { Eye, EyeOff, Camera, Loader2, X } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { signUp } from '@/lib/auth'
-import { uploadFile } from '@/lib/upload'
-import { UPSERT_USER, GET_ME } from '@/lib/gql'
 import { warmUpBackend } from '@/lib/warmup'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { RoleChoice } from '@/components/auth/RoleChoice'
 import { PasswordStrength, getPasswordChecks } from '@/components/auth/PasswordStrength'
-import { cn } from '@/lib/utils'
 import { rememberAuthDestination, safeInternalPath, takeAuthDestination } from '@/lib/returnTo'
 import { localizedError, useLanguage } from '@/lib/language'
 
@@ -23,14 +19,12 @@ interface FormData {
   lastName: string
   age: string
   role: Role | null
-  avatarFile: File | null
-  avatarPreview: string | null
   email: string
   password: string
   confirmPassword: string
 }
 
-const TOTAL_STEPS = 5
+const TOTAL_STEPS = 4
 
 function isValidSignupEmail(value: string): boolean {
   const email = value.trim()
@@ -44,20 +38,16 @@ export default function SignUpPage() {
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<FormData>({
     firstName: '', lastName: '', age: '', role: null,
-    avatarFile: null, avatarPreview: null,
     email: '', password: '', confirmPassword: '',
   })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null!) as React.RefObject<HTMLInputElement>
   const stepContentRef = useRef<HTMLFormElement>(null)
   const previousStep = useRef(step)
-  const [upsertUser] = useMutation(UPSERT_USER)
 
   useEffect(() => { warmUpBackend() }, [])
-  useEffect(() => () => { if (form.avatarPreview) URL.revokeObjectURL(form.avatarPreview) }, [form.avatarPreview])
   useEffect(() => {
     const next = new URLSearchParams(location.search).get('next')
     if (next) rememberAuthDestination(safeInternalPath(next))
@@ -77,25 +67,6 @@ export default function SignUpPage() {
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
-  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
-      setError(t('Escolha uma fotografia JPEG, PNG ou WebP com menos de 10 MB.', 'Choose a JPEG, PNG or WebP photo under 10 MB.'))
-      e.target.value = ''
-      return
-    }
-    setError(null)
-    set('avatarFile', file)
-    set('avatarPreview', URL.createObjectURL(file))
-  }
-
-  function removeAvatar() {
-    set('avatarFile', null)
-    set('avatarPreview', null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
-
   function canProceed(): boolean {
     switch (step) {
       case 0: return form.firstName.trim().length > 0 && form.lastName.trim().length > 0 &&
@@ -105,8 +76,7 @@ export default function SignUpPage() {
         return form.age !== '' && Number.isInteger(age) && age >= 18 && age <= 120
       }
       case 2: return form.role !== null
-      case 3: return true // photo is optional
-      case 4: {
+      case 3: {
         const checks = getPasswordChecks(form.password)
         const allPass = checks.every(c => c.passed)
         return (
@@ -125,7 +95,7 @@ export default function SignUpPage() {
     setLoading(true)
 
     try {
-      // 1. Create user account
+      // An account is created only after the email link is confirmed.
       const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`
       const user = await signUp({
         email: form.email.trim(),
@@ -135,21 +105,11 @@ export default function SignUpPage() {
         age: Number(form.age),
       })
 
-      // The account already exists after signUp. Optional photo failures must
-      // never turn successful registration into an apparent signup failure.
-      if (form.avatarFile) {
-        try {
-          const avatarUrl = await uploadFile(form.avatarFile, `avatars/${user.id}`)
-          await upsertUser({
-            variables: { input: { email: form.email.trim(), fullName, avatarUrl, role: form.role } },
-            update: (cache, { data }) => {
-              if (data?.upsertUser) cache.writeQuery({ query: GET_ME, data: { me: data.upsertUser } })
-            },
-          })
-        } catch (err) {
-          console.warn('Profile photo could not be saved; account creation succeeded:', err)
-        }
+      if (!user) {
+        navigate('/check-email', { replace: true })
+        return
       }
+
       navigate(takeAuthDestination('/'), { replace: true })
     } catch (err: unknown) {
       setError(err instanceof Error && err.message === 'An account with this email already exists'
@@ -176,9 +136,9 @@ export default function SignUpPage() {
       backLabel={step === 0 ? t('Voltar ao início', 'Back to home') : t('Passo anterior', 'Previous step')}
       step={{ current: step, total: TOTAL_STEPS }}
       footer={<div className="mx-auto max-w-md space-y-3">
-        {error && step < 4 && <p role="alert" className="rounded bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
+        {error && step < TOTAL_STEPS - 1 && <p role="alert" className="rounded bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
         <Button type="submit" form="signup-flow" size="lg" disabled={!canProceed() || loading} className="w-full">
-          {loading ? <><Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />{t('A criar conta…', 'Creating account…')}</> : step === TOTAL_STEPS - 1 ? t('Criar conta', 'Create account') : step === 3 && !form.avatarFile ? t('Saltar por agora', 'Skip for now') : t('Continuar', 'Continue')}
+          {loading ? <><Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />{t('A criar conta…', 'Creating account…')}</> : step === TOTAL_STEPS - 1 ? t('Criar conta', 'Create account') : t('Continuar', 'Continue')}
         </Button>
         {step === TOTAL_STEPS - 1 && <p className="text-center text-xs leading-relaxed text-muted-foreground">{t('Antes de criar uma conta, leia os nossos ', 'Before creating an account, read our ')}<Link to="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-foreground underline underline-offset-2">{t('Termos e condições', 'Terms and conditions')}</Link>{t(' e a ', ' and ')}<Link to="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-foreground underline underline-offset-2">{t('Política de privacidade', 'Privacy policy')}</Link>.</p>}
         {step === 0 && <p className="text-center text-sm text-muted-foreground">{t('Já tem conta?', 'Already have an account?')}{' '}<Link to={`/sign-in${location.search}`} className="font-semibold text-primary underline underline-offset-4">{t('Iniciar sessão', 'Sign in')}</Link></p>}
@@ -189,14 +149,6 @@ export default function SignUpPage() {
         {step === 1 && <StepAge form={form} set={set} />}
         {step === 2 && <StepRole form={form} set={set} />}
         {step === 3 && (
-          <StepPhoto
-            form={form}
-            fileInputRef={fileInputRef}
-            onChange={handleAvatarChange}
-            onRemove={removeAvatar}
-          />
-        )}
-        {step === 4 && (
           <StepAccount
             form={form}
             set={set}
@@ -301,78 +253,6 @@ function StepRole({ form, set }: { form: FormData; set: <K extends keyof FormDat
         <p className="mt-2 text-base leading-relaxed text-muted-foreground">{t('Escolha a opção que faz sentido agora. Pode alterá-la mais tarde.', 'Choose what fits today. You can change this later.')}</p>
       </div>
       <RoleChoice value={form.role} onChange={role => set('role', role)} />
-    </div>
-  )
-}
-
-function StepPhoto({
-  form,
-  fileInputRef,
-  onChange,
-  onRemove,
-}: {
-  form: FormData
-  fileInputRef: React.RefObject<HTMLInputElement>
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-  onRemove: () => void
-}) {
-  const { t } = useLanguage()
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 tabIndex={-1} className="text-[2rem] font-semibold leading-tight tracking-[-.03em] text-foreground">{t('Adicione uma fotografia de perfil', 'Add a profile photo')}</h1>
-        <p className="mt-2 text-base leading-relaxed text-muted-foreground">
-          {t('Ajude os outros a reconhecer o seu perfil. Pode saltar este passo.', 'Help others recognise you. You can skip this for now.')}
-        </p>
-      </div>
-
-      <div className="flex flex-col items-center gap-4 py-6">
-        <div className="relative">
-          <div
-            className={cn(
-              'h-28 w-28 rounded-full overflow-hidden border-2 transition-colors',
-              form.avatarPreview ? 'border-primary' : 'border-dashed border-border bg-overlay',
-            )}
-          >
-            {form.avatarPreview
-              ? <img src={form.avatarPreview} alt={t('Pré-visualização da fotografia de perfil', 'Selected profile photo preview')} className="h-full w-full object-cover" />
-              : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <Camera className="h-8 w-8 text-muted-foreground/40" />
-                </div>
-              )
-            }
-          </div>
-
-          {form.avatarPreview && (
-            <button
-              type="button"
-              onClick={onRemove}
-              aria-label={t('Remover fotografia de perfil', 'Remove profile photo')}
-              className="absolute -right-1 -top-1 flex h-11 w-11 items-center justify-center rounded bg-destructive text-white shadow"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={onChange}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => fileInputRef.current?.click()}
-          className="rounded"
-        >
-          <Camera className="mr-2 h-4 w-4" />
-          {form.avatarPreview ? t('Alterar fotografia', 'Change photo') : t('Escolher fotografia', 'Choose photo')}
-        </Button>
-      </div>
     </div>
   )
 }

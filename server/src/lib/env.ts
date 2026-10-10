@@ -32,6 +32,11 @@ const envSchema = z.object({
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['FRONTEND_URL'], message: 'FRONTEND_URL is required in production' })
   }
   if (value.NODE_ENV === 'production') {
+    for (const key of ['RESEND_API_KEY', 'PASSWORD_RESET_FROM'] as const) {
+      if (!value[key]) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `${key} is required for verified signup in production` })
+    }
+  }
+  if (value.NODE_ENV === 'production') {
     for (const key of ['FRONTEND_URL', 'R2_PUBLIC_URL', 'PUBLIC_API_URL'] as const) {
       const url = value[key]
       if (url && URL.canParse(url) && new URL(url).protocol !== 'https:') {

@@ -43,6 +43,13 @@
       "when": 1791560135629,
       "tag": "0005_magenta_violations",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791644465790,
+      "tag": "0006_wet_inhumans",
+      "breakpoints": true
     }
   ]
 }

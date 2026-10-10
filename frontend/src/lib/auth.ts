@@ -4,6 +4,7 @@
 import { reviewMode } from '@/review/mode'
 import { getReviewStore, getReviewToken, setReviewAuthenticated } from '@/review/state'
 import { tokenIsUsable } from './authToken'
+import { beginOAuthClientProof, takeOAuthClientVerifier } from './oauthClientProof'
 
 const API_URL = import.meta.env.VITE_API_URL
 
@@ -136,7 +137,7 @@ export async function signUp(params: {
   fullName?: string
   avatarUrl?: string
   role?: 'buyer' | 'seller' | 'both'
-}): Promise<AuthUser> {
+}): Promise<AuthUser | null> {
   if (reviewMode) {
     if (!Number.isInteger(params.age) || params.age < 18 || params.age > 120) throw new Error('Age must be between 18 and 120')
     const store = getReviewStore()
@@ -159,12 +160,28 @@ export async function signUp(params: {
     body: JSON.stringify(params),
   })
 
-  const data = await res.json()
+  const data = await res.json() as Partial<AuthResponse> & { pendingVerification?: boolean; error?: string }
   if (!res.ok) throw new Error(data.error || 'Sign up failed')
-
-  const { user, accessToken, refreshToken } = data as AuthResponse
+  if (data.pendingVerification) return null
+  const { user, accessToken, refreshToken } = data
+  if (!user || !accessToken || !refreshToken) throw new Error('Invalid sign-up response')
   setTokens(accessToken, refreshToken)
   return user
+}
+
+export async function confirmSignUp(token: string): Promise<AuthUser> {
+  if (reviewMode) throw new Error('Email verification is unavailable in review mode')
+  const res = await fetch(`${API_URL}/auth/signup/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  })
+  const data = await res.json() as Partial<AuthResponse> & { error?: string }
+  if (!res.ok || !data.user || !data.accessToken || !data.refreshToken) {
+    throw new Error(data.error || 'This verification link is invalid or expired')
+  }
+  setTokens(data.accessToken, data.refreshToken)
+  return data.user
 }
 
 export async function signIn(email: string, password: string): Promise<AuthUser> {
@@ -317,7 +334,7 @@ export async function signOut(): Promise<void> {
  * Initiate Google OAuth flow.
  * Redirects the browser to the server's /auth/google endpoint.
  */
-export function startGoogleOAuth(redirectAfter?: string) {
+export async function startGoogleOAuth(redirectAfter?: string): Promise<void> {
   if (reviewMode) throw new Error('Google OAuth is unavailable in local review mode. Use the role switcher or mock email sign-in.')
   const redirect = new URL(redirectAfter ?? '/auth/callback', window.location.origin)
   if (redirect.origin !== window.location.origin || redirect.pathname !== '/auth/callback') {
@@ -325,6 +342,7 @@ export function startGoogleOAuth(redirectAfter?: string) {
   }
   const params = new URLSearchParams()
   params.set('redirect', redirect.toString())
+  params.set('client_challenge', await beginOAuthClientProof())
   const url = `${API_URL}/auth/google${params.toString() ? '?' + params.toString() : ''}`
   window.location.href = url
 }
@@ -345,10 +363,11 @@ export async function hasValidSession(): Promise<boolean> {
 export async function completeGoogleOAuthCode(code: string): Promise<void> {
   if (reviewMode) throw new Error('Live OAuth is unavailable in review mode')
   if (!code) throw new Error('Missing Google sign-in code')
+  const clientVerifier = takeOAuthClientVerifier()
   const response = await fetch(`${API_URL}/auth/google/exchange`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code }),
+    body: JSON.stringify({ code, clientVerifier }),
   })
   const data = await response.json().catch(() => ({})) as { accessToken?: string; refreshToken?: string; error?: string }
   if (!response.ok || !data.accessToken || !data.refreshToken) {

@@ -1,12 +1,12 @@
 import { Hono } from 'hono'
 import { Google, generateCodeVerifier, generateState } from 'arctic'
 import { hash, verify } from '@node-rs/argon2'
-import { eq, and, gt, sql } from 'drizzle-orm'
+import { eq, and, gt, lt, sql } from 'drizzle-orm'
 import crypto from 'crypto'
 import { z } from 'zod'
 import { env } from '../lib/env.js'
 import { db } from '../db/index.js'
-import { users, sessions, passwordResetTokens, accountActionTokens } from '../db/schema.js'
+import { users, sessions, passwordResetTokens, accountActionTokens, pendingSignups } from '../db/schema.js'
 import { signAccessToken } from '../middleware/auth.js'
 import { googleOAuthCallbackUrl, resolveOAuthRedirect } from '../lib/oauthRedirect.js'
 
@@ -22,6 +22,7 @@ const google = new Google(
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const REFRESH_TOKEN_EXPIRY_DAYS = 30
+const SIGNUP_LINK_LIFETIME_MS = 30 * 60_000
 const emailSchema = z.string().trim().toLowerCase().email().max(254)
 
 function hashResetToken(token: string) {
@@ -49,8 +50,8 @@ async function createSession(userId: string, authVersion: number) {
 
 // In-memory store for OAuth state → code_verifier mapping
 // In production with multiple instances, use Redis or a DB table.
-const oauthStateStore = new Map<string, { codeVerifier: string; redirect: string; createdAt: number }>()
-const oauthExchangeStore = new Map<string, { userId: string; createdAt: number }>()
+const oauthStateStore = new Map<string, { codeVerifier: string; clientChallenge: string; redirect: string; createdAt: number }>()
+const oauthExchangeStore = new Map<string, { userId: string; clientChallenge: string; createdAt: number }>()
 
 // Clean up expired states every 5 minutes
 setInterval(() => {
@@ -104,6 +105,10 @@ authRoutes.post('/auth/signup', async (c) => {
   }
   const normalizedEmail = parsedEmail.data
 
+  if (!env.RESEND_API_KEY || !env.PASSWORD_RESET_FROM || !env.FRONTEND_URL) {
+    return c.json({ error: 'Account registration is temporarily unavailable' }, 503)
+  }
+
   // Check if user already exists
   const existing = await db.query.users.findFirst({
     where: (u, { eq }) => eq(u.email, normalizedEmail),
@@ -112,19 +117,76 @@ authRoutes.post('/auth/signup', async (c) => {
     return c.json({ error: 'An account with this email already exists' }, 409)
   }
 
+  // An outstanding request cannot be replaced by someone who knows the email.
+  // Google sign-in can still create a verified account while this row is pending.
+  await db.delete(pendingSignups).where(lt(pendingSignups.expiresAt, new Date()))
+  const outstanding = await db.query.pendingSignups.findFirst({
+    where: eq(pendingSignups.email, normalizedEmail),
+  })
+  c.header('Cache-Control', 'no-store')
+  if (outstanding) return c.json({ pendingVerification: true }, 202)
+
   const passwordHash = await hash(password)
-
-  const [user] = await db.insert(users).values({
+  const token = crypto.randomBytes(32).toString('base64url')
+  const [pending] = await db.insert(pendingSignups).values({
     email: normalizedEmail,
-    fullName: typeof fullName === 'string' ? fullName.trim() : null,
-    avatarUrl: null,
-    role: role ?? 'buyer',
     passwordHash,
-    onboardingCompletedAt: new Date(),
-  }).returning()
+    fullName: typeof fullName === 'string' ? fullName.trim() : null,
+    role: role ?? 'buyer',
+    tokenHash: hashResetToken(token),
+    expiresAt: new Date(Date.now() + SIGNUP_LINK_LIFETIME_MS),
+  }).onConflictDoNothing().returning()
+  if (!pending) return c.json({ pendingVerification: true }, 202)
 
+  const verificationUrl = new URL('/verify-signup', env.FRONTEND_URL)
+  verificationUrl.searchParams.set('token', token)
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: env.PASSWORD_RESET_FROM,
+        to: [normalizedEmail],
+        subject: 'Confirme o seu email na CRITERIA',
+        text: `Abra esta ligação nos próximos 30 minutos para ativar a sua conta CRITERIA:\n\n${verificationUrl.toString()}\n\nSe não criou esta conta, ignore este email.`,
+      }),
+    })
+    if (!response.ok) throw new Error(`Email provider returned ${response.status}`)
+  } catch (error) {
+    await db.delete(pendingSignups).where(eq(pendingSignups.tokenHash, pending.tokenHash))
+    console.error('[Auth] Signup verification email failed:', error)
+    return c.json({ error: 'Account registration is temporarily unavailable' }, 503)
+  }
+  return c.json({ pendingVerification: true }, 202)
+})
+
+authRoutes.post('/auth/signup/confirm', async (c) => {
+  const body = await c.req.json<{ token?: unknown }>().catch(() => null)
+  if (typeof body?.token !== 'string' || !/^[A-Za-z0-9_-]{40,128}$/.test(body.token)) {
+    return c.json({ error: 'This verification link is invalid or has expired' }, 400)
+  }
+  const verificationHash = hashResetToken(body.token)
+  const user = await db.transaction(async (tx) => {
+    const [pending] = await tx.delete(pendingSignups).where(and(
+      eq(pendingSignups.tokenHash, verificationHash),
+      gt(pendingSignups.expiresAt, new Date()),
+    )).returning()
+    if (!pending) return null
+    const [created] = await tx.insert(users).values({
+      email: pending.email,
+      fullName: pending.fullName,
+      role: pending.role,
+      passwordHash: pending.passwordHash,
+      onboardingCompletedAt: new Date(),
+    }).onConflictDoNothing().returning()
+    return created ?? null
+  })
+  c.header('Cache-Control', 'no-store')
+  if (!user) return c.json({ error: 'This verification link is invalid, expired, or already used' }, 400)
   const session = await createSession(user.id, user.authVersion)
-
   return c.json({
     user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role, avatarUrl: user.avatarUrl, onboardingComplete: true },
     accessToken: session.accessToken,
@@ -320,11 +382,16 @@ authRoutes.post('/auth/password-reset/confirm', async (c) => {
 authRoutes.get('/auth/google', async (c) => {
   const redirect = resolveOAuthRedirect(frontendUrl, c.req.query('redirect'), env.NODE_ENV !== 'production')
   if (!redirect) return c.json({ error: 'Invalid OAuth redirect' }, 400)
+  const clientChallenge = c.req.query('client_challenge')
+  if (!clientChallenge || !/^[A-Za-z0-9_-]{43}$/.test(clientChallenge)) {
+    return c.json({ error: 'Invalid OAuth client challenge' }, 400)
+  }
   const state = generateState()
   const codeVerifier = generateCodeVerifier()
 
   oauthStateStore.set(state, {
     codeVerifier,
+    clientChallenge,
     redirect,
     createdAt: Date.now(),
   })
@@ -381,21 +448,16 @@ authRoutes.get('/auth/google/callback', async (c) => {
       user = await db.query.users.findFirst({
         where: eq(users.email, googleUser.email.toLowerCase()),
       })
+      // A matching password account does not prove mailbox ownership. Linking
+      // it silently would give a pre-registered attacker the Google user's data.
+      if (user && !user.googleId) {
+        return c.redirect(`${frontendUrl}/sign-in?error=email_account_exists`)
+      }
     }
 
     if (user) {
       if (user.googleId && user.googleId !== googleUser.id) {
         throw new Error('This email is linked to a different Google account')
-      }
-      // Link Google ID if not already linked
-      if (!user.googleId) {
-        await db.update(users)
-          .set({
-            googleId: googleUser.id,
-            avatarUrl: user.avatarUrl || googleUser.picture || null,
-            updatedAt: new Date(),
-          })
-          .where(eq(users.id, user.id))
       }
     } else {
       const [newUser] = await db.insert(users).values({
@@ -411,7 +473,7 @@ authRoutes.get('/auth/google/callback', async (c) => {
     // The callback URL carries only a short-lived, single-use exchange code.
     // Tokens are created after the app redeems it over HTTPS.
     const exchangeCode = crypto.randomBytes(32).toString('base64url')
-    oauthExchangeStore.set(exchangeCode, { userId: user.id, createdAt: Date.now() })
+    oauthExchangeStore.set(exchangeCode, { userId: user.id, clientChallenge: stored.clientChallenge, createdAt: Date.now() })
     const redirectUrl = new URL(stored.redirect)
     redirectUrl.searchParams.set('code', exchangeCode)
     return c.redirect(redirectUrl.toString())
@@ -422,12 +484,20 @@ authRoutes.get('/auth/google/callback', async (c) => {
 })
 
 authRoutes.post('/auth/google/exchange', async (c) => {
-  const body = await c.req.json<{ code?: string }>()
+  const body = await c.req.json<{ code?: string; clientVerifier?: string }>().catch(() => null)
+  if (!body) return c.json({ error: 'Invalid exchange request' }, 400)
   const code = body.code
-  if (!code) return c.json({ error: 'Exchange code is required' }, 400)
+  if (!code || typeof body.clientVerifier !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(body.clientVerifier)) {
+    return c.json({ error: 'Exchange code and client verifier are required' }, 400)
+  }
   const pending = oauthExchangeStore.get(code)
   oauthExchangeStore.delete(code)
   if (!pending || Date.now() - pending.createdAt > 2 * 60 * 1000) {
+    return c.json({ error: 'Invalid or expired exchange code' }, 401)
+  }
+  const submittedChallenge = crypto.createHash('sha256').update(body.clientVerifier).digest()
+  const expectedChallenge = Buffer.from(pending.clientChallenge, 'base64url')
+  if (expectedChallenge.length !== submittedChallenge.length || !crypto.timingSafeEqual(expectedChallenge, submittedChallenge)) {
     return c.json({ error: 'Invalid or expired exchange code' }, 401)
   }
   const user = await db.query.users.findFirst({ where: eq(users.id, pending.userId) })

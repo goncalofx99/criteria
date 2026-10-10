@@ -18,6 +18,7 @@ export default function SignInPage() {
   const resetSuccess = new URLSearchParams(location.search).get('reset') === 'success'
   const passwordChanged = new URLSearchParams(location.search).get('passwordChanged') === '1'
   const oauthFailed = new URLSearchParams(location.search).get('error') === 'oauth_failed'
+  const googleEmailAccountExists = new URLSearchParams(location.search).get('error') === 'email_account_exists'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -67,6 +68,7 @@ export default function SignInPage() {
           {resetSuccess && <p role="status" className="rounded bg-success-muted p-3 text-sm text-success">{t('Palavra-passe atualizada. Inicie sessão com a nova palavra-passe.', 'Password updated. Sign in with your new password.')}</p>}
           {passwordChanged && <p role="status" className="rounded bg-success-muted p-3 text-sm text-success">{t('Palavra-passe alterada. Inicie sessão novamente neste dispositivo.', 'Password changed. Sign in again on this device.')}</p>}
           {oauthFailed && <p role="alert" className="rounded bg-destructive/10 p-3 text-sm text-destructive">{t('Não foi possível concluir o início de sessão com o Google. Tente novamente.', 'Google sign-in could not be completed. Please try again.')}</p>}
+          {googleEmailAccountExists && <p role="alert" className="rounded bg-destructive/10 p-3 text-sm text-destructive">{t('Já existe uma conta com este email. Inicie sessão com a sua palavra-passe ou recupere-a.', 'An account already uses this email. Sign in with its password or reset it.')}</p>}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input

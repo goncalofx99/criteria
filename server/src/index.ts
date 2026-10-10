@@ -4,9 +4,11 @@ import { ApolloServer, HeaderMap } from '@apollo/server'
 import { makeExecutableSchema } from '@graphql-tools/schema'
 import { WebSocketServer } from 'ws'
 import { useServer } from 'graphql-ws/use/ws'
+import { GraphQLError, specifiedRules, validate } from 'graphql'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
+import { bodyLimit } from 'hono/body-limit'
 import { serve } from '@hono/node-server'
 import type { Server } from 'http'
 import { env } from './lib/env.js'
@@ -20,6 +22,8 @@ import { authRoutes } from './routes/auth.js'
 import { accountRoutes } from './routes/account.js'
 import { uploadRoutes } from './routes/upload.js'
 import { startAccountDeletionCleanup } from './lib/accountDeletion.js'
+import { maskWebSocketError, subscriptionOperationError } from './lib/wsPolicy.js'
+import { queryLimitsRule } from './lib/queryLimits.js'
 import type { Context } from './context.js'
 
 // ─── Executable schema (shared between Apollo HTTP and graphql-ws) ─────────────
@@ -30,6 +34,7 @@ const schema = makeExecutableSchema({ typeDefs, resolvers })
 
 const apollo = new ApolloServer<Context>({
   schema,
+  validationRules: [queryLimitsRule],
 
   // Introspection exposes your full schema to anyone — disable in production.
   introspection: env.NODE_ENV !== 'production',
@@ -56,10 +61,28 @@ await apollo.start()
 
 // ─── Hono App ─────────────────────────────────────────────────────────────────
 
+function allowedFrontendOrigin(origin: string | undefined): boolean {
+  if (env.NODE_ENV !== 'production') return true
+  if (!origin || !env.FRONTEND_URL) return false
+  const configured = new URL(env.FRONTEND_URL)
+  const bareHost = configured.hostname.replace(/^www\./, '')
+  return [bareHost, `www.${bareHost}`].some((host) => {
+    const allowed = new URL(configured.origin)
+    allowed.hostname = host
+    return origin === allowed.origin
+  })
+}
+
+function websocketToken(params: Record<string, unknown> | undefined): string | null {
+  const header = params?.authorization ?? params?.Authorization
+  return typeof header === 'string' && header.startsWith('Bearer ') ? header.slice(7) : null
+}
+
 const app = new Hono<{ Variables: { userId: string | null } }>()
 
 // Security headers (X-Content-Type-Options, X-Frame-Options, HSTS, etc.)
 app.use('*', secureHeaders())
+app.use('*', bodyLimit({ maxSize: 64 * 1024 }))
 
 // CORS — lock down to the frontend origin in production
 app.use(
@@ -67,12 +90,7 @@ app.use(
   cors({
     origin:
       env.NODE_ENV === 'production' && env.FRONTEND_URL
-        ? (origin) => {
-            // Allow the configured frontend URL and its www variant
-            const base = env.FRONTEND_URL!
-            const allowed = [base, base.replace('https://', 'https://www.')]
-            return allowed.includes(origin) ? origin : null
-          }
+        ? (origin) => allowedFrontendOrigin(origin) ? origin : null
         : '*',
     allowMethods: ['GET', 'POST', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
@@ -147,14 +165,52 @@ startAccountDeletionCleanup()
 
 // Attach a WebSocket server to the same HTTP server for GraphQL subscriptions.
 // The client sends the auth token in connectionParams.authorization.
-const wss = new WebSocketServer({ server: httpServer })
+const MAX_WS_CONNECTIONS = 500
+const MAX_WS_CONNECTIONS_PER_USER = 5
+const activeSocketsByUser = new Map<string, number>()
+const wss = new WebSocketServer({
+  server: httpServer,
+  path: '/graphql',
+  maxPayload: 64 * 1024,
+  verifyClient: ({ origin }: { origin?: string }) =>
+    allowedFrontendOrigin(origin) && wss.clients.size < MAX_WS_CONNECTIONS,
+})
 
 useServer(
   {
     schema,
+    onConnect: async (wsCtx) => {
+      const token = websocketToken(wsCtx.connectionParams)
+      const userId = token ? await verifyJwt(token) : null
+      if (!userId) return false
+      const count = activeSocketsByUser.get(userId) ?? 0
+      if (count >= MAX_WS_CONNECTIONS_PER_USER) return false
+      activeSocketsByUser.set(userId, count + 1)
+      wsCtx.extra.socket.once('close', () => {
+        const remaining = (activeSocketsByUser.get(userId) ?? 1) - 1
+        if (remaining > 0) activeSocketsByUser.set(userId, remaining)
+        else activeSocketsByUser.delete(userId)
+      })
+      return true
+    },
+    onSubscribe: (wsCtx, _id, payload) => {
+      if (Object.keys(wsCtx.subscriptions).length >= 10) {
+        return [new GraphQLError('Too many active subscriptions', { extensions: { code: 'BAD_USER_INPUT' } })]
+      }
+      const error = subscriptionOperationError(payload.query, payload.operationName)
+      return error ? [error] : undefined
+    },
+    validate: (schemaToValidate, document) =>
+      validate(schemaToValidate, document, [...specifiedRules, queryLimitsRule]),
+    onError: (_wsCtx, _id, _payload, errors) =>
+      errors.map((error) => maskWebSocketError(error, env.NODE_ENV === 'production')),
+    onNext: (_wsCtx, _id, _payload, _args, result) =>
+      result.errors ? {
+        ...result,
+        errors: result.errors.map((error) => maskWebSocketError(error, env.NODE_ENV === 'production')),
+      } : undefined,
     context: async (wsCtx) => {
-      const authHeader = (wsCtx.connectionParams?.authorization ?? wsCtx.connectionParams?.Authorization) as string | undefined
-      const authToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined
+      const authToken = websocketToken(wsCtx.connectionParams)
       let userId: string | null = null
       if (authToken) {
         userId = await verifyJwt(authToken)

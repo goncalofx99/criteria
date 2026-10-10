@@ -136,7 +136,7 @@ describe('public property discovery', () => {
       .rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } })
     await expect(matchingResolvers.Query.matchingBuyerPosts(null, { sellerPostId: 'post-1' }, ctx))
       .rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } })
-    expect(() => conversationResolvers.Query.myConversations(null, null, ctx))
+    expect(() => conversationResolvers.Query.myConversations(null, {}, ctx))
       .toThrowError(expect.objectContaining({ extensions: { code: 'UNAUTHENTICATED' } }))
     await expect(conversationResolvers.Query.conversation(null, { id: 'conversation-1' }, ctx))
       .rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } })

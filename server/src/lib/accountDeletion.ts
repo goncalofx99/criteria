@@ -1,6 +1,6 @@
 import { DeleteObjectsCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 import { eq, lt } from 'drizzle-orm'
-import { accountActionTokens, accountDeletionJobs, passwordResetTokens, sessions } from '../db/schema.js'
+import { accountActionTokens, accountDeletionJobs, passwordResetTokens, pendingSignups, sessions } from '../db/schema.js'
 import { db } from '../db/index.js'
 import { env } from './env.js'
 import { r2 } from './r2.js'
@@ -72,6 +72,7 @@ async function runAccountMaintenance() {
   const now = new Date()
   await db.delete(accountActionTokens).where(lt(accountActionTokens.expiresAt, now))
   await db.delete(passwordResetTokens).where(lt(passwordResetTokens.expiresAt, now))
+  await db.delete(pendingSignups).where(lt(pendingSignups.expiresAt, now))
   await db.delete(sessions).where(lt(sessions.expiresAt, now))
   await drainPendingJobs()
 }
