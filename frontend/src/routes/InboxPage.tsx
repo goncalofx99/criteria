@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useApolloClient, useMutation, useQuery, useSubscription } from '@apollo/client'
 import { ArrowLeft, ArrowUp, Inbox, Loader2, MessageCircle } from 'lucide-react'
-import { GET_CONVERSATION, GET_MY_CONVERSATIONS, MESSAGE_SENT, SEND_MESSAGE } from '@/lib/gql'
+import { GET_CONVERSATION, GET_MY_CONVERSATIONS, GET_OLDER_MESSAGES, MESSAGE_SENT, SEND_MESSAGE } from '@/lib/gql'
 import { useMe } from '@/hooks/useMe'
 import { Button } from '@/components/ui/button'
 import { MemberAvatar } from '@/components/ui/member-avatar'
@@ -27,6 +27,15 @@ interface ConversationData {
   messages: MessageData[]
 }
 
+const CONVERSATION_PAGE_SIZE = 30
+const MESSAGE_PAGE_SIZE = 100
+
+function mergeMessages(current: MessageData[], incoming: MessageData[]): MessageData[] {
+  const byId = new Map(current.map(message => [message.id, message]))
+  for (const message of incoming) byId.set(message.id, message)
+  return [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
+}
+
 function conversationTitle(conversation: ConversationData, myId?: string) {
   const person = conversation.buyer.id === myId ? conversation.seller : conversation.buyer
   return person.fullName || (getLanguage() === 'pt' ? 'Membro da CRITERIA' : 'CRITERIA member')
@@ -45,6 +54,13 @@ export default function InboxPage() {
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const draft = id ? drafts[id] ?? '' : ''
   const [sendError, setSendError] = useState<string | null>(null)
+  const [loadingMoreConversations, setLoadingMoreConversations] = useState(false)
+  const [hasMoreConversations, setHasMoreConversations] = useState(true)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [pagingError, setPagingError] = useState<string | null>(null)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+  const [hasOlderMessages, setHasOlderMessages] = useState<Record<string, boolean>>({})
+  const [messageHistory, setMessageHistory] = useState<Record<string, MessageData[]>>({})
   const [composerFocused, setComposerFocused] = useState(false)
   const activeThreadIdRef = useRef(id)
   activeThreadIdRef.current = id
@@ -55,7 +71,11 @@ export default function InboxPage() {
   const lastRenderedThreadRef = useRef<string | null>(null)
   const lastRenderedMessageCountRef = useRef(0)
   const nearBottomRef = useRef(true)
-  const { data: listData, loading: listLoading, error: listError, refetch: refetchList } = useQuery<{ myConversations: ConversationData[] }>(GET_MY_CONVERSATIONS, { fetchPolicy: 'cache-and-network' })
+  const pendingHistoryRestoreRef = useRef<{ threadId: string; scrollHeight: number; scrollTop: number } | null>(null)
+  const { data: listData, loading: listLoading, error: listError, refetch: refetchList, fetchMore } = useQuery<{ myConversations: ConversationData[] }>(GET_MY_CONVERSATIONS, {
+    variables: { limit: CONVERSATION_PAGE_SIZE, offset: 0 },
+    fetchPolicy: 'cache-and-network',
+  })
   const { data: detailData, loading: detailLoading, error: detailError, refetch: refetchDetail } = useQuery<{ conversation: ConversationData | null }>(GET_CONVERSATION, { variables: { id }, skip: !id, fetchPolicy: 'cache-and-network' })
   const [sendMessage, { loading: sending }] = useMutation(SEND_MESSAGE)
 
@@ -74,9 +94,76 @@ export default function InboxPage() {
   })
 
   const conversation = detailData?.conversation || null
+  const visibleMessages = conversation ? messageHistory[conversation.id] ?? conversation.messages : []
+  const canLoadOlder = Boolean(conversation && visibleMessages.length > 0 &&
+    (hasOlderMessages[conversation.id] ?? conversation.messages.length === MESSAGE_PAGE_SIZE))
+  const canLoadMoreConversations = hasMoreConversations &&
+    (listData?.myConversations.length ?? 0) >= CONVERSATION_PAGE_SIZE
+
+  useEffect(() => {
+    if (!conversation) return
+    setMessageHistory(current => {
+      const previous = current[conversation.id] ?? []
+      const merged = mergeMessages(previous, conversation.messages)
+      return merged.length === previous.length ? current : { ...current, [conversation.id]: merged }
+    })
+  }, [conversation])
+
+  async function loadMoreConversations() {
+    if (loadingMoreConversations || !listData?.myConversations.length) return
+    setLoadingMoreConversations(true)
+    setPagingError(null)
+    try {
+      const result = await fetchMore({
+        variables: { limit: CONVERSATION_PAGE_SIZE, offset: listData.myConversations.length },
+        updateQuery: (previous, { fetchMoreResult }) => {
+          if (!fetchMoreResult) return previous
+          const existingIds = new Set(previous.myConversations.map(item => item.id))
+          return { myConversations: [
+            ...previous.myConversations,
+            ...fetchMoreResult.myConversations.filter(item => !existingIds.has(item.id)),
+          ] }
+        },
+      })
+      setHasMoreConversations(result.data.myConversations.length === CONVERSATION_PAGE_SIZE)
+    } catch (cause) {
+      setPagingError(localizedError(cause, language, 'Não foi possível carregar mais conversas.', 'Could not load more conversations.'))
+    } finally {
+      setLoadingMoreConversations(false)
+    }
+  }
+
+  async function loadOlderMessages() {
+    if (!id || !canLoadOlder || loadingOlder) return
+    const first = visibleMessages[0]
+    if (!first) return
+    setLoadingOlder(true)
+    setHistoryError(null)
+    const panel = messagesRef.current
+    if (panel) pendingHistoryRestoreRef.current = { threadId: id, scrollHeight: panel.scrollHeight, scrollTop: panel.scrollTop }
+    try {
+      const before = `${first.createdAt}|${first.id}`
+      const { data } = await client.query<{ conversation: { messages: MessageData[] } | null }>({
+        query: GET_OLDER_MESSAGES,
+        variables: { id, before },
+        fetchPolicy: 'network-only',
+      })
+      const older = data.conversation?.messages ?? []
+      if (older.length === 0) pendingHistoryRestoreRef.current = null
+      setMessageHistory(current => ({ ...current, [id]: mergeMessages(current[id] ?? visibleMessages, older) }))
+      setHasOlderMessages(current => ({ ...current, [id]: older.length === MESSAGE_PAGE_SIZE }))
+    } catch (cause) {
+      pendingHistoryRestoreRef.current = null
+      setHistoryError(localizedError(cause, language, 'Não foi possível carregar mensagens anteriores.', 'Could not load earlier messages.'))
+    } finally {
+      setLoadingOlder(false)
+    }
+  }
   useEffect(() => {
     setSendError(null)
+    setHistoryError(null)
     setComposerFocused(false)
+    pendingHistoryRestoreRef.current = null
   }, [id])
 
   useEffect(() => {
@@ -93,12 +180,17 @@ export default function InboxPage() {
   useLayoutEffect(() => {
     const panel = messagesRef.current
     if (!panel || !conversation) return
-    const count = conversation.messages.length
-    if (lastRenderedThreadRef.current !== conversation.id) {
+    const count = visibleMessages.length
+    const restore = pendingHistoryRestoreRef.current
+    if (restore?.threadId === conversation.id && count > lastRenderedMessageCountRef.current) {
+      panel.scrollTop = restore.scrollTop + panel.scrollHeight - restore.scrollHeight
+      pendingHistoryRestoreRef.current = null
+      nearBottomRef.current = false
+    } else if (lastRenderedThreadRef.current !== conversation.id) {
       panel.scrollTop = panel.scrollHeight
       nearBottomRef.current = true
     } else if (count > lastRenderedMessageCountRef.current) {
-      const lastMessage = conversation.messages.at(-1)
+      const lastMessage = visibleMessages.at(-1)
       if (nearBottomRef.current || lastMessage?.sender.id === me?.id) {
         panel.scrollTop = panel.scrollHeight
         nearBottomRef.current = true
@@ -106,7 +198,7 @@ export default function InboxPage() {
     }
     lastRenderedThreadRef.current = conversation.id
     lastRenderedMessageCountRef.current = count
-  }, [conversation, conversation?.messages.length, me?.id])
+  }, [conversation, visibleMessages, me?.id])
 
   function trackMessageScroll() {
     const panel = messagesRef.current
@@ -162,6 +254,8 @@ export default function InboxPage() {
               </Link>
             })}
           </div>
+          {pagingError && <p role="alert" className="px-5 py-3 text-sm text-destructive">{pagingError}</p>}
+          {canLoadMoreConversations && <div className="p-4 text-center"><Button type="button" variant="outline" disabled={loadingMoreConversations} onClick={() => void loadMoreConversations()}>{loadingMoreConversations ? t('A carregar…', 'Loading…') : t('Carregar mais conversas', 'Load more conversations')}</Button></div>}
         </aside>
         <section ref={threadRef} tabIndex={-1} className={cn(id ? 'flex' : 'hidden md:flex', 'min-h-0 min-w-0 flex-col focus:outline-none')} aria-label={t('Conversa selecionada', 'Selected conversation')}>
           {!id ? (
@@ -181,8 +275,10 @@ export default function InboxPage() {
               </div>
               {detailError && <div className="border-b border-warning/30 bg-warning-muted px-4 py-2 text-sm text-warning-foreground">{t('As mensagens podem estar desatualizadas.', 'Messages may be out of date.')} <button type="button" onClick={() => void refetchDetail()} className="font-semibold underline">{t('Repetir', 'Retry')}</button></div>}
               <div ref={messagesRef} onScroll={trackMessageScroll} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-background/60 p-4 md:p-6" role="log" aria-label={t(`Mensagens com ${conversationTitle(conversation, me?.id)}`, `Messages with ${conversationTitle(conversation, me?.id)}`)} aria-relevant="additions">
-                {conversation.messages.length === 0 && <p className="my-auto text-center text-sm text-muted-foreground">{t('Comece a conversa com uma breve apresentação.', 'Start the conversation with a helpful introduction.')}</p>}
-                {conversation.messages.map(message => {
+                {historyError && <p role="alert" className="text-center text-sm text-destructive">{historyError}</p>}
+                {canLoadOlder && <div className="text-center"><Button type="button" variant="outline" disabled={loadingOlder} onClick={() => void loadOlderMessages()}>{loadingOlder ? t('A carregar…', 'Loading…') : t('Carregar mensagens anteriores', 'Load earlier messages')}</Button></div>}
+                {visibleMessages.length === 0 && <p className="my-auto text-center text-sm text-muted-foreground">{t('Comece a conversa com uma breve apresentação.', 'Start the conversation with a helpful introduction.')}</p>}
+                {visibleMessages.map(message => {
                   const own = message.sender.id === me?.id
                   return <div key={message.id} className={cn('max-w-[85%] rounded-md px-4 py-3 text-sm leading-relaxed lg:max-w-[640px]', own ? 'self-end rounded-br-none bg-primary text-primary-foreground' : 'self-start rounded-bl-none bg-accent text-foreground')}>
                     <span className="sr-only">{own ? t('Você', 'You') : conversationTitle(conversation, me?.id)}: </span>

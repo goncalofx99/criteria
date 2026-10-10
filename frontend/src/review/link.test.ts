@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createReviewLink, executeReviewOperation } from './link'
 import { makeReviewStore } from './fixtures'
 import { setReviewAuthenticated } from './state'
-import { GET_BUYER_POST, SEARCH_SELLER_POSTS } from '@/lib/gql'
+import { GET_BUYER_POST, GET_CONVERSATION, GET_MY_CONVERSATIONS, SEARCH_SELLER_POSTS } from '@/lib/gql'
 import portugalAreas from '@/lib/portugalAdministrativeAreas.json'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -44,6 +44,16 @@ describe('development review transport', () => {
     const posts = result.data.sellerPostSearch.items as { images: string[]; seller: { id: string } }[]
     expect(posts.length).toBeGreaterThan(0)
     expect(posts.every(post => Array.isArray(post.images) && !!post.seller?.id)).toBe(true)
+  })
+
+  it('keeps inbox page queries connected to the review transport', async () => {
+    const client = new ApolloClient({ link: createReviewLink(makeReviewStore('both')), cache: new InMemoryCache() })
+    const list = await client.query({ query: GET_MY_CONVERSATIONS, variables: { limit: 30, offset: 0 } })
+    const first = list.data.myConversations[0]
+    expect(first?.id).toBeTruthy()
+    const detail = await client.query({ query: GET_CONVERSATION, variables: { id: first.id } })
+    expect(detail.data.conversation.id).toBe(first.id)
+    expect(Array.isArray(detail.data.conversation.messages)).toBe(true)
   })
 
   it('enforces role and ownership rules while keeping plausible matches', () => {

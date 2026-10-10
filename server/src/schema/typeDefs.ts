@@ -275,7 +275,7 @@ export const typeDefs = `#graphql
     sellerPost: SellerPost
     buyer: User!
     seller: User!
-    messages: [Message!]!
+    messages(limit: Int, before: String): [Message!]!
     createdAt: String!
   }
 
@@ -311,7 +311,7 @@ export const typeDefs = `#graphql
     myBuyerPosts: [BuyerPost!]!
 
     # Conversations — only the authenticated participant can query these
-    myConversations: [Conversation!]!
+    myConversations(limit: Int, offset: Int): [Conversation!]!
     conversation(id: ID!): Conversation
 
     # Matching — cross-direction discovery queries

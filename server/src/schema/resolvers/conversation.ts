@@ -1,11 +1,37 @@
 import { GraphQLError } from 'graphql'
-import { eq, or, and, desc, asc } from 'drizzle-orm'
+import { eq, or, and, desc, lt } from 'drizzle-orm'
 import { conversations, messages, buyerPosts, sellerPosts, users } from '../../db/schema.js'
 import { validate, startConversationSchema, sendMessageSchema } from '../../lib/validate.js'
 import { consumeAbuseBudget } from '../../lib/abuseBudget.js'
 import { pubsub, EVENTS } from '../../lib/pubsub.js'
 import type { Context } from '../../context.js'
 import type { Conversation, Message } from '../../db/schema.js'
+
+const MAX_CONVERSATION_PAGE = 100
+const DEFAULT_CONVERSATION_PAGE = 30
+const MAX_MESSAGE_PAGE = 100
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function pageSize(value: number | null | undefined, fallback: number, maximum: number): number {
+  if (value == null) return fallback
+  if (!Number.isInteger(value) || value < 1 || value > maximum) {
+    throw new GraphQLError(`Page size must be between 1 and ${maximum}`, {
+      extensions: { code: 'BAD_USER_INPUT' },
+    })
+  }
+  return value
+}
+
+function messageCursor(value: string | null | undefined): { createdAt: Date; id: string } | null {
+  if (value == null) return null
+  const [timestamp, id, extra] = value.split('|')
+  const createdAt = new Date(timestamp)
+  if (extra !== undefined || !UUID.test(id ?? '') || !/^\d{4}-\d\d-\d\dT/.test(timestamp ?? '') ||
+      !Number.isFinite(createdAt.getTime()) || createdAt.toISOString() !== timestamp) {
+    throw new GraphQLError('Invalid message cursor', { extensions: { code: 'BAD_USER_INPUT' } })
+  }
+  return { createdAt, id }
+}
 
 function requireAuth(ctx: Context) {
   if (!ctx.userId) {
@@ -38,6 +64,7 @@ async function requireConversationRole(ctx: Context, userId: string, role: 'buye
 
 export const conversationResolvers = {
   Conversation: {
+    createdAt: (c: Conversation) => c.createdAt.toISOString(),
     buyer: (c: Conversation, _: unknown, ctx: Context) =>
       ctx.loaders.user.load(c.buyerId),
     seller: (c: Conversation, _: unknown, ctx: Context) =>
@@ -46,27 +73,47 @@ export const conversationResolvers = {
       c.buyerPostId ? ctx.loaders.buyerPost.load(c.buyerPostId) : null,
     sellerPost: (c: Conversation, _: unknown, ctx: Context) =>
       c.sellerPostId ? ctx.loaders.sellerPost.load(c.sellerPostId) : null,
-    messages: (c: Conversation, _: unknown, ctx: Context) =>
-      ctx.db.query.messages.findMany({
-        where: eq(messages.conversationId, c.id),
-        orderBy: (m) => asc(m.createdAt),
-      }),
+    messages: async (c: Conversation, args: { limit?: number | null; before?: string | null }, ctx: Context) => {
+      requireParticipant(c, requireAuth(ctx))
+      const limit = pageSize(args.limit, MAX_MESSAGE_PAGE, MAX_MESSAGE_PAGE)
+      const before = messageCursor(args.before)
+      const page = await ctx.db.query.messages.findMany({
+        where: and(
+          eq(messages.conversationId, c.id),
+          before ? or(
+            lt(messages.createdAt, before.createdAt),
+            and(eq(messages.createdAt, before.createdAt), lt(messages.id, before.id)),
+          ) : undefined,
+        ),
+        orderBy: (m) => [desc(m.createdAt), desc(m.id)],
+        limit,
+      })
+      return page.reverse()
+    },
   },
 
   Message: {
+    createdAt: (m: Message) => m.createdAt.toISOString(),
     sender: (m: Message, _: unknown, ctx: Context) =>
       ctx.loaders.user.load(m.senderId),
   },
 
   Query: {
-    myConversations: (_: unknown, __: unknown, ctx: Context) => {
+    myConversations: (_: unknown, args: { limit?: number | null; offset?: number | null }, ctx: Context) => {
       const userId = requireAuth(ctx)
+      const limit = pageSize(args.limit, DEFAULT_CONVERSATION_PAGE, MAX_CONVERSATION_PAGE)
+      const offset = args.offset ?? 0
+      if (!Number.isInteger(offset) || offset < 0 || offset > 10_000) {
+        throw new GraphQLError('Invalid conversation offset', { extensions: { code: 'BAD_USER_INPUT' } })
+      }
       return ctx.db.query.conversations.findMany({
         where: or(
           eq(conversations.buyerId, userId),
           eq(conversations.sellerId, userId)
         ),
-        orderBy: (c) => desc(c.createdAt),
+        orderBy: (c) => [desc(c.createdAt), desc(c.id)],
+        limit,
+        offset,
       })
     },
 

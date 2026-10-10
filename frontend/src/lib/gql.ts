@@ -291,26 +291,47 @@ export const CONVERSATION_FIELDS = gql`
     seller { id fullName avatarUrl }
     buyerPost { id title }
     sellerPost { id title images }
-    messages {
-      id
-      body
-      createdAt
-      sender { id fullName avatarUrl }
-    }
+  }
+`
+
+export const MESSAGE_FIELDS = gql`
+  fragment MessageFields on Message {
+    id
+    body
+    createdAt
+    sender { id fullName avatarUrl }
   }
 `
 
 export const GET_MY_CONVERSATIONS = gql`
   ${CONVERSATION_FIELDS}
-  query MyConversations {
-    myConversations { ...ConversationFields }
+  ${MESSAGE_FIELDS}
+  query MyConversations($limit: Int!, $offset: Int!) {
+    myConversations(limit: $limit, offset: $offset) {
+      ...ConversationFields
+      messages(limit: 1) { ...MessageFields }
+    }
   }
 `
 
 export const GET_CONVERSATION = gql`
   ${CONVERSATION_FIELDS}
+  ${MESSAGE_FIELDS}
   query Conversation($id: ID!) {
-    conversation(id: $id) { ...ConversationFields }
+    conversation(id: $id) {
+      ...ConversationFields
+      messages(limit: 100) { ...MessageFields }
+    }
+  }
+`
+
+export const GET_OLDER_MESSAGES = gql`
+  ${MESSAGE_FIELDS}
+  query OlderMessages($id: ID!, $before: String!) {
+    conversation(id: $id) {
+      id
+      messages(limit: 100, before: $before) { ...MessageFields }
+    }
   }
 `
 
