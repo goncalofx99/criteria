@@ -49,6 +49,13 @@ if (existsSync(devPath)) {
 
 const PROD_URL = 'https://criteria-app.com'
 const usingHttpDevServer = androidServerUrl?.startsWith('http://') ?? false
+const developmentNavigation = androidServerUrl ? [
+  '192.168.*.*',
+  '10.*.*.*',
+  '172.16.*.*',
+  'localhost',
+  '127.0.0.1',
+] : []
 
 const config: CapacitorConfig = {
   appId: 'com.criteria.app',
@@ -58,18 +65,9 @@ const config: CapacitorConfig = {
   server: {
     cleartext: usingHttpDevServer,
     allowNavigation: [
-      '192.168.*.*',
-      '10.*.*.*',
-      '172.16.*.*',
-      'localhost',
-      '127.0.0.1',
-      '*.vercel.app',
       'criteria-app.com',
-      '*.criteria-app.com',
-      // Map tiles + geocoding
-      'tile.openstreetmap.org',
-      '*.tile.openstreetmap.org',
-      'nominatim.openstreetmap.org',
+      'www.criteria-app.com',
+      ...developmentNavigation,
     ],
   },
 
