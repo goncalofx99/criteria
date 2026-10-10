@@ -32,7 +32,7 @@ pnpm --filter server db:migrate
 pnpm dev
 ~~~
 
-The frontend runs at http://localhost:5173 and the API at http://localhost:4000. Configure the server env file before starting a live API, and apply the latest migration (`0005`) before testing live sign-in. The frontend env file needs VITE_API_URL, VITE_GRAPHQL_URL and VITE_GRAPHQL_WS_URL pointed at that same API. For a deployed API or HTTPS tunnel, set the optional server `PUBLIC_API_URL` and register `${PUBLIC_API_URL}/auth/google/callback` in Google Cloud. The backend example lists the database, JWT, OAuth and R2 variables and the optional password-reset email sender.
+The frontend runs at http://localhost:5173 and the API at http://localhost:4000. Configure the server env file before starting a live API, and apply the latest migration (`0006`) before testing live sign-in or signup. The frontend env file needs VITE_API_URL, VITE_GRAPHQL_URL and VITE_GRAPHQL_WS_URL pointed at that same API. For a deployed API or HTTPS tunnel, set the optional server `PUBLIC_API_URL` and register `${PUBLIC_API_URL}/auth/google/callback` in Google Cloud. The backend example lists the database, JWT, OAuth and R2 variables and the verified email sender required for password registration and recovery.
 
 Production frontend builds require HTTPS API/GraphQL URLs and a WSS subscription URL; local development can use HTTP/WS. The browser's optional Cloudflare Web Analytics integration remains disabled until a site token is configured and a visitor opts in. Review `LEGAL_REVIEW.md` before treating the published Privacy Policy and Terms as approved legal text.
 
@@ -69,7 +69,7 @@ Property coordinates stored for matching are more precise than locations returne
 
 ## Authentication and media
 
-Email signup sends an integer age, role and account details to the API. Google OAuth returns a single-use code to an allowed web or native callback, which the frontend exchanges for tokens. New Google accounts complete age and role onboarding. Access tokens are refreshed when expired. Password recovery uses the server reset endpoints and requires its email sender in production. Password recovery and account security emails are sent in Portuguese.
+Email signup sends an integer age, role and account details to the API; the account activates only when the user confirms a link sent to that mailbox. Google OAuth returns a single-use code to an allowed web or native callback, which the frontend exchanges for tokens. New Google accounts complete age and role onboarding. Access tokens are refreshed when expired. Password recovery uses the server reset endpoints. Signup, recovery and account security emails are sent in Portuguese.
 
 Photos upload with a server-issued presigned URL to Cloudflare R2. Browser uploads accept JPEG, PNG and WebP images; the client downsizes and re-encodes them to reduce transfer size and strip camera metadata. The server validates the authenticated user’s upload namespace and MIME/extension pairing.
 

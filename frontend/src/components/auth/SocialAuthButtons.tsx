@@ -69,7 +69,7 @@ export function SocialAuthButtons({ variant = 'compact', onError }: Props) {
         // listener in NativeAuthBridge will handle the callback.
       } else {
         // Web: redirect to server's Google OAuth endpoint
-        startGoogleOAuth(`${window.location.origin}/auth/callback`)
+        await startGoogleOAuth(`${window.location.origin}/auth/callback`)
       }
     } catch (err) {
       const localMessages = [

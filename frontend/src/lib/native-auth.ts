@@ -2,6 +2,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
 import { Browser } from '@capacitor/browser'
 import { App } from '@capacitor/app'
 import { reviewMode } from '@/review/mode'
+import { beginOAuthClientProof } from './oauthClientProof'
 
 export const NATIVE_CALLBACK_SCHEME = 'com.criteria.app'
 
@@ -35,12 +36,14 @@ const OAuthBridge = registerPlugin<OAuthBridgePlugin>('OAuthBridge')
 export async function signInWithGoogleNative(serverUrl: string): Promise<string | null> {
   if (reviewMode) throw new Error('Google OAuth is unavailable in local review mode')
   if (!serverUrl) throw new Error('Missing API URL for Google sign-in')
-  const authUrl = `${serverUrl}/auth/google?redirect=${NATIVE_CALLBACK_SCHEME}://auth/callback`
+  const authUrl = new URL('/auth/google', serverUrl)
+  authUrl.searchParams.set('redirect', `${NATIVE_CALLBACK_SCHEME}://auth/callback`)
+  authUrl.searchParams.set('client_challenge', await beginOAuthClientProof())
 
   if (platform() === 'ios') {
     // iOS: ASWebAuthenticationSession returns the callback URL synchronously
     const { callbackUrl } = await OAuthBridge.startSession({
-      url: authUrl,
+      url: authUrl.toString(),
       callbackScheme: NATIVE_CALLBACK_SCHEME,
     })
     return callbackUrl
@@ -48,7 +51,7 @@ export async function signInWithGoogleNative(serverUrl: string): Promise<string 
 
   // Android: open Chrome Custom Tab. The intent-filter on com.criteria.app://
   // will bring the app back and fire the appUrlOpen event via the native bridge.
-  await Browser.open({ url: authUrl })
+  await Browser.open({ url: authUrl.toString() })
   return null // Android handles via deep link listener
 }
 

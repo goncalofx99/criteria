@@ -53,6 +53,20 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
+// Email/password registrations become accounts only after the mailbox owner
+// redeems a short-lived link. Pending rows cannot sign in or post content.
+export const pendingSignups = pgTable('pending_signups', {
+  email: text('email').primaryKey(),
+  passwordHash: text('password_hash').notNull(),
+  fullName: text('full_name'),
+  role: userRoleEnum('role').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('pending_signup_expiry_idx').on(t.expiresAt),
+])
+
 // ─── Sessions (refresh tokens) ───────────────────────────────────────────────
 
 export const sessions = pgTable('sessions', {

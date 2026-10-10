@@ -72,6 +72,7 @@ export function isAnalyticsSafePath(pathname: string): boolean {
   const path = pathname.toLowerCase().replace(/\/+$/, '') || '/'
   return !path.startsWith('/auth/') &&
     path !== '/reset-password' &&
+    path !== '/verify-signup' &&
     path !== '/settings/verify-email' &&
     path !== '/settings/confirm-delete'
 }

@@ -17,6 +17,8 @@ import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
 const LandingPage        = lazy(() => import('@/routes/LandingPage'))
 const SignInPage          = lazy(() => import('@/routes/SignInPage'))
 const SignUpPage          = lazy(() => import('@/routes/SignUpPage'))
+const CheckEmail          = lazy(() => import('@/routes/CheckEmail'))
+const VerifySignupPage    = lazy(() => import('@/routes/VerifySignupPage'))
 const ForgotPasswordPage  = lazy(() => import('@/routes/ForgotPasswordPage'))
 const ResetPasswordPage   = lazy(() => import('@/routes/ResetPasswordPage'))
 const AuthCallback        = lazy(() => import('@/routes/AuthCallback'))
@@ -136,6 +138,7 @@ export default function App() {
             <Route path="/"              element={<LandingPage />} />
             <Route path="/sign-in"       element={<SignInPage />} />
             <Route path="/sign-up"       element={<SignUpPage />} />
+            <Route path="/verify-signup" element={<VerifySignupPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/settings/verify-email" element={<VerifyEmailPage />} />
@@ -143,7 +146,7 @@ export default function App() {
             <Route path="/privacy"       element={<PrivacyPage />} />
             <Route path="/terms"         element={<TermsPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/check-email"   element={<Navigate to="/sign-in" replace />} />
+            <Route path="/check-email"   element={<CheckEmail />} />
             <Route element={<AppLayout />}>
               <Route path="/feed"        element={<FeedPage />} />
               <Route path="/listing/:id" element={<PropertyDetailPage />} />
