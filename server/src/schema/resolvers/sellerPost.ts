@@ -4,7 +4,7 @@ import { sellerPosts, users } from '../../db/schema.js'
 import { validate, createSellerPostSchema, updateSellerPostSchema } from '../../lib/validate.js'
 import type { Context } from '../../context.js'
 import type { SellerPost } from '../../db/schema.js'
-import { assertFilterRange, boundsCondition, publicLocalitySearchCondition, publicMapCoordinate, searchPage, textCondition, type MapBounds } from '../../lib/search.js'
+import { assertFilterRange, boundsCondition, publicAdministrativeLocationCondition, publicLocalitySearchCondition, publicMapCoordinate, searchPage, textCondition, type MapBounds } from '../../lib/search.js'
 import { publicCoordinate, publicLocationText } from '../../lib/publicLocation.js'
 import { validSellerImageUrl } from '../../lib/uploadKey.js'
 
@@ -18,7 +18,12 @@ type SellerFilters = {
 }
 type SellerSort = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'area_asc' | 'area_desc' | 'price_per_sqm_asc' | 'price_per_sqm_desc'
 
-export function sellerWhere(filters?: SellerFilters | null, search?: string | null, bounds?: MapBounds | null) {
+export function sellerWhere(
+  filters?: SellerFilters | null,
+  search?: string | null,
+  bounds?: MapBounds | null,
+  location?: { district?: string | null; municipality?: string | null } | null,
+) {
   const conditions: SQL[] = [eq(sellerPosts.isActive, true)]
   if (filters) {
     assertFilterRange(filters.priceMin, filters.priceMax, 'price')
@@ -42,8 +47,10 @@ export function sellerWhere(filters?: SellerFilters | null, search?: string | nu
   const text = textCondition(search, sellerPosts.title, sellerPosts.description)
   const locality = publicLocalitySearchCondition(search, sellerPosts.locationText)
   if (text) conditions.push(locality ? or(text, locality)! : text)
-  const location = boundsCondition(bounds, publicMapCoordinate(sellerPosts.lat), publicMapCoordinate(sellerPosts.lng))
-  if (location) conditions.push(location)
+  const administrativeLocation = publicAdministrativeLocationCondition(location?.district, location?.municipality, sellerPosts.locationText)
+  if (administrativeLocation) conditions.push(administrativeLocation)
+  const mapBounds = boundsCondition(bounds, publicMapCoordinate(sellerPosts.lat), publicMapCoordinate(sellerPosts.lng))
+  if (mapBounds) conditions.push(mapBounds)
   return and(...conditions)!
 }
 
@@ -132,7 +139,6 @@ export const sellerPostResolvers = {
       },
       ctx: Context
     ) => {
-      requireAuth(ctx)
       const page = searchPage(limit, offset)
 
       return ctx.db.query.sellerPosts.findMany({
@@ -143,13 +149,13 @@ export const sellerPostResolvers = {
       })
     },
 
-    sellerPostSearch: async (_: unknown, { limit = 20, offset = 0, filters, search, bounds, sort }: {
+    sellerPostSearch: async (_: unknown, { limit = 20, offset = 0, filters, search, district, municipality, bounds, sort }: {
       limit?: number; offset?: number; filters?: SellerFilters; search?: string;
+      district?: string; municipality?: string;
       bounds?: MapBounds; sort?: SellerSort
     }, ctx: Context) => {
-      requireAuth(ctx)
       const page = searchPage(limit, offset)
-      const where = sellerWhere(filters, search, bounds)
+      const where = sellerWhere(filters, search, bounds, { district, municipality })
       const [items, totals] = await Promise.all([
         ctx.db.query.sellerPosts.findMany({ where, orderBy: sellerOrder(sort), ...page }),
         ctx.db.select({ total: count() }).from(sellerPosts).where(where),
@@ -159,7 +165,6 @@ export const sellerPostResolvers = {
     },
 
     sellerPost: async (_: unknown, { id }: { id: string }, ctx: Context) => {
-      requireAuth(ctx)
       const post = await ctx.db.query.sellerPosts.findFirst({
         where: (sp, { eq }) => eq(sp.id, id),
       })

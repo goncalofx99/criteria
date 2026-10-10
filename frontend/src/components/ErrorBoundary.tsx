@@ -1,4 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { AlertCircle } from 'lucide-react'
+import { useLanguage } from '@/lib/language'
 
 interface Props {
   children: ReactNode
@@ -7,6 +9,21 @@ interface Props {
 interface State {
   hasError: boolean
   error: Error | null
+}
+
+function ErrorFallback({ error }: { error: Error | null }) {
+  const { t } = useLanguage()
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-6 pb-safe pt-safe text-center">
+      <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100 text-primary"><AlertCircle size={24} aria-hidden="true" /></span>
+      <h1 className="screen-heading text-foreground">{t('Não foi possível carregar esta página.', 'We couldn’t load this page.')}</h1>
+      <p className="screen-intro mt-3 max-w-sm">{t('Ocorreu um erro inesperado. Atualize a página para tentar novamente.', 'Something unexpected happened. Refresh to try again.')}</p>
+      {import.meta.env.DEV && error && <p className="mt-3 max-w-sm break-all font-mono text-xs text-muted-foreground/70">{error.message}</p>}
+      <button type="button" onClick={() => window.location.reload()} className="mt-7 inline-flex min-h-11 items-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+        {t('Atualizar página', 'Refresh page')}
+      </button>
+    </div>
+  )
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -25,27 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      return (
-        <div className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
-          <div className="mb-4 text-4xl">!</div>
-          <h1 className="text-xl font-bold text-foreground">Something went wrong</h1>
-          <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-            An unexpected error occurred. Please try refreshing the page.
-          </p>
-          {import.meta.env.DEV && this.state.error && (
-            <p className="mt-3 max-w-sm text-xs text-muted-foreground/70 font-mono break-all">
-              {this.state.error.message}
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="mt-6 rounded-xl bg-primary px-6 py-3 text-sm font-medium text-white"
-          >
-            Refresh page
-          </button>
-        </div>
-      )
+      return <ErrorFallback error={this.state.error} />
     }
 
     return this.props.children

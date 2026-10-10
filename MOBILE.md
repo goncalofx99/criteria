@@ -22,16 +22,20 @@ mobile/
 
 ### How loading works
 
-On iOS, the bundled **launcher** (`mobile/launcher/index.html`) presents a **PROD / DEV toggle** at runtime:
+On iOS, the bundled **launcher** (`mobile/launcher/index.html`) presents a **PROD / DEV toggle** at runtime. Its visible controls and status messages use Portuguese:
 
 - **PROD tab** → loads the deployed webapp from the `PROD_URL` constant in the launcher.
 - **DEV tab** → loads a URL the user types or picks from presets (iOS sim `localhost:5173`, Android emu `10.0.2.2:5173`, last LAN IP).
 
-The launcher persists the user's choice in localStorage. When **"Auto-connect on next launch"** is checked, the next app boot starts a 2-second countdown then redirects automatically — tap **Cancel** to stop it and stay on the launcher (e.g. to switch envs).
+The launcher persists the user's choice in localStorage. When **“Ligar automaticamente no próximo arranque”** is checked, the next app boot starts a 2-second countdown then redirects automatically — tap **Cancelar** to stop it and stay on the launcher (e.g. to switch envs).
 
 On Android, Capacitor points the WebView directly at the `server.url` chosen in `mobile/capacitor.config.ts`. It uses `dev.config.json` when present and the production URL otherwise. This direct URL keeps the native bridge active for OAuth deep links. Android does not show the launcher toggle.
 
 `mobile/dev.config.json` is optional. If it has a `serverUrl`, that value is injected into the iOS launcher's `DEFAULT_DEV_URL` and configured as Android's `server.url` at sync time. It is gitignored.
+
+### Product language and phone screens
+
+The shared frontend opens in European Portuguese (`pt-PT`). English can be selected in **Settings → Account → Language**, and the choice is saved on the device; the native app does not need a separate language bundle. Phone Home keeps the photo-backed Properties/Criteria search and hides the supporting location links, criteria promotion, FAQ and footer below it. The search suggestions still include Portuguese districts, autonomous regions and municipalities. **Settings → About Criteria** contains the Privacy Policy, Terms and contact email. Desktop browsers expose the language switch in the top bar instead.
 
 ### Transport security
 
@@ -125,9 +129,13 @@ Wired in:
 
 The native callback contains only a single-use code. The server accepts exactly the registered app callback or its configured web callback, then requires code exchange within two minutes. Access and refresh tokens are not carried in the callback URL. OAuth state and exchange codes currently live in one API process's memory; use a shared short-lived store before deploying multiple API instances.
 
+When using the frontend's development review mode inside the native shell, tapping Google leaves the isolated review session with a full WebView reload before starting the real native OAuth flow. Live sign-in requires a running API and its latest database migration (`0005`). On a physical device, `localhost` points to the device itself: set `PUBLIC_API_URL` to an HTTPS API origin the device can reach, and point the frontend's `VITE_API_URL`, `VITE_GRAPHQL_URL` and `VITE_GRAPHQL_WS_URL` at that reachable API. For a local API, use an HTTPS tunnel that routes back to that same process; alternatively, use a deployed API for the entire flow. OAuth state and its code verifier live in the process that started sign-in, so a local server cannot hand its callback to a different deployed API.
+
 ### Required Google OAuth configuration
 
-Configure Google's authorized redirect URI for the CRITERIA API callback, `/auth/google/callback`, on each API origin used for OAuth. Google returns to the API; the API then returns to the registered `com.criteria.app://auth/callback` deep link or configured frontend callback. The app deep link is validated by the API, not entered as a Google redirect URI.
+Configure Google's authorized redirect URI as the exact `${PUBLIC_API_URL}/auth/google/callback` when `PUBLIC_API_URL` is set. When it is unset, use the API's default origin plus `/auth/google/callback` (`http://localhost:<PORT>` in development or the existing Render API origin in production). Google returns to the API; the API then returns to the registered `com.criteria.app://auth/callback` deep link or configured frontend callback. The app deep link is validated by the API, not entered as a Google redirect URI.
+
+For browser development, the API also accepts a `localhost`/`127.0.0.1` alias for the final frontend callback on the configured port. This does not change the Google-authorized API redirect URI or the native callback.
 
 ---
 

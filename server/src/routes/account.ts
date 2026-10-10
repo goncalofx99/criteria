@@ -157,8 +157,8 @@ accountRoutes.post('/auth/account/email/request', async (c) => {
   try {
     await sendSecurityEmail(
       user.email,
-      'Approve your CRITERIA email change',
-      `A request was made to change your CRITERIA email to ${targetEmail}. Open this link within 30 minutes to approve it:\n\n${actionUrl('/settings/verify-email', token, 'current')}\n\nIf this was not you, ignore this email. Your address will stay the same.`,
+      'Aprovar a alteração do email da CRITERIA',
+      `Foi pedida a alteração do email da sua conta CRITERIA para ${targetEmail}. Abra esta ligação nos próximos 30 minutos para aprovar a alteração:\n\n${actionUrl('/settings/verify-email', token, 'current')}\n\nSe não fez este pedido, ignore este email. O seu endereço continuará igual.`,
     )
   } catch (error) {
     await db.delete(accountActionTokens).where(eq(accountActionTokens.id, record.id))
@@ -206,8 +206,8 @@ accountRoutes.post('/auth/account/email/confirm-current', async (c) => {
   try {
     await sendSecurityEmail(
       nextRecord.targetEmail,
-      'Verify your new CRITERIA email',
-      `Open this link within 30 minutes to finish changing your CRITERIA email:\n\n${actionUrl('/settings/verify-email', nextToken, 'new')}\n\nIf you did not request this, ignore this email.`,
+      'Confirmar o novo email da CRITERIA',
+      `Abra esta ligação nos próximos 30 minutos para concluir a alteração do email da sua conta CRITERIA:\n\n${actionUrl('/settings/verify-email', nextToken, 'new')}\n\nSe não fez este pedido, ignore este email.`,
     )
   } catch (error) {
     await db.delete(accountActionTokens).where(eq(accountActionTokens.id, nextRecord.id))
@@ -273,8 +273,8 @@ accountRoutes.post('/auth/account/delete/request', async (c) => {
   try {
     await sendSecurityEmail(
       user.email,
-      'Confirm deletion of your CRITERIA account',
-      `A request was made to permanently delete your CRITERIA account, including your listings, buyer requests, and conversations. Open this link within 30 minutes to confirm:\n\n${actionUrl('/settings/confirm-delete', token)}\n\nIf this was not you, ignore this email. Your account will stay open.`,
+      'Confirmar a eliminação da sua conta CRITERIA',
+      `Foi pedida a eliminação definitiva da sua conta CRITERIA, incluindo anúncios, critérios e conversas. Abra esta ligação nos próximos 30 minutos para confirmar:\n\n${actionUrl('/settings/confirm-delete', token)}\n\nSe não fez este pedido, ignore este email. A sua conta continuará ativa.`,
     )
   } catch (error) {
     await db.delete(accountActionTokens).where(eq(accountActionTokens.id, record.id))

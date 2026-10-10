@@ -13,6 +13,7 @@ import { EditFormSkeleton } from '@/components/ui/skeleton'
 import type { PropertyType } from '@/lib/propertyType'
 import type { PropertyCondition } from '@/lib/amenities'
 import { safeInternalPath } from '@/lib/returnTo'
+import { useLanguage } from '@/lib/language'
 
 interface SellerPostData {
   id: string
@@ -38,6 +39,7 @@ interface SellerPostData {
 }
 
 export default function PropertyEditPage() {
+  const { t } = useLanguage()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
@@ -70,26 +72,26 @@ export default function PropertyEditPage() {
           <button
             type="button"
             onClick={() => navigate(`/listing/${id}`, { state: { returnTo } })}
-            aria-label="Back to listing"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
+            aria-label={t('Voltar ao anúncio', 'Back to listing')}
+            className="flex h-11 w-11 items-center justify-center rounded text-foreground/70 hover:bg-overlay"
           >
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-lg font-bold text-foreground">Edit listing</h1>
+          <h1 className="text-base font-semibold text-foreground">{t('Editar anúncio', 'Edit listing')}</h1>
         </div>
       </PageHeader>
 
       {(loading && !post) || (meLoading && !me) ? (
         <EditFormSkeleton />
       ) : error || !post ? (
-        <div className="px-6 py-10 text-center text-sm text-muted-foreground"><p>Listing unavailable. The post may have been removed or the link may be incorrect.</p><Link to={returnTo} className="mt-4 inline-flex min-h-11 items-center font-semibold text-primary underline">Back to {returnTo.startsWith('/profile') ? 'Profile' : 'Explore'}</Link></div>
+        <div className="px-6 py-10 text-center text-sm text-muted-foreground"><p>{t('Anúncio indisponível. A publicação pode ter sido removida ou o endereço pode estar incorreto.', 'Listing unavailable. The post may have been removed or the link may be incorrect.')}</p><Link to={returnTo} className="mt-4 inline-flex min-h-11 items-center font-semibold text-primary underline">{returnTo.startsWith('/profile') ? t('Voltar ao perfil', 'Back to profile') : t('Voltar aos resultados', 'Back to results')}</Link></div>
       ) : !isOwner ? (
-        <div className="px-6 py-10 text-center text-sm text-muted-foreground"><p>You can only edit your own listings.</p><Link to={`/listing/${post.id}`} state={{ returnTo }} className="mt-4 inline-flex min-h-11 items-center font-semibold text-primary underline">View listing</Link></div>
+        <div className="px-6 py-10 text-center text-sm text-muted-foreground"><p>{t('Só pode editar os seus anúncios.', 'You can only edit your own listings.')}</p><Link to={`/listing/${post.id}`} state={{ returnTo }} className="mt-4 inline-flex min-h-11 items-center font-semibold text-primary underline">{t('Ver anúncio', 'View listing')}</Link></div>
       ) : (
-        <div className="mx-auto max-w-[1160px] px-5 py-7 md:px-8 md:py-10 lg:grid lg:grid-cols-[minmax(220px,290px)_minmax(0,1fr)] lg:items-start lg:gap-12 xl:gap-16">
-          <div className="lg:sticky lg:top-28">
-          <p className="editorial-kicker">Your listing</p>
-          <h2 className="editorial-title mb-7 mt-2 lg:mb-0">Refine your post.</h2>
+        <div className="mx-auto max-w-[1160px] px-5 py-6 md:px-8 md:py-10 lg:grid lg:grid-cols-[minmax(220px,290px)_minmax(0,1fr)] lg:items-start lg:gap-12 xl:gap-16">
+          <div className="hidden lg:sticky lg:top-28 lg:block">
+          <h2 className="editorial-title">{t('Edite o seu anúncio.', 'Edit your listing.')}</h2>
+          <p className="screen-intro mt-4">{t('Mantenha os detalhes corretos para que os compradores saibam o que esperar.', 'Keep the details accurate so buyers know what to expect.')}</p>
           </div>
           <PropertyForm
             initial={{
@@ -112,7 +114,7 @@ export default function PropertyEditPage() {
               amenities: post.amenities,
               images: post.images,
             }}
-            submitLabel="Save changes"
+            submitLabel={t('Guardar alterações', 'Save changes')}
             uploadOwnerId={post.seller.id}
             onSubmit={handleSubmit}
           />

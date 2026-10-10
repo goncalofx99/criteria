@@ -36,10 +36,17 @@ export const typeDefs = `#graphql
     updatedAt: String!
   }
 
+  # The only account fields exposed through public property listings.
+  type SellerProfile {
+    id: ID!
+    fullName: String
+    avatarUrl: String
+  }
+
   # What a seller HAS — a concrete property listing.
   type SellerPost {
     id: ID!
-    seller: User!
+    seller: SellerProfile!
     title: String!
     description: String
     locationText: String!
@@ -293,7 +300,7 @@ export const typeDefs = `#graphql
 
     # Seller posts
     sellerPosts(limit: Int, offset: Int, filters: SellerPostFilters): [SellerPost!]!
-    sellerPostSearch(limit: Int, offset: Int, filters: SellerPostFilters, search: String, bounds: MapBoundsInput, sort: SellerPostSort): SellerPostSearchResult!
+    sellerPostSearch(limit: Int, offset: Int, filters: SellerPostFilters, search: String, district: String, municipality: String, bounds: MapBoundsInput, sort: SellerPostSort): SellerPostSearchResult!
     sellerPost(id: ID!): SellerPost
     mySellerPosts: [SellerPost!]!
 

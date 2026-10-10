@@ -1,3 +1,5 @@
+import { getLanguage } from '@/lib/language'
+
 export type PropertyCondition = 'new' | 'renovated' | 'good' | 'needs_renovation'
 
 export const PROPERTY_CONDITIONS: PropertyCondition[] = [
@@ -8,10 +10,10 @@ export const PROPERTY_CONDITIONS: PropertyCondition[] = [
 ]
 
 export const PROPERTY_CONDITION_LABEL: Record<PropertyCondition, string> = {
-  new: 'New build',
-  renovated: 'Renovated',
-  good: 'Good condition',
-  needs_renovation: 'Needs renovation',
+  get new() { return getLanguage() === 'pt' ? 'Construção nova' : 'New build' },
+  get renovated() { return getLanguage() === 'pt' ? 'Renovado' : 'Renovated' },
+  get good() { return getLanguage() === 'pt' ? 'Bom estado' : 'Good condition' },
+  get needs_renovation() { return getLanguage() === 'pt' ? 'A precisar de obras' : 'Needs renovation' },
 }
 
 /**
@@ -23,30 +25,36 @@ export interface AmenityOption {
   label: string
 }
 
-export const AMENITIES: AmenityOption[] = [
-  { key: 'elevator',         label: 'Elevator' },
-  { key: 'parking',          label: 'Parking' },
-  { key: 'garage',           label: 'Garage' },
-  { key: 'air_conditioning', label: 'A/C' },
-  { key: 'garden',           label: 'Garden' },
-  { key: 'pool',             label: 'Pool' },
-  { key: 'jacuzzi',          label: 'Jacuzzi' },
-  { key: 'sauna',            label: 'Sauna' },
-  { key: 'barbecue',         label: 'Barbecue' },
-  { key: 'fireplace',        label: 'Fireplace' },
-  { key: 'storage',          label: 'Storage room' },
-  { key: 'gym',              label: 'Gym' },
-  { key: 'doorman',          label: 'Doorman' },
-  { key: 'furnished',        label: 'Furnished' },
-  { key: 'pets_allowed',     label: 'Pets allowed' },
-  { key: 'sea_view',         label: 'Sea view' },
-  { key: 'mountain_view',    label: 'Mountain view' },
-  { key: 'solar_panels',     label: 'Solar panels' },
-  { key: 'ev_charger',       label: 'EV charger' },
-]
+const AMENITY_NAMES: Record<string, [string, string]> = {
+  elevator: ['Elevador', 'Elevator'],
+  parking: ['Estacionamento', 'Parking'],
+  garage: ['Garagem', 'Garage'],
+  air_conditioning: ['Ar condicionado', 'A/C'],
+  garden: ['Jardim', 'Garden'],
+  pool: ['Piscina', 'Pool'],
+  jacuzzi: ['Jacuzzi', 'Jacuzzi'],
+  sauna: ['Sauna', 'Sauna'],
+  barbecue: ['Churrasqueira', 'Barbecue'],
+  fireplace: ['Lareira', 'Fireplace'],
+  storage: ['Arrecadação', 'Storage room'],
+  gym: ['Ginásio', 'Gym'],
+  doorman: ['Porteiro', 'Doorman'],
+  furnished: ['Mobilado', 'Furnished'],
+  pets_allowed: ['Animais permitidos', 'Pets allowed'],
+  sea_view: ['Vista mar', 'Sea view'],
+  mountain_view: ['Vista montanha', 'Mountain view'],
+  solar_panels: ['Painéis solares', 'Solar panels'],
+  ev_charger: ['Carregador elétrico', 'EV charger'],
+}
 
-export const AMENITY_LABEL: Record<string, string> = Object.fromEntries(
-  AMENITIES.map(a => [a.key, a.label]),
+export const AMENITIES: AmenityOption[] = Object.keys(AMENITY_NAMES).map(key => ({
+  key,
+  get label() { return AMENITY_NAMES[key]![getLanguage() === 'pt' ? 0 : 1] },
+}))
+
+export const AMENITY_LABEL: Record<string, string> = Object.defineProperties(
+  {} as Record<string, string>,
+  Object.fromEntries(AMENITIES.map(a => [a.key, { enumerable: true, get: () => a.label }])),
 )
 
 /** Hide residential-only features when posting land or commercial space. */
@@ -62,6 +70,11 @@ export function amenitiesForPropertyType(type: 'apartment' | 'house' | 'land' | 
 
 export function formatFloor(floor: number | null | undefined): string {
   if (floor == null) return '—'
+  if (getLanguage() === 'pt') {
+    if (floor === 0) return 'Rés do chão'
+    if (floor < 0) return `${Math.abs(floor)}.ª cave`
+    return `${floor}.º andar`
+  }
   if (floor === 0) return 'Ground floor'
   if (floor < 0) return `Basement ${Math.abs(floor)}`
   const suffix =

@@ -3,6 +3,7 @@ import { Loader2, Search } from "lucide-react";
 import { searchAddress, type GeocodeResult } from "@/lib/geocoding";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/lib/language";
 
 interface AddressAutocompleteProps {
   /** Currently selected label, displayed as the input value. */
@@ -18,8 +19,9 @@ export function AddressAutocomplete({
   value,
   onPick,
   onEdit,
-  placeholder = "Search by address…",
+  placeholder,
 }: AddressAutocompleteProps) {
+  const { t } = useLanguage();
   const [text, setText] = useState(value);
   const [results, setResults] = useState<GeocodeResult[]>([]);
   const [open, setOpen] = useState(false);
@@ -80,10 +82,10 @@ export function AddressAutocomplete({
         setResults(matches);
         setOpen(matches.length > 0);
         setHighlighted(0);
-        if (matches.length === 0) setStatus("No matching addresses. Try a broader location.");
+        if (matches.length === 0) setStatus(t("Nenhuma morada encontrada. Experimente uma localização mais abrangente.", "No matching addresses. Try a broader location."));
       }
     } catch (error) {
-      if ((error as Error).name !== "AbortError") setStatus("Address lookup is unavailable. Try again or choose a location on the map.");
+      if ((error as Error).name !== "AbortError") setStatus(t("A pesquisa de moradas está indisponível. Tente novamente ou escolha um local no mapa.", "Address lookup is unavailable. Try again or choose a location on the map."));
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
@@ -136,11 +138,11 @@ export function AddressAutocomplete({
             }}
             onFocus={() => results.length > 0 && setOpen(true)}
             onKeyDown={onKeyDown}
-            placeholder={placeholder}
+            placeholder={placeholder ?? t("Pesquisar por morada…", "Search by address…")}
             autoComplete="off"
             spellCheck={false}
             role="combobox"
-            aria-label="Search for a location"
+            aria-label={t('Pesquisar localização', 'Search for a location')}
             aria-autocomplete="list"
             aria-expanded={open && results.length > 0}
             aria-controls={listId}
@@ -152,19 +154,19 @@ export function AddressAutocomplete({
           type="button"
           onClick={() => void findAddress()}
           disabled={loading || text.trim().length < 3 || text.trim() === value}
-          className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-primary hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded border border-border bg-surface px-3 text-sm font-semibold text-primary hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {loading && <Loader2 size={15} aria-hidden="true" className="animate-spin" />}
-          Find
+          {t('Encontrar', 'Find')}
         </button>
       </div>
       {status && <p role="status" className="mt-2 text-xs text-muted-foreground">{status}</p>}
-      <p className="mt-1 text-[11px] text-muted-foreground">Address lookup by <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-primary">OpenStreetMap</a>.</p>
+      <p className="mt-1 text-[11px] text-muted-foreground">{t('Pesquisa de moradas por ', 'Address lookup by ')}<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-primary">OpenStreetMap</a>.</p>
 
       {open && results.length > 0 && (
         <div
           id={listId}
-          className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 max-h-72 overflow-y-auto rounded-xl border border-border bg-surface shadow-card"
+          className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 max-h-72 overflow-y-auto rounded border border-border bg-surface shadow-card"
           role="listbox"
         >
           {results.map((r, i) => (

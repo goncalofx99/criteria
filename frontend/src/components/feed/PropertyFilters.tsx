@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { PROPERTY_TYPES, PROPERTY_TYPE_LABEL, type PropertyType } from '@/lib/propertyType'
 import { PROPERTY_CONDITIONS, PROPERTY_CONDITION_LABEL, AMENITIES, amenitiesForPropertyType, type PropertyCondition } from '@/lib/amenities'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/lib/language'
 
 export interface SellerPostFilterValues {
   propertyType?: PropertyType
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export function PropertyFilters({ filters, onChange, onClear }: Props) {
+  const { t } = useLanguage()
   const set = <K extends keyof SellerPostFilterValues>(key: K, value: SellerPostFilterValues[K]) =>
     onChange({ ...filters, [key]: value })
 
@@ -70,8 +72,8 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
     <div className="space-y-5">
       {/* Property type */}
       <div>
-        <p className="mb-1.5 text-sm font-medium text-foreground">Property type</p>
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Property type">
+        <p className="mb-1.5 text-sm font-medium text-foreground">{t('Tipo de imóvel', 'Property type')}</p>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('Tipo de imóvel', 'Property type')}>
           {PROPERTY_TYPES.map(t => (
             <button
               key={t}
@@ -79,7 +81,7 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
               onClick={() => setPropertyType(t)}
               aria-pressed={filters.propertyType === t}
               className={cn(
-                'min-h-11 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                'min-h-11 rounded px-3 py-1.5 text-sm font-medium transition-colors',
                 filters.propertyType === t
                   ? 'bg-primary text-white'
                   : 'bg-accent text-foreground hover:bg-accent/80',
@@ -94,24 +96,24 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
       {/* Price range */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label htmlFor="filter-price-min" className="mb-1.5 text-sm font-medium text-foreground">Price min (€)</Label>
+          <Label htmlFor="filter-price-min" className="mb-1.5 text-sm font-medium text-foreground">{t('Preço mínimo (€)', 'Price min (€)')}</Label>
           <Input
             id="filter-price-min"
             type="number"
             min="0"
-            placeholder="No min"
+            placeholder={t('Sem mínimo', 'No min')}
             value={filters.priceMin ?? ''}
             onChange={e => setNum('priceMin', e.target.value)}
             className="h-11"
           />
         </div>
         <div>
-          <Label htmlFor="filter-price-max" className="mb-1.5 text-sm font-medium text-foreground">Price max (€)</Label>
+          <Label htmlFor="filter-price-max" className="mb-1.5 text-sm font-medium text-foreground">{t('Preço máximo (€)', 'Price max (€)')}</Label>
           <Input
             id="filter-price-max"
             type="number"
             min="0"
-            placeholder="No max"
+            placeholder={t('Sem máximo', 'No max')}
             value={filters.priceMax ?? ''}
             onChange={e => setNum('priceMax', e.target.value)}
             className="h-11"
@@ -122,24 +124,24 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
       {/* Bedrooms & Bathrooms */}
       {hasRooms && <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label htmlFor="filter-bedrooms" className="mb-1.5 text-sm font-medium text-foreground">Bedrooms min</Label>
+          <Label htmlFor="filter-bedrooms" className="mb-1.5 text-sm font-medium text-foreground">{t('Quartos, mínimo', 'Bedrooms min')}</Label>
           <Input
             id="filter-bedrooms"
             type="number"
             min="0"
-            placeholder="Any"
+            placeholder={t('Qualquer', 'Any')}
             value={filters.bedroomsMin ?? ''}
             onChange={e => setNum('bedroomsMin', e.target.value)}
             className="h-11"
           />
         </div>
         <div>
-          <Label htmlFor="filter-bathrooms" className="mb-1.5 text-sm font-medium text-foreground">Bathrooms min</Label>
+          <Label htmlFor="filter-bathrooms" className="mb-1.5 text-sm font-medium text-foreground">{t('Casas de banho, mínimo', 'Bathrooms min')}</Label>
           <Input
             id="filter-bathrooms"
             type="number"
             min="0"
-            placeholder="Any"
+            placeholder={t('Qualquer', 'Any')}
             value={filters.bathroomsMin ?? ''}
             onChange={e => setNum('bathroomsMin', e.target.value)}
             className="h-11"
@@ -150,24 +152,24 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
       {/* Area range */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label htmlFor="filter-area-min" className="mb-1.5 text-sm font-medium text-foreground">Area min (m²)</Label>
+          <Label htmlFor="filter-area-min" className="mb-1.5 text-sm font-medium text-foreground">{t('Área mínima (m²)', 'Area min (m²)')}</Label>
           <Input
             id="filter-area-min"
             type="number"
             min="0"
-            placeholder="No min"
+            placeholder={t('Sem mínimo', 'No min')}
             value={filters.areaSqmMin ?? ''}
             onChange={e => setNum('areaSqmMin', e.target.value)}
             className="h-11"
           />
         </div>
         <div>
-          <Label htmlFor="filter-area-max" className="mb-1.5 text-sm font-medium text-foreground">Area max (m²)</Label>
+          <Label htmlFor="filter-area-max" className="mb-1.5 text-sm font-medium text-foreground">{t('Área máxima (m²)', 'Area max (m²)')}</Label>
           <Input
             id="filter-area-max"
             type="number"
             min="0"
-            placeholder="No max"
+            placeholder={t('Sem máximo', 'No max')}
             value={filters.areaSqmMax ?? ''}
             onChange={e => setNum('areaSqmMax', e.target.value)}
             className="h-11"
@@ -177,12 +179,12 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
 
       {/* Year built min */}
       {hasRooms && <div>
-        <Label htmlFor="filter-year-built" className="mb-1.5 text-sm font-medium text-foreground">Year built (min)</Label>
+        <Label htmlFor="filter-year-built" className="mb-1.5 text-sm font-medium text-foreground">{t('Ano de construção (mín.)', 'Year built (min)')}</Label>
         <Input
           id="filter-year-built"
           type="number"
           min="0"
-          placeholder="Any"
+          placeholder={t('Qualquer', 'Any')}
           value={filters.yearBuiltMin ?? ''}
           onChange={e => setNum('yearBuiltMin', e.target.value)}
           className="h-11"
@@ -191,8 +193,8 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
 
       {/* Condition */}
       {hasRooms && <div>
-        <p className="mb-1.5 text-sm font-medium text-foreground">Condition</p>
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Condition">
+        <p className="mb-1.5 text-sm font-medium text-foreground">{t('Estado', 'Condition')}</p>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('Estado', 'Condition')}>
           {PROPERTY_CONDITIONS.map(c => (
             <button
               key={c}
@@ -200,7 +202,7 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
               onClick={() => toggleCondition(c)}
               aria-pressed={filters.condition?.includes(c) ?? false}
               className={cn(
-                'min-h-11 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                'min-h-11 rounded px-3 py-1.5 text-sm font-medium transition-colors',
                 filters.condition?.includes(c)
                   ? 'bg-primary text-white'
                   : 'bg-accent text-foreground hover:bg-accent/80',
@@ -219,33 +221,33 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
           onClick={() => set('hasBalcony', filters.hasBalcony === true ? undefined : true)}
           aria-pressed={filters.hasBalcony === true}
           className={cn(
-            'min-h-11 flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+            'min-h-11 flex-1 rounded px-3 py-2 text-sm font-medium transition-colors',
             filters.hasBalcony
               ? 'bg-primary text-white'
               : 'bg-accent text-foreground hover:bg-accent/80',
           )}
         >
-          Balcony
+          {t('Varanda', 'Balcony')}
         </button>
         <button
           type="button"
           onClick={() => set('hasCentralHeating', filters.hasCentralHeating === true ? undefined : true)}
           aria-pressed={filters.hasCentralHeating === true}
           className={cn(
-            'min-h-11 flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+            'min-h-11 flex-1 rounded px-3 py-2 text-sm font-medium transition-colors',
             filters.hasCentralHeating
               ? 'bg-primary text-white'
               : 'bg-accent text-foreground hover:bg-accent/80',
           )}
         >
-          Central heating
+          {t('Aquecimento central', 'Central heating')}
         </button>
       </div>}
 
       {/* Amenities */}
       <div>
-        <p className="mb-1.5 text-sm font-medium text-foreground">Must-have amenities</p>
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Must-have amenities">
+        <p className="mb-1.5 text-sm font-medium text-foreground">{t('Comodidades essenciais', 'Must-have amenities')}</p>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('Comodidades essenciais', 'Must-have amenities')}>
           {(filters.propertyType ? amenitiesForPropertyType(filters.propertyType) : AMENITIES).map(a => (
             <button
               key={a.key}
@@ -253,7 +255,7 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
               onClick={() => toggleAmenity(a.key)}
               aria-pressed={filters.amenities?.includes(a.key) ?? false}
               className={cn(
-                'min-h-11 rounded-lg px-2.5 py-1 text-sm font-medium transition-colors',
+                'min-h-11 rounded px-2.5 py-1 text-sm font-medium transition-colors',
                 filters.amenities?.includes(a.key)
                   ? 'bg-primary text-white'
                   : 'bg-accent text-foreground hover:bg-accent/80',
@@ -267,7 +269,7 @@ export function PropertyFilters({ filters, onChange, onClear }: Props) {
 
       {/* Clear all */}
       <Button variant="ghost" size="sm" onClick={onClear} className="w-full">
-        Clear all filters
+        {t('Limpar filtros', 'Clear all filters')}
       </Button>
     </div>
   )

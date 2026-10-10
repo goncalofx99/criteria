@@ -8,6 +8,7 @@ export type ReviewScenario = 'normal' | 'empty' | 'error' | 'slow' | 'onboarding
 const ENABLED_KEY = 'criteria_dev_review_enabled'
 const ROLE_KEY = 'criteria_dev_review_role'
 const SCENARIO_KEY = 'criteria_dev_review_scenario'
+const GOOGLE_RESUME_KEY = 'criteria_dev_google_after_review'
 
 export function resolveReviewMode(dev: boolean, search: string, stored: string | null): boolean {
   if (!dev) return false
@@ -65,4 +66,22 @@ export function leaveReviewMode() {
   const url = new URL(window.location.href)
   url.searchParams.set('review', '0')
   window.location.replace(url.toString())
+}
+
+/** A full reload is required before live OAuth: the review transport and
+ * network guard are selected when the bundle first loads. */
+export function continueWithLiveGoogleFromReview() {
+  if (!reviewMode) return
+  write(ENABLED_KEY, null)
+  write(ROLE_KEY, null)
+  write(SCENARIO_KEY, null)
+  write(GOOGLE_RESUME_KEY, '1')
+  window.location.replace(`${window.location.origin}/sign-in?review=0`)
+}
+
+export function takeLiveGoogleResume(): boolean {
+  if (reviewMode) return false
+  const shouldResume = read(GOOGLE_RESUME_KEY) === '1'
+  write(GOOGLE_RESUME_KEY, null)
+  return shouldResume
 }

@@ -5,8 +5,11 @@ import { Loader2 } from 'lucide-react'
 import { handleOAuthCallback, getAccessToken } from '@/lib/auth'
 import { GET_ME } from '@/lib/gql'
 import { takeAuthDestination } from '@/lib/returnTo'
+import { AuthLayout } from '@/components/auth/AuthLayout'
+import { localizedError, useLanguage } from '@/lib/language'
 
 export default function AuthCallback() {
+  const { language, t } = useLanguage()
   const navigate = useNavigate()
   const called = useRef(false)
   const [error, setError] = useState<string | null>(null)
@@ -20,14 +23,14 @@ export default function AuthCallback() {
       try {
         await handleOAuthCallback()
       } catch {
-        setError('The sign-in link expired or could not be used. Please try again.')
+        setError(t('A ligação de início de sessão expirou ou não pôde ser utilizada. Tente novamente.', 'The sign-in link expired or could not be used. Please try again.'))
         return
       }
 
       // Check if we have a valid session
       const token = getAccessToken()
       if (!token) {
-        setError('Sign-in did not complete. Please try again.')
+        setError(t('O início de sessão não foi concluído. Tente novamente.', 'Sign-in did not complete. Please try again.'))
         return
       }
 
@@ -38,31 +41,31 @@ export default function AuthCallback() {
           fetchPolicy: 'network-only',
         })
         if (meData?.me?.onboardingComplete) {
-          navigate(takeAuthDestination('/feed'), { replace: true })
+          navigate(takeAuthDestination('/'), { replace: true })
         } else {
           navigate('/onboarding', { replace: true })
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not load your profile. Please retry.')
+        setError(localizedError(err, language, 'Não foi possível carregar o seu perfil. Tente novamente.', 'Could not load your profile. Please retry.'))
       }
     }
 
     handle()
-  }, [navigate])
+  }, [language, navigate, t])
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-primary px-6">
-      <div className="flex max-w-sm flex-col items-center gap-3 text-center">
-        <img src="/icon-192.png" alt="CRITERIA" className="mb-3 h-12 w-12 rounded-2xl object-cover" />
+    <AuthLayout>
+      <div className="flex w-full max-w-md flex-col items-center gap-4 self-center text-center">
         {error ? <>
-          <p role="alert" className="text-lg font-semibold text-white">Sign-in needs another try</p>
-          <p className="text-sm text-primary-200">{error}</p>
-          <Link to="/sign-in" className="mt-3 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-primary">Back to sign-in</Link>
+          <h1 className="text-[2rem] font-semibold leading-tight tracking-[-.03em] text-foreground">{t('Tente iniciar sessão novamente', 'Sign-in needs another try')}</h1>
+          <p role="alert" className="text-sm leading-relaxed text-destructive">{error}</p>
+          <Link to="/sign-in" className="mt-3 inline-flex min-h-12 items-center justify-center rounded bg-primary px-5 text-sm font-semibold text-primary-foreground">{t('Voltar ao início de sessão', 'Back to sign in')}</Link>
         </> : <>
-          <Loader2 className="h-8 w-8 animate-spin text-white" aria-hidden="true" />
-          <p className="text-sm text-primary-200">Signing you in…</p>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+          <h1 className="text-2xl font-semibold text-foreground">{t('A iniciar sessão', 'Signing you in')}</h1>
+          <p role="status" className="text-sm text-muted-foreground">{t('A verificar a sua conta e a regressar à CRITERIA…', 'Checking your account and returning you to CRITERIA…')}</p>
         </>}
       </div>
-    </div>
+    </AuthLayout>
   )
 }

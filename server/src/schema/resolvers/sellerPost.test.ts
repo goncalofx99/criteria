@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GraphQLError } from 'graphql'
 import type { Context } from '../../context.js'
+import { buyerPostResolvers } from './buyerPost.js'
+import { conversationResolvers } from './conversation.js'
+import { matchingResolvers } from './matching.js'
 import { sellerPostResolvers } from './sellerPost.js'
 
 const owner = '123e4567-e89b-12d3-a456-426614174000'
@@ -64,5 +67,78 @@ describe('listing image ownership', () => {
       id: 'post-1', input: { images: [legacy, owned] },
     }, ctx)).resolves.toMatchObject({ images: [legacy, owned] })
     expect(update).toHaveBeenCalledOnce()
+  })
+})
+
+describe('public property discovery', () => {
+  it('lets a guest browse active listings through the list query', async () => {
+    const findMany = vi.fn().mockResolvedValue([{ id: 'post-1', isActive: true }])
+    const ctx = { userId: null, db: { query: { sellerPosts: { findMany } } } } as unknown as Context
+
+    await expect(sellerPostResolvers.Query.sellerPosts(null, { limit: 10, offset: 0 }, ctx))
+      .resolves.toEqual([{ id: 'post-1', isActive: true }])
+    expect(findMany).toHaveBeenCalledOnce()
+    expect(findMany.mock.calls[0][0]).toMatchObject({ limit: 10, offset: 0 })
+  })
+
+  it('lets a guest search active listings with filters and pagination', async () => {
+    const items = [{ id: 'post-1', isActive: true }]
+    const findMany = vi.fn().mockResolvedValue(items)
+    const where = vi.fn().mockResolvedValue([{ total: 3 }])
+    const from = vi.fn().mockReturnValue({ where })
+    const select = vi.fn().mockReturnValue({ from })
+    const ctx = { userId: null, db: { query: { sellerPosts: { findMany } }, select } } as unknown as Context
+
+    await expect(sellerPostResolvers.Query.sellerPostSearch(null, {
+      limit: 1, offset: 0, filters: { priceMax: 300_000 }, search: 'Lisboa', sort: 'price_asc',
+    }, ctx)).resolves.toEqual({ items, totalCount: 3, hasNextPage: true })
+    expect(findMany).toHaveBeenCalledOnce()
+    expect(findMany.mock.calls[0][0]).toMatchObject({ limit: 1, offset: 0 })
+    expect(select).toHaveBeenCalledOnce()
+    expect(where).toHaveBeenCalledOnce()
+  })
+
+  it('shows active details to guests but hides inactive posts from everyone except their owner', async () => {
+    const findFirst = vi.fn().mockResolvedValueOnce({ id: 'post-1', sellerId: owner, isActive: true })
+      .mockResolvedValueOnce({ id: 'post-2', sellerId: owner, isActive: false })
+      .mockResolvedValueOnce({ id: 'post-2', sellerId: owner, isActive: false })
+    const db = { query: { sellerPosts: { findFirst } } }
+    const guest = { userId: null, db } as unknown as Context
+    const ownerCtx = { userId: owner, db } as unknown as Context
+
+    await expect(sellerPostResolvers.Query.sellerPost(null, { id: 'post-1' }, guest))
+      .resolves.toMatchObject({ id: 'post-1' })
+    await expect(sellerPostResolvers.Query.sellerPost(null, { id: 'post-2' }, guest)).resolves.toBeNull()
+    await expect(sellerPostResolvers.Query.sellerPost(null, { id: 'post-2' }, ownerCtx))
+      .resolves.toMatchObject({ id: 'post-2' })
+  })
+
+  it('still protects owner listings and mutations from guests', async () => {
+    const findMany = vi.fn()
+    const insert = vi.fn()
+    const ctx = { userId: null, db: { query: { sellerPosts: { findMany } }, insert } } as unknown as Context
+
+    expect(() => sellerPostResolvers.Query.mySellerPosts(null, null, ctx))
+      .toThrowError(expect.objectContaining({ extensions: { code: 'UNAUTHENTICATED' } }))
+    await expect(sellerPostResolvers.Mutation.createSellerPost(null, { input: {} }, ctx))
+      .rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } })
+    expect(findMany).not.toHaveBeenCalled()
+    expect(insert).not.toHaveBeenCalled()
+  })
+
+  it('keeps buyer requests, matching, and conversations private', async () => {
+    const ctx = { userId: null, db: {} } as unknown as Context
+    await expect(buyerPostResolvers.Query.buyerPosts(null, {}, ctx))
+      .rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } })
+    await expect(buyerPostResolvers.Query.buyerPostSearch(null, {}, ctx))
+      .rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } })
+    await expect(buyerPostResolvers.Query.buyerPost(null, { id: 'post-1' }, ctx))
+      .rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } })
+    await expect(matchingResolvers.Query.matchingBuyerPosts(null, { sellerPostId: 'post-1' }, ctx))
+      .rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } })
+    expect(() => conversationResolvers.Query.myConversations(null, null, ctx))
+      .toThrowError(expect.objectContaining({ extensions: { code: 'UNAUTHENTICATED' } }))
+    await expect(conversationResolvers.Query.conversation(null, { id: 'conversation-1' }, ctx))
+      .rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } })
   })
 })

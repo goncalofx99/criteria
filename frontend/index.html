@@ -1,29 +1,32 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-PT">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="theme-color" content="#344e41" />
-    <meta name="description" content="CRITERIA connects property sellers and buyers through listings and buyer requests. Create an account to explore, publish, and start a conversation." />
+    <meta name="description" content="A CRITERIA liga quem procura casa a quem vende. Explore imóveis e critérios, publique e comece uma conversa." />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="CRITERIA" />
-    <meta property="og:title" content="CRITERIA | Find a home. Find your buyer." />
-    <meta property="og:description" content="A place for property listings and buyer requests to meet. Find a home. Find your buyer." />
+    <meta property="og:title" content="CRITERIA | Encontre casa. Encontre comprador." />
+    <meta property="og:description" content="Imóveis e critérios de compra num só lugar." />
     <meta property="og:url" content="https://criteria-app.com/" />
     <meta property="og:image" content="https://criteria-app.com/social-preview.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="CRITERIA brand graphic with the words Find a home. Find your buyer." />
+    <meta property="og:image:alt" content="Cartão da CRITERIA: Encontre casa. Encontre comprador. Imóveis e critérios de compradores, num só lugar." />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="CRITERIA | Find a home. Find your buyer." />
-    <meta name="twitter:description" content="A place for property listings and buyer requests to meet." />
+    <meta name="twitter:title" content="CRITERIA | Encontre casa. Encontre comprador." />
+    <meta name="twitter:description" content="Imóveis e critérios de compra num só lugar." />
     <meta name="twitter:image" content="https://criteria-app.com/social-preview.png" />
-    <meta name="twitter:image:alt" content="CRITERIA brand graphic with the words Find a home. Find your buyer." />
+    <meta name="twitter:image:alt" content="Cartão da CRITERIA: Encontre casa. Encontre comprador. Imóveis e critérios de compradores, num só lugar." />
     <link rel="canonical" href="https://criteria-app.com/" />
     <script>
       (() => {
+        try {
+          if (localStorage.getItem('criteria-language') === 'en') document.documentElement.lang = 'en-GB'
+        } catch { /* local storage can be unavailable in private mode */ }
         let preference = 'system'
         try {
           const saved = localStorage.getItem('criteria-theme')
@@ -41,7 +44,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <title>CRITERIA | Find a home. Find your buyer.</title>
+    <title>CRITERIA | Encontre casa. Encontre comprador.</title>
   </head>
   <body>
     <div id="root"></div>

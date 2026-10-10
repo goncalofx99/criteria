@@ -3,7 +3,9 @@ import { GraphQLError } from 'graphql'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createReviewLink, executeReviewOperation } from './link'
 import { makeReviewStore } from './fixtures'
+import { setReviewAuthenticated } from './state'
 import { GET_BUYER_POST, SEARCH_SELLER_POSTS } from '@/lib/gql'
+import portugalAreas from '@/lib/portugalAdministrativeAreas.json'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -90,6 +92,61 @@ describe('development review transport', () => {
 
     const citySearch = executeReviewOperation('sellerPostSearch', { search: 'Lisboa' }, store).sellerPostSearch as { items: { id: string; locationText: string; lat: number; lng: number }[] }
     const publicPost = citySearch.items.find(item => item.id === post.id)
-    expect(publicPost).toMatchObject({ locationText: 'Lisbon, Portugal', lat: 38.71, lng: -9.16 })
+    expect(publicPost).toMatchObject({ locationText: 'Lisboa, Portugal', lat: 38.71, lng: -9.16 })
+    const legacyEnglishSearch = executeReviewOperation('sellerPostSearch', { search: 'Lisbon, Portugal' }, store).sellerPostSearch as { items: { id: string }[] }
+    expect(legacyEnglishSearch.items.some(item => item.id === post.id)).toBe(true)
+  })
+
+  it('lets signed-out visitors search locations and read only active, public property details', () => {
+    const store = makeReviewStore('both')
+    const ownPost = store.sellers.find(item => item.id === 'review-listing-own')!
+    ownPost.locationText = 'Rua da Sé, Braga'
+    ownPost.lat = 41.5504
+    setReviewAuthenticated(false)
+    try {
+      const district = executeReviewOperation('sellerPostSearch', { district: 'Faro' }, store).sellerPostSearch as { items: { id: string }[] }
+      expect(district.items.map(post => post.id)).toContain('review-listing-land')
+      expect(district.items.every(post => post.id !== 'review-listing-archived')).toBe(true)
+      const municipality = executeReviewOperation('sellerPostSearch', { municipality: 'Lagos', district: 'Faro' }, store).sellerPostSearch as { items: { id: string }[] }
+      expect(municipality.items.map(post => post.id)).toEqual(['review-listing-land'])
+
+      const post = executeReviewOperation('sellerPost', { id: 'review-listing-own' }, store).sellerPost as { locationText: string; lat: number; lng: number }
+      expect(post).toMatchObject({ locationText: 'Braga, Portugal', lat: 41.55 })
+      expect(executeReviewOperation('sellerPost', { id: 'review-listing-archived' }, store).sellerPost).toBeNull()
+    } finally {
+      setReviewAuthenticated(true)
+    }
+  })
+
+  it('has an active property in each district and autonomous region', () => {
+    const store = makeReviewStore('both')
+    for (const district of [...portugalAreas.districts, ...portugalAreas.autonomousRegions]) {
+      const result = executeReviewOperation('sellerPostSearch', { district }, store).sellerPostSearch as { items: { id: string }[] }
+      expect(result.items.length, `No review properties in ${district}`).toBeGreaterThan(0)
+    }
+  })
+
+  it('finds properties by their real municipality and projects public place labels', () => {
+    const store = makeReviewStore('both')
+    const places = [
+      { municipality: 'Cascais', district: 'Lisboa', id: 'review-listing-cascais', label: 'Cascais, Portugal' },
+      { municipality: 'Matosinhos', district: 'Porto', id: 'review-listing-matosinhos', label: 'Matosinhos, Portugal' },
+      { municipality: 'Almada', district: 'Setúbal', id: 'review-listing-almada', label: 'Almada, Portugal' },
+      { municipality: 'Caldas da Rainha', district: 'Leiria', id: 'review-listing-caldas', label: 'Caldas da Rainha, Portugal' },
+      { municipality: 'Ponta Delgada', district: 'Açores', id: 'review-listing-ponta-delgada', label: 'Ponta Delgada, Portugal' },
+      { municipality: 'Funchal', district: 'Madeira', id: 'review-listing-funchal', label: 'Funchal, Madeira' },
+    ]
+    setReviewAuthenticated(false)
+    try {
+      for (const { municipality, district, id, label } of places) {
+        const result = executeReviewOperation('sellerPostSearch', { district, municipality }, store).sellerPostSearch as { items: { id: string; locationText: string }[] }
+        expect(result.items, `${municipality}, ${district} should be searchable`).toContainEqual(expect.objectContaining({ id, locationText: label }))
+      }
+      const areaOnly = executeReviewOperation('sellerPostSearch', { district: 'Lisboa' }, store).sellerPostSearch as { items: { id: string }[] }
+      expect(areaOnly.items.map(post => post.id)).toContain('review-listing-cascais')
+      expect(() => executeReviewOperation('sellerPostSearch', { municipality: 'Funchal', district: 'Lisboa' }, store)).toThrow(/outside/i)
+    } finally {
+      setReviewAuthenticated(true)
+    }
   })
 })

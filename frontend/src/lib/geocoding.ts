@@ -11,6 +11,7 @@
  * Scoped to Portugal (`countrycodes=pt`) since the product launches there.
  */
 import { reviewMode } from '@/review/mode'
+import { getLanguage, languageTag } from '@/lib/language'
 
 export interface GeocodeResult {
   label: string  // human-readable address (Nominatim's display_name)
@@ -36,17 +37,21 @@ export async function searchAddress(
 
   if (reviewMode) {
     const places: GeocodeResult[] = [
-      { label: 'Lisboa, Portugal', lat: 38.722, lng: -9.139 },
+      { label: getLanguage() === 'pt' ? 'Lisboa, Portugal' : 'Lisbon, Portugal', lat: 38.722, lng: -9.139 },
       { label: 'Porto, Portugal', lat: 41.149, lng: -8.611 },
       { label: 'Braga, Portugal', lat: 41.550, lng: -8.423 },
       { label: 'Coimbra, Portugal', lat: 40.208, lng: -8.426 },
       { label: 'Aveiro, Portugal', lat: 40.640, lng: -8.654 },
       { label: 'Lagos, Faro, Portugal', lat: 37.103, lng: -8.675 },
     ]
-    return places.filter(place => place.label.toLocaleLowerCase().includes(q.toLocaleLowerCase()))
+    const term = q.toLocaleLowerCase()
+    return places.filter(place => place.label.toLocaleLowerCase().includes(term) ||
+      (place.lat === 38.722 && ['lisboa', 'lisbon'].some(alias => alias.includes(term))))
   }
 
-  const cached = cache.get(q.toLowerCase())
+  const locale = languageTag(getLanguage())
+  const cacheKey = `${locale}:${q.toLowerCase()}`
+  const cached = cache.get(cacheKey)
   if (cached) return cached
 
   const url = new URL(ENDPOINT)
@@ -54,6 +59,7 @@ export async function searchAddress(
   url.searchParams.set('limit', '5')
   url.searchParams.set('addressdetails', '0')
   url.searchParams.set('countrycodes', 'pt')
+  url.searchParams.set('accept-language', locale)
   url.searchParams.set('q', q)
 
   const res = await fetch(url.toString(), {
@@ -75,6 +81,6 @@ export async function searchAddress(
     lng: parseFloat(item.lon),
   }))
 
-  cache.set(q.toLowerCase(), out)
+  cache.set(cacheKey, out)
   return out
 }

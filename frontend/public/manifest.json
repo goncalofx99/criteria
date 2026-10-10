@@ -1,7 +1,7 @@
 {
   "name": "CRITERIA",
   "short_name": "CRITERIA",
-  "description": "Properties and buyer requests in one place.",
+  "description": "Imóveis e critérios de compra num só lugar.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

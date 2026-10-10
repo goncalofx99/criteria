@@ -13,6 +13,7 @@ import { EditFormSkeleton } from '@/components/ui/skeleton'
 import type { PropertyType } from '@/lib/propertyType'
 import type { PropertyCondition } from '@/lib/amenities'
 import { safeInternalPath } from '@/lib/returnTo'
+import { useLanguage } from '@/lib/language'
 
 interface BuyerPostData {
   id: string
@@ -39,6 +40,7 @@ interface BuyerPostData {
 }
 
 export default function CriteriaEditPage() {
+  const { t } = useLanguage()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
@@ -71,26 +73,26 @@ export default function CriteriaEditPage() {
           <button
             type="button"
             onClick={() => navigate(`/criteria/${id}`, { state: { returnTo } })}
-            aria-label="Back to request"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
+            aria-label={t('Voltar aos critérios', 'Back to criteria')}
+            className="flex h-11 w-11 items-center justify-center rounded text-foreground/70 hover:bg-overlay"
           >
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-lg font-bold text-foreground">Edit criteria</h1>
+          <h1 className="text-base font-semibold text-foreground">{t('Editar critérios', 'Edit criteria')}</h1>
         </div>
       </PageHeader>
 
       {(loading && !post) || (meLoading && !me) ? (
         <EditFormSkeleton />
       ) : error || !post ? (
-        <div className="px-6 py-10 text-center text-sm text-muted-foreground"><p>Buyer request unavailable. The post may have been removed or the link may be incorrect.</p><Link to={returnTo} className="mt-4 inline-flex min-h-11 items-center font-semibold text-primary underline">Back to {returnTo.startsWith('/profile') ? 'Profile' : 'Explore'}</Link></div>
+        <div className="px-6 py-10 text-center text-sm text-muted-foreground"><p>{t('Critérios indisponíveis. A publicação pode ter sido removida ou o endereço pode estar incorreto.', 'Criteria unavailable. The post may have been removed or the link may be incorrect.')}</p><Link to={returnTo} className="mt-4 inline-flex min-h-11 items-center font-semibold text-primary underline">{returnTo.startsWith('/profile') ? t('Voltar ao perfil', 'Back to profile') : t('Voltar aos resultados', 'Back to results')}</Link></div>
       ) : !isOwner ? (
-        <div className="px-6 py-10 text-center text-sm text-muted-foreground"><p>You can only edit your own buyer requests.</p><Link to={`/criteria/${post.id}`} state={{ returnTo }} className="mt-4 inline-flex min-h-11 items-center font-semibold text-primary underline">View request</Link></div>
+        <div className="px-6 py-10 text-center text-sm text-muted-foreground"><p>{t('Só pode editar os critérios que publicou.', 'You can only edit criteria you have posted.')}</p><Link to={`/criteria/${post.id}`} state={{ returnTo }} className="mt-4 inline-flex min-h-11 items-center font-semibold text-primary underline">{t('Ver critérios', 'View criteria')}</Link></div>
       ) : (
-        <div className="mx-auto max-w-[1160px] px-5 py-7 md:px-8 md:py-10 lg:grid lg:grid-cols-[minmax(220px,290px)_minmax(0,1fr)] lg:items-start lg:gap-12 xl:gap-16">
-          <div className="lg:sticky lg:top-28">
-          <p className="editorial-kicker">Your request</p>
-          <h2 className="editorial-title mb-7 mt-2 lg:mb-0">Refine your search.</h2>
+        <div className="mx-auto max-w-[1160px] px-5 py-6 md:px-8 md:py-10 lg:grid lg:grid-cols-[minmax(220px,290px)_minmax(0,1fr)] lg:items-start lg:gap-12 xl:gap-16">
+          <div className="hidden lg:sticky lg:top-28 lg:block">
+          <h2 className="editorial-title">{t('Edite os seus critérios.', 'Edit your criteria.')}</h2>
+          <p className="screen-intro mt-4">{t('Defina melhor o que procura para receber respostas de vendedores com imóveis compatíveis.', 'Refine what you are looking for so sellers can respond with a good match.')}</p>
           </div>
           <CriteriaForm
             initial={{
@@ -114,7 +116,7 @@ export default function CriteriaEditPage() {
               requiresCentralHeating: post.requiresCentralHeating,
               requiredAmenities: post.requiredAmenities,
             }}
-            submitLabel="Save changes"
+            submitLabel={t('Guardar alterações', 'Save changes')}
             onSubmit={handleSubmit}
           />
         </div>

@@ -5,11 +5,14 @@ import { warmUpBackend } from '@/lib/warmup'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Eye, EyeOff, Loader2, ChevronLeft } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons'
+import { AuthLayout } from '@/components/auth/AuthLayout'
 import { rememberAuthDestination, safeInternalPath } from '@/lib/returnTo'
+import { localizedError, useLanguage } from '@/lib/language'
 
 export default function SignInPage() {
+  const { language, t } = useLanguage()
   const navigate = useNavigate()
   const location = useLocation()
   const resetSuccess = new URLSearchParams(location.search).get('reset') === 'success'
@@ -35,63 +38,41 @@ export default function SignInPage() {
       await signIn(email, password)
       navigate('/auth/callback', { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign in failed')
+      setError(localizedError(err, language, 'Não foi possível iniciar sessão. Verifique o email e a palavra-passe.', 'Sign in failed'))
       setLoading(false)
     }
   }
 
   return (
-    <div className="app-shell auth-page flex flex-col">
-      {/* Header */}
-      <div className="web-content flex items-center justify-between px-4 pt-safe pt-4 pb-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          asChild
-          className="rounded-full text-muted-foreground"
-        >
-          <Link to="/" aria-label="Back to home"><ChevronLeft className="h-5 w-5" /></Link>
-        </Button>
-        <span className="inline-flex items-center gap-2 text-xs font-semibold tracking-[.16em] text-foreground"><span className="flex h-8 w-8 overflow-hidden rounded-lg bg-accent"><img src="/icon-192.png" alt="" className="h-full w-full scale-[1.8] object-cover" /></span>CRITERIA</span>
-      </div>
-
-      <div className="web-content auth-panel my-auto flex flex-none flex-col px-6 py-8 md:px-9 md:py-9">
-        {/* Title */}
+    <AuthLayout
+      backTo="/"
+      backLabel={t('Voltar ao início', 'Back to home')}
+      footer={<p className="text-center text-sm text-muted-foreground">{t('Ainda não tem conta na CRITERIA?', 'New to CRITERIA?')}{' '}<Link to={`/sign-up${location.search}`} className="font-semibold text-primary underline underline-offset-4">{t('Criar conta', 'Create an account')}</Link></p>}
+    >
+      <div className="w-full max-w-md self-center">
         <div className="mb-8">
-          <p className="editorial-kicker">Continue your search</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-.04em] text-foreground">Welcome back.</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Sign in to pick up where you left off.</p>
+          <h1 className="text-[2rem] font-semibold leading-tight tracking-[-.03em] text-foreground">{t('Bem-vindo de volta', 'Welcome back')}</h1>
+          <p className="mt-2 text-base leading-relaxed text-muted-foreground">{t('Inicie sessão para gerir pesquisas, anúncios e conversas.', 'Sign in to manage your searches, posts and conversations.')}</p>
         </div>
 
-        {/* Social auth */}
-        <div className="mb-6">
-          <SocialAuthButtons
-            variant="compact"
-            onError={setError}
-          />
+        <div className="mb-6"><SocialAuthButtons variant="compact" onError={setError} /></div>
+
+        <div className="relative mb-6 flex items-center gap-4" aria-hidden="true">
+          <span className="h-px flex-1 bg-border" />
+          <span className="text-xs font-medium text-muted-foreground">{t('ou use o email', 'or use email')}</span>
+          <span className="h-px flex-1 bg-border" />
         </div>
 
-        {/* Divider */}
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-border" />
-          </div>
-          <div className="relative flex justify-center">
-            <span className="bg-surface px-3 text-xs text-muted-foreground">or sign in with email</span>
-          </div>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSignIn} className="space-y-4">
-          {resetSuccess && <p role="status" className="rounded-xl bg-success-muted p-3 text-sm text-success">Password updated. Sign in with your new password.</p>}
-          {passwordChanged && <p role="status" className="rounded-xl bg-success-muted p-3 text-sm text-success">Password changed. Sign in again on this device.</p>}
-          {oauthFailed && <p role="alert" className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">Google sign-in could not be completed. Please try again.</p>}
-          <div className="space-y-1.5">
+        <form onSubmit={handleSignIn} className="space-y-5">
+          {resetSuccess && <p role="status" className="rounded bg-success-muted p-3 text-sm text-success">{t('Palavra-passe atualizada. Inicie sessão com a nova palavra-passe.', 'Password updated. Sign in with your new password.')}</p>}
+          {passwordChanged && <p role="status" className="rounded bg-success-muted p-3 text-sm text-success">{t('Palavra-passe alterada. Inicie sessão novamente neste dispositivo.', 'Password changed. Sign in again on this device.')}</p>}
+          {oauthFailed && <p role="alert" className="rounded bg-destructive/10 p-3 text-sm text-destructive">{t('Não foi possível concluir o início de sessão com o Google. Tente novamente.', 'Google sign-in could not be completed. Please try again.')}</p>}
+          <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
-              placeholder="you@example.com"
+              placeholder={t('nome@exemplo.pt', 'you@example.com')}
               autoComplete="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -99,18 +80,18 @@ export default function SignInPage() {
             />
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
-              <Link to="/forgot-password" className="text-xs text-primary hover:underline underline-offset-4">
-                Forgot password?
+              <Label htmlFor="password">{t('Palavra-passe', 'Password')}</Label>
+              <Link to="/forgot-password" className="inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-4">
+                {t('Recuperar palavra-passe', 'Forgot password?')}
               </Link>
             </div>
             <div className="relative">
               <Input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Your password"
+                placeholder={t('A sua palavra-passe', 'Your password')}
                 autoComplete="current-password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -120,7 +101,7 @@ export default function SignInPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(v => !v)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? t('Ocultar palavra-passe', 'Hide password') : t('Mostrar palavra-passe', 'Show password')}
                 aria-pressed={showPassword}
                 className="absolute inset-y-0 right-1 flex w-11 items-center justify-center text-muted-foreground"
               >
@@ -133,7 +114,7 @@ export default function SignInPage() {
           </div>
 
           {error && (
-            <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive animate-fade-in">
+            <p role="alert" className="rounded bg-destructive/10 px-3 py-2 text-sm text-destructive animate-fade-in">
               {error}
             </p>
           )}
@@ -142,20 +123,12 @@ export default function SignInPage() {
             type="submit"
             size="lg"
             disabled={loading || !email || !password}
-            className="w-full rounded-xl mt-2"
+            className="mt-2 w-full"
           >
-            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Log in'}
+            {loading ? <><Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />{t('A iniciar sessão…', 'Signing in…')}</> : t('Iniciar sessão', 'Sign in')}
           </Button>
         </form>
       </div>
-
-      {/* Sign up link */}
-      <p className="web-content px-6 pb-10 pb-safe text-center text-sm text-muted-foreground">
-        Don't have an account?{' '}
-        <Link to={`/sign-up${location.search}`} className="font-medium text-primary hover:underline underline-offset-4">
-          Sign up
-        </Link>
-      </p>
-    </div>
+    </AuthLayout>
   )
 }

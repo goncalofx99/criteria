@@ -214,7 +214,7 @@ export const matchingResolvers = {
         .limit(1)
 
       if (!post) {
-        throw new GraphQLError('Buyer post not found', {
+        throw new GraphQLError('Criteria post not found', {
           extensions: { code: 'NOT_FOUND' },
         })
       }

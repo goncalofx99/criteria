@@ -1,6 +1,9 @@
 import { ApolloLink, Observable, type Operation } from '@apollo/client'
 import { getMainDefinition } from '@apollo/client/utilities'
 import { GraphQLError } from 'graphql'
+import portugalAreas from '@/lib/portugalAdministrativeAreas.json'
+import { normalizePortugalLocation } from '@/lib/portugalLocations'
+import { publicLocationLabel } from '@/lib/locations'
 import { getReviewScenario } from './mode'
 import { getReviewStore, getReviewToken } from './state'
 import type { ReviewBuyerPost, ReviewConversation, ReviewSellerPost, ReviewStore } from './fixtures'
@@ -19,10 +22,10 @@ function string(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
-// Mirror the server's public locality rules so review data cannot expose an
-// address through search or show more precise locations than live results.
-const publicLocalities = [
-  { label: 'Lisbon, Portugal', aliases: ['lisbon', 'lisboa'] },
+// Mirror the server's public locality rules. Geocoder labels can include a
+// street, so only complete, known administrative name segments are published.
+const localityGroups = [
+  { label: 'Lisboa, Portugal', aliases: ['lisbon', 'lisboa'] },
   { label: 'Porto, Portugal', aliases: ['porto'] },
   { label: 'Cascais, Portugal', aliases: ['cascais'] },
   { label: 'Sintra, Portugal', aliases: ['sintra'] },
@@ -35,23 +38,95 @@ const publicLocalities = [
   { label: 'Funchal, Madeira', aliases: ['funchal'] },
 ] as const
 
+const normalize = normalizePortugalLocation
+const municipalitiesByArea = portugalAreas.municipalitiesByArea as Record<string, string[]>
+const islandRegions = portugalAreas.islandRegions as Record<string, string>
+const administrativeRegions = [...portugalAreas.districts, ...portugalAreas.autonomousRegions]
+const municipalityAreas = new Map<string, string[]>()
+const knownMunicipalities = new Map<string, string>()
+const knownRegions = new Map<string, string>()
+const publicSearchAliases = new Map<string, readonly string[]>()
+
+for (const { label, aliases } of localityGroups) {
+  publicSearchAliases.set(normalize(label), aliases)
+  for (const alias of aliases) {
+    publicSearchAliases.set(normalize(alias), aliases)
+    publicSearchAliases.set(normalize(`${alias}, Portugal`), aliases)
+  }
+}
+
+for (const [area, municipalities] of Object.entries(municipalitiesByArea)) {
+  for (const municipality of municipalities) {
+    const key = normalize(municipality)
+    municipalityAreas.set(key, [...(municipalityAreas.get(key) ?? []), area])
+    knownMunicipalities.set(key, municipality)
+    if (!publicSearchAliases.has(key)) publicSearchAliases.set(key, [municipality])
+  }
+}
+
+for (const region of administrativeRegions) {
+  const key = normalize(region)
+  knownRegions.set(key, region)
+  if (!publicSearchAliases.has(key)) publicSearchAliases.set(key, [region])
+}
+
 function locationSegments(value: string): string[] {
-  return value.split(',').map(part => part.trim().toLocaleLowerCase('pt-PT')).filter(Boolean)
+  return value.split(',').map(normalize).filter(Boolean)
 }
 
 function publicLocationText(value: string): string {
-  const parts = locationSegments(value)
-  for (const part of parts) {
-    const group = publicLocalities.find(item => item.aliases.some(alias => alias === part))
-    if (group) return group.label
-  }
-  return parts.includes('portugal') ? 'Portugal' : 'Approximate area'
+  return publicLocationLabel(value, 'pt')
 }
 
 function matchesPublicLocality(value: string, term: string): boolean {
-  const group = publicLocalities.find(item =>
-    item.label.toLocaleLowerCase('pt-PT') === term || item.aliases.some(alias => alias === term))
-  return !!group && group.aliases.some(alias => locationSegments(value).includes(alias))
+  const aliases = publicSearchAliases.get(normalize(term))
+  const segments = locationSegments(value)
+  return !!aliases && aliases.some(alias => segments.includes(normalize(alias)))
+}
+
+function regionForArea(area: string): string {
+  return islandRegions[area] ?? area
+}
+
+function regionMarkers(region: string): string[] {
+  return [region, ...Object.keys(islandRegions).filter(area => islandRegions[area] === region)].map(normalize)
+}
+
+function administrativeLocationMatcher(rawDistrict: unknown, rawMunicipality: unknown): (value: string) => boolean {
+  const district = string(rawDistrict).trim()
+  const municipality = string(rawMunicipality).trim()
+  const region = district ? knownRegions.get(normalize(district)) : undefined
+  if (district && !region) throw new GraphQLError('Unknown district or autonomous region', { extensions: { code: 'BAD_USER_INPUT' } })
+  const selectedMunicipality = municipality ? knownMunicipalities.get(normalize(municipality)) : undefined
+  if (municipality && !selectedMunicipality) throw new GraphQLError('Unknown municipality', { extensions: { code: 'BAD_USER_INPUT' } })
+
+  if (selectedMunicipality) {
+    const key = normalize(selectedMunicipality)
+    const areas = municipalityAreas.get(key) ?? []
+    if (region && !areas.some(area => regionForArea(area) === region)) {
+      throw new GraphQLError('Municipality is outside the selected region', { extensions: { code: 'BAD_USER_INPUT' } })
+    }
+    if (areas.length > 1 && !region) {
+      throw new GraphQLError('Select a district or region for this municipality', { extensions: { code: 'BAD_USER_INPUT' } })
+    }
+    const markers = region ? regionMarkers(region) : []
+    return value => {
+      const parts = locationSegments(value)
+      return parts.includes(key) && (areas.length === 1 || markers.some(marker => parts.includes(marker)))
+    }
+  }
+
+  if (!region) return () => true
+  const markers = regionMarkers(region)
+  const uniqueMunicipalities = Object.entries(municipalitiesByArea)
+    .filter(([area]) => regionForArea(area) === region)
+    .flatMap(([, municipalities]) => municipalities)
+    .map(normalize)
+    .filter(name => (municipalityAreas.get(name)?.length ?? 0) === 1)
+  return value => {
+    const parts = locationSegments(value)
+    return markers.some(marker => parts.includes(marker)) || uniqueMunicipalities.some(name => parts.includes(name))
+  }
 }
 
 function publicCoordinate(value: number): number {
@@ -124,8 +199,11 @@ function searchPosts<T extends { title: string; description: string | null; loca
   items: T[], variables: Variables,
 ): { items: T[]; totalCount: number; hasNextPage: boolean } {
   const q = string(variables.search).trim().toLocaleLowerCase('pt-PT')
+  const matchesLocation = administrativeLocationMatcher(variables.district, variables.municipality)
   const matched = sortPosts(items.filter(item =>
-    inBounds(item, variables.bounds) && (!q || `${item.title} ${item.description ?? ''}`.toLocaleLowerCase('pt-PT').includes(q) || matchesPublicLocality(item.locationText, q)),
+    inBounds(item, variables.bounds) &&
+    matchesLocation(item.locationText) &&
+    (!q || `${item.title} ${item.description ?? ''}`.toLocaleLowerCase('pt-PT').includes(q) || matchesPublicLocality(item.locationText, q)),
   ), variables.sort)
   const offset = Math.max(0, number(variables.offset, 0))
   const limit = Math.max(0, number(variables.limit, 24))
@@ -148,9 +226,9 @@ function page<T>(items: T[], variables: Variables): T[] {
   return items.slice(offset, offset + limit)
 }
 
-function findSeller(store: ReviewStore, id: string): ReviewSellerPost | null {
+function findSeller(store: ReviewStore, id: string, viewerId = store.me.id): ReviewSellerPost | null {
   const post = store.sellers.find(item => item.id === id)
-  return post && (post.isActive || post.seller.id === store.me.id) ? post : null
+  return post && (post.isActive || post.seller.id === viewerId) ? post : null
 }
 
 function findBuyer(store: ReviewStore, id: string): ReviewBuyerPost | null {
@@ -208,30 +286,30 @@ export function executeReviewOperation(field: string, variables: Variables, stor
     case 'sellerPosts': requireReviewAuth(); return { sellerPosts: empty ? [] : page(sortPosts(visibleSellers(store, variables), variables.sort), variables).map(post => publicPost(post, me.id)) }
     case 'buyerPosts': {
       requireReviewAuth()
-      if (me.role === 'buyer' || !me.onboardingComplete) throw new Error('Seller role required to browse buyer requests')
+      if (me.role === 'buyer' || !me.onboardingComplete) throw new Error('Seller role required to browse criteria')
       return { buyerPosts: empty ? [] : page(sortPosts(visibleBuyers(store, variables), variables.sort), variables).map(post => publicPost(post, me.id)) }
     }
     case 'sellerPostSearch': {
-      requireReviewAuth()
       const result = empty ? { items: [], totalCount: 0, hasNextPage: false } : searchPosts(visibleSellers(store, variables), variables)
-      return { sellerPostSearch: { ...result, items: result.items.map(post => publicPost(post, me.id)) } }
+      const viewerId = getReviewToken() ? me.id : ''
+      return { sellerPostSearch: { ...result, items: result.items.map(post => publicPost(post, viewerId)) } }
     }
     case 'buyerPostSearch': {
       requireReviewAuth()
-      if (me.role === 'buyer' || !me.onboardingComplete) throw new Error('Seller role required to browse buyer requests')
+      if (me.role === 'buyer' || !me.onboardingComplete) throw new Error('Seller role required to browse criteria')
       const result = empty ? { items: [], totalCount: 0, hasNextPage: false } : searchPosts(visibleBuyers(store, variables), variables)
       return { buyerPostSearch: { ...result, items: result.items.map(post => publicPost(post, me.id)) } }
     }
     case 'sellerPost': {
-      requireReviewAuth()
-      const post = empty ? null : findSeller(store, id)
-      return { sellerPost: post ? publicPost(post, me.id) : null }
+      const viewerId = getReviewToken() ? me.id : ''
+      const post = empty ? null : findSeller(store, id, viewerId)
+      return { sellerPost: post ? publicPost(post, viewerId) : null }
     }
     case 'buyerPost': {
       requireReviewAuth()
       const post = empty ? null : findBuyer(store, id)
       if (post && post.buyer.id !== me.id && (me.role === 'buyer' || !me.onboardingComplete)) {
-        throw new GraphQLError('Your account role cannot browse buyer requests', { extensions: { code: 'FORBIDDEN' } })
+        throw new GraphQLError('Your account role cannot browse criteria', { extensions: { code: 'FORBIDDEN' } })
       }
       return { buyerPost: post ? publicPost(post, me.id) : null }
     }
@@ -265,7 +343,7 @@ export function executeReviewOperation(field: string, variables: Variables, stor
     }
     case 'createBuyerPost': {
       requireReviewAuth()
-      if (me.role === 'seller') throw new Error('Seller role cannot create a buyer request')
+      if (me.role === 'seller') throw new Error('Seller role cannot create criteria')
       const post = { __typename: 'BuyerPost', description: null, areaSqmMin: null, yearBuiltMin: null, conditions: null, floorMin: null, floorMax: null, requiresBalcony: null, requiresCentralHeating: null, ...input, id: `review-request-${store.nextId++}`, buyer: me, isActive: true, requiredAmenities: Array.isArray(input.requiredAmenities) ? input.requiredAmenities : [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as unknown as ReviewBuyerPost
       store.buyers.unshift(post)
       return { createBuyerPost: post }
@@ -297,7 +375,7 @@ export function executeReviewOperation(field: string, variables: Variables, stor
     case 'deactivateBuyerPost':
     case 'reactivateBuyerPost': {
       requireReviewAuth()
-      if (field === 'reactivateBuyerPost' && (me.role === 'seller' || !me.onboardingComplete)) throw new Error('Buyer role required to republish a request')
+      if (field === 'reactivateBuyerPost' && (me.role === 'seller' || !me.onboardingComplete)) throw new Error('Buyer role required to republish criteria')
       const post = store.buyers.find(item => item.id === id) ?? null
       assertOwned(post, me.id)
       post!.isActive = field === 'reactivateBuyerPost'
