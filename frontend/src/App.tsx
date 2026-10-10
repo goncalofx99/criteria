@@ -10,6 +10,8 @@ import { GET_ME } from '@/lib/gql'
 import { RouteMetadata } from '@/components/RouteMetadata'
 import { SiteFooter } from '@/components/SiteFooter'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useLanguage } from '@/lib/language'
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
 
 // ─── Lazy-loaded routes ──────────────────────────────────────────────────────
 const LandingPage        = lazy(() => import('@/routes/LandingPage'))
@@ -20,6 +22,7 @@ const ResetPasswordPage   = lazy(() => import('@/routes/ResetPasswordPage'))
 const AuthCallback        = lazy(() => import('@/routes/AuthCallback'))
 const Onboarding          = lazy(() => import('@/routes/Onboarding'))
 const FeedPage            = lazy(() => import('@/routes/FeedPage'))
+const RequestsPage        = lazy(() => import('@/routes/RequestsPage'))
 const CreatePostPage      = lazy(() => import('@/routes/CreatePostPage'))
 const ProfilePage         = lazy(() => import('@/routes/ProfilePage'))
 const SettingsPage        = lazy(() => import('@/routes/SettingsPage'))
@@ -34,14 +37,15 @@ const CriteriaDetailPage  = lazy(() => import('@/routes/CriteriaDetailPage'))
 const CriteriaEditPage    = lazy(() => import('@/routes/CriteriaEditPage'))
 
 function RouteSkeleton() {
+  const { t } = useLanguage()
   return (
-    <div role="status" aria-label="Loading page" className="min-h-dvh bg-background">
-      <span className="sr-only">Loading page…</span>
-      <div aria-hidden="true" className="border-b border-white/10 bg-primary-900 px-4 py-4 md:px-8">
+    <div role="status" aria-label={t('A carregar página', 'Loading page')} className="min-h-dvh bg-background">
+      <span className="sr-only">{t('A carregar página…', 'Loading page…')}</span>
+      <div aria-hidden="true" className="border-b border-border bg-surface px-4 py-4 md:border-white/10 md:bg-primary-900 md:px-8">
         <div className="workspace-content flex items-center gap-3">
-          <Skeleton className="h-9 w-9 shrink-0 bg-white/20" />
-          <Skeleton className="h-4 w-28 bg-white/20" />
-          <div className="ml-auto hidden gap-3 md:flex"><Skeleton className="h-9 w-20 rounded-full bg-white/20" /><Skeleton className="h-9 w-20 rounded-full bg-white/20" /></div>
+          <Skeleton className="h-9 w-9 shrink-0 bg-primary-100 md:bg-white/20" />
+          <Skeleton className="h-4 w-28 bg-primary-100 md:bg-white/20" />
+          <div className="ml-auto hidden gap-3 md:flex"><Skeleton className="h-9 w-20 rounded-sm bg-white/20" /><Skeleton className="h-9 w-20 rounded-sm bg-white/20" /></div>
         </div>
       </div>
       <div aria-hidden="true" className="workspace-content space-y-6 px-5 py-8 md:px-8 md:py-12">
@@ -49,9 +53,9 @@ function RouteSkeleton() {
         <Skeleton className="h-10 w-64 max-w-full" />
         <Skeleton className="h-4 w-80 max-w-full" />
         <div className="grid gap-5 pt-4 md:grid-cols-2 lg:grid-cols-3">
-          <Skeleton className="h-64 w-full rounded-2xl" />
-          <Skeleton className="hidden h-64 w-full rounded-2xl md:block" />
-          <Skeleton className="hidden h-64 w-full rounded-2xl lg:block" />
+          <Skeleton className="h-64 w-full rounded-md" />
+          <Skeleton className="hidden h-64 w-full rounded-md md:block" />
+          <Skeleton className="hidden h-64 w-full rounded-md lg:block" />
         </div>
       </div>
     </div>
@@ -59,6 +63,7 @@ function RouteSkeleton() {
 }
 
 function OnboardingGate() {
+  const { t } = useLanguage()
   const location = useLocation()
   const { data, loading, error, refetch } = useQuery<{ me: { onboardingComplete: boolean } | null }>(GET_ME, { fetchPolicy: 'cache-and-network' })
   useEffect(() => {
@@ -68,7 +73,7 @@ function OnboardingGate() {
     if (!loading && !error && data?.me === null) clearLocalSession()
   }, [data?.me, error, loading])
   if (loading && !data) return <RouteSkeleton />
-  if (error && !data?.me) return <div className="mx-auto flex min-h-[60dvh] max-w-sm flex-col items-center justify-center gap-4 px-6 text-center"><p role="alert" className="text-sm text-destructive">Could not load your account.</p><button type="button" onClick={() => void refetch()} className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white">Try again</button></div>
+  if (error && !data?.me) return <div className="mx-auto flex min-h-[60dvh] max-w-sm flex-col items-center justify-center gap-4 px-6 text-center"><p role="alert" className="text-sm text-destructive">{t('Não foi possível carregar a sua conta.', 'Could not load your account.')}</p><button type="button" onClick={() => void refetch()} className="min-h-11 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-white">{t('Tentar novamente', 'Try again')}</button></div>
   if (data?.me === null) return <RouteSkeleton />
   if (!data?.me?.onboardingComplete) {
     const next = `${location.pathname}${location.search}${location.hash}`
@@ -78,20 +83,23 @@ function OnboardingGate() {
 }
 
 function NotFoundPage() {
+  const { t } = useLanguage()
   return (
     <div className="flex min-h-dvh flex-col bg-background">
-      <main className="mx-auto flex w-full max-w-[1000px] flex-1 flex-col justify-center px-6 py-16 md:px-10">
-        <nav aria-label="Breadcrumb" className="mb-12 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-          <Link to="/" className="underline underline-offset-4 hover:text-primary">Home</Link>
-          <span aria-hidden="true">/</span>
-          <span aria-current="page">Page not found</span>
-        </nav>
-        <p className="editorial-kicker">404 · Wrong turn</p>
-        <h1 className="mt-4 max-w-[750px] text-[clamp(3.5rem,12vw,8rem)] font-semibold leading-[.9] tracking-[-.05em] text-foreground">No match for this address.</h1>
-        <p className="mt-7 max-w-md text-base leading-relaxed text-muted-foreground">This page may have moved, or the link may be incomplete. Return to CRITERIA to continue.</p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link to="/" className="inline-flex min-h-11 items-center rounded-lg bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-700">Go to CRITERIA home</Link>
-          <Link to="/sign-in" className="inline-flex min-h-11 items-center rounded-lg border border-border bg-surface px-5 text-sm font-semibold text-foreground hover:bg-overlay">Sign in</Link>
+      <header className="border-b border-border bg-surface pt-safe">
+        <div className="workspace-content flex h-14 items-center justify-between px-5 md:h-[72px] md:px-10">
+          <Link to="/" aria-label={t('Início da CRITERIA', 'CRITERIA home')} className="inline-flex min-h-11 items-center gap-2.5 text-sm font-bold tracking-[.14em] text-primary-900">
+            <img src="/icon-192.png" alt="" className="h-9 w-9 rounded-sm object-cover" />CRITERIA
+          </Link>
+          <LanguageSwitcher variant="light" className="border-border text-foreground" />
+        </div>
+      </header>
+      <main className="mx-auto flex w-full max-w-[1000px] flex-1 flex-col justify-center px-5 py-16 md:px-10">
+        <h1 className="screen-heading max-w-[16ch] text-foreground">{t('Não encontrámos esta página.', 'We couldn’t find that page.')}</h1>
+        <p className="screen-intro mt-4 max-w-md">{t('A ligação pode estar incompleta ou a página pode ter mudado. Pode iniciar uma nova pesquisa de imóveis a partir daqui.', 'The link may be incomplete or the page may have moved. You can start a new property search from here.')}</p>
+        <div className="mt-7 flex flex-wrap gap-3">
+          <Link to="/" className="inline-flex min-h-11 items-center rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary-700">{t('Voltar ao início', 'Go home')}</Link>
+          <Link to="/feed" className="inline-flex min-h-11 items-center rounded-md border border-border bg-surface px-5 text-sm font-semibold text-foreground hover:bg-overlay">{t('Explorar imóveis', 'Browse properties')}</Link>
         </div>
       </main>
       <SiteFooter />
@@ -136,18 +144,21 @@ export default function App() {
             <Route path="/terms"         element={<TermsPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/check-email"   element={<Navigate to="/sign-in" replace />} />
+            <Route element={<AppLayout />}>
+              <Route path="/feed"        element={<FeedPage />} />
+              <Route path="/listing/:id" element={<PropertyDetailPage />} />
+            </Route>
 
             {/* Protected */}
             <Route element={<ProtectedRoute />}>
               <Route path="/onboarding"  element={<Onboarding />} />
               <Route element={<OnboardingGate />}>
-                <Route path="/feed"               element={<FeedPage />} />
+                <Route path="/requests"           element={<RequestsPage />} />
                 <Route path="/create"             element={<CreatePostPage />} />
                 <Route path="/profile"            element={<ProfilePage />} />
                 <Route path="/settings"           element={<SettingsPage />} />
                 <Route path="/inbox"              element={<InboxPage />} />
                 <Route path="/inbox/:id"          element={<InboxPage />} />
-                <Route path="/listing/:id"        element={<PropertyDetailPage />} />
                 <Route path="/listing/:id/edit"   element={<PropertyEditPage />} />
                 <Route path="/criteria/:id"       element={<CriteriaDetailPage />} />
                 <Route path="/criteria/:id/edit"  element={<CriteriaEditPage />} />

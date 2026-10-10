@@ -99,7 +99,7 @@ export const conversationResolvers = {
           where: eq(buyerPosts.id, data.buyerPostId),
         })
         if (!post || !post.isActive) {
-          throw new GraphQLError('Buyer post not found or inactive', {
+          throw new GraphQLError('Criteria post not found or inactive', {
             extensions: { code: 'NOT_FOUND' },
           })
         }

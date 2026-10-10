@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { MoreHorizontal, Pencil, Archive, RotateCcw, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { localizedError, useLanguage } from '@/lib/language'
 
 /**
  * Compact "…" overflow menu for post detail pages.
@@ -18,9 +19,9 @@ export function PostMenu({
   onReactivate,
   canReactivate = true,
   isActive,
-  removeLabel = 'Archive',
-  confirmTitle = 'Archive this post?',
-  confirmBody = "It will be hidden from discovery. You can republish it later from your profile.",
+  removeLabel,
+  confirmTitle,
+  confirmBody,
 }: {
   editTo: string
   returnTo: string
@@ -32,6 +33,10 @@ export function PostMenu({
   confirmTitle?: string
   confirmBody?: string
 }) {
+  const { t, language } = useLanguage()
+  const archiveLabel = removeLabel ?? t('Arquivar', 'Archive')
+  const archiveTitle = confirmTitle ?? t('Arquivar esta publicação?', 'Archive this post?')
+  const archiveBody = confirmBody ?? t('Deixará de aparecer nas pesquisas. Pode republicá-la mais tarde a partir do seu perfil.', 'It will be hidden from discovery. You can republish it later from your profile.')
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -97,7 +102,7 @@ export function PostMenu({
       await action()
       closeMenu(true)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not update this post. Try again.')
+      setError(localizedError(cause, language, 'Não foi possível atualizar a publicação. Tente novamente.', 'Could not update this post. Try again.'))
     } finally {
       setWorking(false)
     }
@@ -115,10 +120,10 @@ export function PostMenu({
         aria-haspopup={confirming ? 'dialog' : 'menu'}
         aria-controls={open ? menuId : undefined}
         className={cn(
-          'flex h-11 w-11 items-center justify-center rounded-full transition-colors',
+          'flex h-11 w-11 items-center justify-center rounded transition-colors',
           open ? 'bg-overlay text-foreground' : 'text-foreground/70 hover:bg-overlay',
         )}
-        aria-label="More actions"
+        aria-label={t('Mais ações', 'More actions')}
       >
         <MoreHorizontal size={20} />
       </button>
@@ -127,35 +132,35 @@ export function PostMenu({
         <div
           id={menuId}
           ref={menuRef}
-          className="absolute right-0 top-11 z-30 w-64 rounded-xl border border-border bg-surface p-1 shadow-card"
+          className="absolute right-0 top-11 z-30 w-64 rounded border border-border bg-surface p-1 shadow-card"
           role={confirming ? 'dialog' : 'menu'}
-          aria-label={confirming ? confirmTitle : 'Post actions'}
+          aria-label={confirming ? archiveTitle : t('Ações da publicação', 'Post actions')}
           onKeyDown={handleMenuKeyDown}
         >
           {error && <p role="alert" className="p-3 text-xs text-destructive">{error}</p>}
           {confirming ? (
             <div className="p-3">
-              <p className="text-sm font-semibold text-foreground">{confirmTitle}</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{confirmBody}</p>
+              <p className="text-sm font-semibold text-foreground">{archiveTitle}</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{archiveBody}</p>
               <div className="mt-3 flex gap-2">
                 <Button
                   ref={cancelRef}
                   variant="outline"
                   size="sm"
-                  className="flex-1 rounded-lg"
+                  className="flex-1 rounded"
                   onClick={() => setConfirming(false)}
                   disabled={working}
                 >
-                  Cancel
+                  {t('Cancelar', 'Cancel')}
                 </Button>
                 <Button
                   variant="destructive"
                   size="sm"
-                  className="flex-1 rounded-lg"
+                  className="flex-1 rounded"
                   onClick={() => void run(onArchive)}
                   disabled={working}
                 >
-                  {working ? <Loader2 className="h-4 w-4 animate-spin" /> : removeLabel}
+                  {working ? <Loader2 className="h-4 w-4 animate-spin" /> : archiveLabel}
                 </Button>
               </div>
             </div>
@@ -166,22 +171,22 @@ export function PostMenu({
                 role="menuitem"
                 tabIndex={-1}
                 onClick={() => { setOpen(false); navigate(editTo, { state: { returnTo } }) }}
-                className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-foreground hover:bg-overlay"
+                className="flex min-h-11 w-full items-center gap-2.5 rounded px-3 py-2.5 text-sm text-foreground hover:bg-overlay"
               >
                 <Pencil size={16} className="text-muted-foreground" />
-                Edit
+                {t('Editar', 'Edit')}
               </button>
               {isActive ? (
-                <button type="button" role="menuitem" tabIndex={-1} onClick={() => setConfirming(true)} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-destructive hover:bg-destructive/5">
-                  <Archive size={16} />{removeLabel}
+                <button type="button" role="menuitem" tabIndex={-1} onClick={() => setConfirming(true)} className="flex min-h-11 w-full items-center gap-2.5 rounded px-3 py-2.5 text-sm text-destructive hover:bg-destructive/5">
+                  <Archive size={16} />{archiveLabel}
                 </button>
               ) : canReactivate ? (
-                <button type="button" role="menuitem" tabIndex={-1} disabled={working} onClick={() => void run(onReactivate)} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-primary hover:bg-accent disabled:opacity-50">
-                  <RotateCcw size={16} />{working ? 'Republishing…' : 'Republish'}
+                <button type="button" role="menuitem" tabIndex={-1} disabled={working} onClick={() => void run(onReactivate)} className="flex min-h-11 w-full items-center gap-2.5 rounded px-3 py-2.5 text-sm text-primary hover:bg-accent disabled:opacity-50">
+                  <RotateCcw size={16} />{working ? t('A republicar…', 'Republishing…') : t('Republicar', 'Republish')}
                 </button>
               ) : (
-                <button type="button" role="menuitem" tabIndex={-1} onClick={() => { setOpen(false); navigate('/profile') }} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-primary hover:bg-accent">
-                  Manage role to republish
+                <button type="button" role="menuitem" tabIndex={-1} onClick={() => { setOpen(false); navigate('/profile') }} className="flex min-h-11 w-full items-center gap-2.5 rounded px-3 py-2.5 text-left text-sm text-primary hover:bg-accent">
+                  {t('Gerir perfil para republicar', 'Manage role to republish')}
                 </button>
               )}
             </>

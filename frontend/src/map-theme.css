@@ -1,0 +1,279 @@
+/* CRITERIA's map keeps the configured tile source and its attribution. These
+   details sit above the raster layer, so pins and controls remain crisp. */
+.criteria-map {
+  border: 1px solid hsl(var(--hairline));
+  border-radius: var(--radius-card);
+  background: #d8e5e3;
+  isolation: isolate;
+  font-family: inherit;
+}
+
+/* The OSM raster is deliberately quietened rather than recolouring labels,
+   roads and coastlines individually. Custom tile providers remain untouched. */
+.criteria-map--osm-tiles .leaflet-tile-pane {
+  filter: saturate(.72) sepia(.06) contrast(1.08);
+}
+
+.criteria-map .leaflet-container {
+  background: #d8e5e3;
+  font: inherit;
+}
+
+.criteria-map .leaflet-control-zoom {
+  margin: 12px 0 0 12px;
+  border: 0 !important;
+  border-radius: var(--radius-control) !important;
+  overflow: hidden;
+  background: hsl(var(--surface));
+  box-shadow: 0 8px 24px -12px rgba(26, 46, 34, .45), 0 2px 6px -3px rgba(26, 46, 34, .25) !important;
+}
+
+.criteria-map .leaflet-control-zoom a {
+  display: grid;
+  place-items: center;
+  width: 44px !important;
+  height: 44px !important;
+  line-height: 1 !important;
+  border-color: hsl(var(--hairline)) !important;
+  background: hsl(var(--surface)) !important;
+  color: hsl(var(--foreground)) !important;
+  font-family: inherit;
+  font-size: 23px !important;
+  font-weight: 400;
+  text-decoration: none;
+  transition: background-color .16s ease, color .16s ease;
+}
+
+.criteria-map .leaflet-control-zoom a:hover,
+.criteria-map .leaflet-control-zoom a:focus-visible {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--primary-700)) !important;
+}
+
+.criteria-map .leaflet-control-zoom a:focus-visible,
+.criteria-map .leaflet-marker-icon:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+.criteria-map .leaflet-control-zoom a.leaflet-disabled {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: .55;
+}
+
+.criteria-map .leaflet-control-attribution {
+  margin: 10px 10px 0 0;
+  border-radius: var(--radius-control);
+  background: hsl(var(--surface) / .94) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 10px !important;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+  padding: 3px 7px !important;
+  box-shadow: 0 3px 12px -8px rgba(26, 46, 34, .45);
+}
+
+.criteria-map .leaflet-control-attribution a {
+  color: hsl(var(--primary-700)) !important;
+  font-weight: 650;
+  text-underline-offset: .15em;
+}
+
+.criteria-map .criteria-marker {
+  overflow: visible;
+}
+
+.criteria-map__price-pin,
+.criteria-map__cluster,
+.criteria-map__location-pin {
+  box-sizing: border-box;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.criteria-map__price-pin {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 64px;
+  max-width: 112px;
+  height: 43px;
+  padding: 0 11px;
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: #1a2e22;
+  box-shadow: 0 8px 22px -10px rgba(26, 46, 34, .55), 0 2px 6px -3px rgba(26, 46, 34, .3);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background-color .16s ease, color .16s ease, box-shadow .16s ease;
+}
+
+.criteria-map__price-pin::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  bottom: -4px;
+  left: calc(50% - 5px);
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-micro);
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.criteria-map__price-pin.is-selected,
+.criteria-map .leaflet-marker-icon:hover .criteria-map__price-pin {
+  background: #344e41;
+  color: #fff;
+  box-shadow: 0 12px 26px -10px rgba(26, 46, 34, .68), 0 3px 8px -3px rgba(26, 46, 34, .42);
+}
+
+.criteria-map__price-dot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 5px;
+  border-radius: 50%;
+  background: #7c9a82;
+}
+
+.criteria-map__price-pin--criteria .criteria-map__price-dot {
+  background: #a97353;
+}
+
+.criteria-map__price-pin.is-selected .criteria-map__price-dot,
+.criteria-map .leaflet-marker-icon:hover .criteria-map__price-dot {
+  background: #e8e0d0;
+}
+
+.criteria-map__cluster {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #344e41;
+  color: #fff;
+  box-shadow: 0 9px 24px -10px rgba(26, 46, 34, .75), 0 2px 8px -3px rgba(26, 46, 34, .45);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  transition: background-color .16s ease, box-shadow .16s ease;
+}
+
+.criteria-map__cluster.is-selected,
+.criteria-map .leaflet-marker-icon:hover .criteria-map__cluster {
+  background: #1a2e22;
+  box-shadow: 0 10px 26px -10px rgba(26, 46, 34, .9), 0 0 0 4px rgba(132, 169, 140, .32);
+}
+
+.criteria-map__location-pin {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #344e41;
+  box-shadow: 0 8px 22px -8px rgba(26, 46, 34, .7);
+}
+
+.criteria-map__location-pin::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  bottom: -5px;
+  width: 11px;
+  height: 11px;
+  background: #344e41;
+  transform: rotate(45deg);
+}
+
+.criteria-map__location-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.criteria-map .leaflet-marker-draggable .criteria-map__location-pin {
+  cursor: grab;
+}
+
+.criteria-map .leaflet-marker-draggable:active .criteria-map__location-pin {
+  cursor: grabbing;
+}
+
+.criteria-map .leaflet-marker-icon:not(.leaflet-interactive) .criteria-map__location-pin {
+  cursor: default;
+}
+
+.criteria-map .criteria-map__buyer-area {
+  stroke: #5a8060;
+  fill: #84a98c;
+  fill-opacity: .13;
+}
+
+.criteria-map .criteria-map__approximate-area {
+  stroke: #344e41;
+  fill: #84a98c;
+  fill-opacity: .16;
+}
+
+.criteria-map__pan-button,
+.criteria-map__region-button,
+.criteria-map__tile-error {
+  border-radius: var(--radius-control);
+  background: hsl(var(--surface));
+  color: hsl(var(--foreground));
+  box-shadow: 0 8px 24px -12px rgba(26, 46, 34, .5), 0 2px 6px -3px rgba(26, 46, 34, .3);
+}
+
+.criteria-map__region-button {
+  background: hsl(var(--primary-900));
+  color: #fff;
+}
+
+.criteria-map__region-button:hover {
+  background: hsl(var(--primary-700));
+}
+
+.criteria-map__region-button[aria-pressed='true'] {
+  background: hsl(var(--surface));
+  color: hsl(var(--foreground));
+}
+
+.criteria-map__pan-button[aria-pressed='true'] {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.criteria-map__pan-button:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+}
+
+:root.dark .criteria-map,
+:root.dark .criteria-map .leaflet-container { background: #253b39; }
+
+:root.dark .criteria-map--osm-tiles .leaflet-tile-pane {
+  /* Keep map labels dark on a dimmed paper surface. Inverting this raster
+     makes small place names too faint, especially on a phone. */
+  filter: saturate(.48) sepia(.09) brightness(.76) contrast(1.08);
+}
+
+:root.dark .criteria-map .leaflet-control-attribution a { color: hsl(var(--primary-400)) !important; }
+:root.dark .criteria-map .leaflet-control-zoom a:hover { color: hsl(var(--foreground)) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .criteria-map__price-pin,
+  .criteria-map__cluster,
+  .criteria-map .leaflet-control-zoom a { transition: none; }
+}

@@ -1,18 +1,17 @@
-const euroFormatter = new Intl.NumberFormat('pt-PT', {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0,
-})
+import { getLanguage, languageTag } from '@/lib/language'
 
 /** Full amounts are used in details and forms so the price is never rounded. */
 export function formatPrice(price: number): string {
-  return euroFormatter.format(price)
+  return new Intl.NumberFormat(languageTag(getLanguage()), {
+    style: 'currency', currency: 'EUR', maximumFractionDigits: 0,
+  }).format(price)
 }
 
 /** Compact amounts are reserved for dense map markers. */
 export function formatCompactPrice(price: number): string {
+  const locale = languageTag(getLanguage())
   if (price >= 1_000_000) {
-    return `€${new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1 }).format(price / 1_000_000)}M`
+    return `€${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(price / 1_000_000)}M`
   }
   if (price >= 1_000) return `€${Math.round(price / 1_000)}k`
   return `€${Math.round(price)}`
@@ -46,15 +45,17 @@ export function timeAgo(iso: string | number | Date): string {
     : new Date(iso)
   const ms = Date.now() - date.getTime()
   if (isNaN(ms)) return ''
+  const pt = getLanguage() === 'pt'
   const days = Math.floor(ms / (1000 * 60 * 60 * 24))
   if (days <= 0) {
     const hours = Math.floor(ms / (1000 * 60 * 60))
-    if (hours <= 0) return 'just now'
-    return `${hours}h ago`
+    if (hours <= 0) return pt ? 'agora mesmo' : 'just now'
+    return pt ? `há ${hours} h` : `${hours}h ago`
   }
-  if (days === 1) return '1d ago'
-  if (days < 30) return `${days}d ago`
+  if (days === 1) return pt ? 'há 1 dia' : '1d ago'
+  if (days < 30) return pt ? `há ${days} dias` : `${days}d ago`
   const months = Math.floor(days / 30)
-  if (months < 12) return `${months}mo ago`
-  return `${Math.floor(months / 12)}y ago`
+  if (months < 12) return pt ? `há ${months} ${months === 1 ? 'mês' : 'meses'}` : `${months}mo ago`
+  const years = Math.floor(months / 12)
+  return pt ? `há ${years} ${years === 1 ? 'ano' : 'anos'}` : `${years}y ago`
 }

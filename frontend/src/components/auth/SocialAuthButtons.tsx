@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { startGoogleOAuth, completeGoogleOAuthCode } from '@/lib/auth'
 import { isNative, platform, signInWithGoogleNative, parseCallbackCode } from '@/lib/native-auth'
-import { reviewMode } from '@/review/mode'
+import { continueWithLiveGoogleFromReview, reviewMode, takeLiveGoogleResume } from '@/review/mode'
 import { cn } from '@/lib/utils'
+import { localizedError, useLanguage } from '@/lib/language'
 
 type Variant = 'landing' | 'compact'
 
@@ -17,13 +18,39 @@ interface Props {
 const API_URL = import.meta.env.VITE_API_URL
 
 export function SocialAuthButtons({ variant = 'compact', onError }: Props) {
+  const { language, t } = useLanguage()
   const navigate = useNavigate()
   const [googleLoading, setGoogleLoading] = useState(false)
+
+  useEffect(() => {
+    if (takeLiveGoogleResume()) void handleGoogle()
+  }, [])
+
+  async function checkLocalApi() {
+    if (!API_URL) throw new Error(t('Configure VITE_API_URL para iniciar sessão com o Google.', 'Set VITE_API_URL to use Google sign-in.'))
+    const api = new URL(API_URL)
+    if (!import.meta.env.DEV || (api.hostname !== 'localhost' && api.hostname !== '127.0.0.1')) return
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 5000)
+    try {
+      const response = await fetch(new URL('/health', api), { signal: controller.signal })
+      if (!response.ok) throw new Error('API health check failed')
+    } catch {
+      throw new Error(t('A API local não está em execução. Inicie-a com pnpm --filter server dev e tente novamente.', 'The local API is not running. Start it with pnpm --filter server dev, then try again.'))
+    } finally {
+      window.clearTimeout(timeout)
+    }
+  }
 
   async function handleGoogle() {
     setGoogleLoading(true)
     try {
-      if (reviewMode) throw new Error('Google OAuth is unavailable in local review mode. Use mock email sign-in or the role switcher.')
+      if (reviewMode) {
+        if (!API_URL) throw new Error(t('Configure VITE_API_URL antes de iniciar sessão com o Google.', 'Set VITE_API_URL before using live Google sign-in.'))
+        continueWithLiveGoogleFromReview()
+        return
+      }
+      await checkLocalApi()
       if (isNative()) {
         const callbackUrl = await signInWithGoogleNative(API_URL)
 
@@ -34,7 +61,7 @@ export function SocialAuthButtons({ variant = 'compact', onError }: Props) {
             await completeGoogleOAuthCode(code)
             navigate('/auth/callback', { replace: true })
           } else {
-            onError?.('No sign-in code in Google callback')
+            onError?.(t('A resposta do Google não incluiu um código de início de sessão.', 'No sign-in code in Google callback'))
             setGoogleLoading(false)
           }
         }
@@ -45,7 +72,14 @@ export function SocialAuthButtons({ variant = 'compact', onError }: Props) {
         startGoogleOAuth(`${window.location.origin}/auth/callback`)
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Google sign-in failed.'
+      const localMessages = [
+        t('Configure VITE_API_URL para iniciar sessão com o Google.', 'Set VITE_API_URL to use Google sign-in.'),
+        t('Configure VITE_API_URL antes de iniciar sessão com o Google.', 'Set VITE_API_URL before using live Google sign-in.'),
+        t('A API local não está em execução. Inicie-a com pnpm --filter server dev e tente novamente.', 'The local API is not running. Start it with pnpm --filter server dev, then try again.'),
+      ]
+      const msg = err instanceof Error && localMessages.includes(err.message)
+        ? err.message
+        : localizedError(err, language, 'Não foi possível iniciar sessão com o Google. Tente novamente.', 'Google sign-in failed.')
       if (msg !== 'USER_CANCELLED') onError?.(msg)
       setGoogleLoading(false)
     }
@@ -55,17 +89,18 @@ export function SocialAuthButtons({ variant = 'compact', onError }: Props) {
     <div className="flex flex-col gap-3 w-full">
       <Button
         onClick={handleGoogle}
-        disabled={googleLoading || reviewMode}
+        disabled={googleLoading}
         className={cn(
           variant === 'landing'
-            ? 'h-14 w-full rounded-xl bg-surface text-foreground shadow-elevation-2 hover:bg-overlay text-[15px] font-medium'
-            : 'h-12 w-full rounded-xl border-border text-foreground text-[15px] font-medium',
+            ? 'h-14 w-full bg-surface text-foreground shadow-elevation-2 hover:bg-overlay text-[15px] font-medium'
+            : 'h-12 w-full border-border text-foreground text-[15px] font-medium',
         )}
         variant={variant === 'landing' ? 'default' : 'outline'}
       >
         {googleLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleIcon />}
-        {reviewMode ? 'Google sign-in unavailable in review' : 'Continue with Google'}
+        {reviewMode ? t('Utilizar o Google na aplicação real', 'Use Google with the live app') : t('Continuar com o Google', 'Continue with Google')}
       </Button>
+      {reviewMode && <p className="text-xs leading-relaxed text-muted-foreground">{t('Isto sai do modo de revisão local e abre a sua conta real.', 'This leaves local review mode and opens your real account.')}</p>}
     </div>
   )
 }

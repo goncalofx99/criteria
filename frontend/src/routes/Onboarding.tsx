@@ -2,27 +2,23 @@
  * Post-Google-OAuth onboarding.
  * Google gives us name + avatar — we still need age and role.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client'
-import { Building2, Search, LayoutGrid, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { UPSERT_USER, GET_ME } from '@/lib/gql'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { StepIndicator } from '@/components/auth/StepIndicator'
-import { cn } from '@/lib/utils'
+import { AuthLayout } from '@/components/auth/AuthLayout'
+import { RoleChoice } from '@/components/auth/RoleChoice'
 import { rememberAuthDestination, safeInternalPath, takeAuthDestination } from '@/lib/returnTo'
+import { localizedError, useLanguage } from '@/lib/language'
 
 type Role = 'buyer' | 'seller' | 'both'
 
-const roles = [
-  { value: 'seller' as Role, icon: Building2, title: 'Seller', description: 'I have a property to list.' },
-  { value: 'buyer'  as Role, icon: Search,    title: 'Buyer',  description: 'I\'m looking to buy.' },
-  { value: 'both'   as Role, icon: LayoutGrid, title: 'Both',   description: 'I\'m buying and selling.' },
-]
-
 export default function Onboarding() {
+  const { language, t } = useLanguage()
   const navigate = useNavigate()
   const location = useLocation()
   useEffect(() => {
@@ -30,15 +26,28 @@ export default function Onboarding() {
     if (next) rememberAuthDestination(safeInternalPath(next))
   }, [location.search])
   const [step, setStep] = useState(0) // 0 = age, 1 = role
+  const stepContentRef = useRef<HTMLFormElement>(null)
+  const previousStep = useRef(step)
   const [age, setAge] = useState('')
   const [role, setRole] = useState<Role | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [upsertUser] = useMutation(UPSERT_USER)
-  const { data: meData, loading: meLoading } = useQuery(GET_ME)
+  const { data: meData, loading: meLoading, error: meError, refetch: refetchMe } = useQuery(GET_ME)
 
   const ageNum = Number(age)
   const ageValid = age !== '' && Number.isInteger(ageNum) && ageNum >= 18 && ageNum <= 120
+
+  useEffect(() => {
+    if (previousStep.current === step) return
+    previousStep.current = step
+    const frame = requestAnimationFrame(() => {
+      const heading = stepContentRef.current?.querySelector<HTMLHeadingElement>('h1')
+      heading?.focus({ preventScroll: true })
+      heading?.scrollIntoView({ block: 'start', behavior: 'auto' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [step])
 
   async function finish() {
     if (!role || !ageValid) return
@@ -46,7 +55,7 @@ export default function Onboarding() {
     setError(null)
     try {
       const me = meData?.me
-      if (!me?.email) throw new Error('Your account is still loading. Please try again.')
+      if (!me?.email) throw new Error(t('A sua conta ainda está a carregar. Tente novamente.', 'Your account is still loading. Please try again.'))
 
       await upsertUser({
         variables: {
@@ -64,32 +73,31 @@ export default function Onboarding() {
           }
         },
       })
-      navigate(takeAuthDestination('/feed'), { replace: true })
+      navigate(takeAuthDestination('/'), { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.')
+      setError(localizedError(err, language, 'Não foi possível guardar os seus dados. Tente novamente.', 'Something went wrong.'))
       setLoading(false)
     }
   }
 
   return (
-    <div className="app-shell auth-page flex flex-col">
-      {/* Header */}
-      <div className="web-content flex items-center justify-between px-4 pt-safe pt-6 pb-2">
-        <span className="flex h-9 w-9 overflow-hidden rounded-xl bg-accent"><img src="/icon-192.png" alt="CRITERIA" className="h-full w-full scale-[1.8] object-cover" /></span>
-        <StepIndicator current={step} total={2} />
-        <span className="h-9 w-9" aria-hidden="true" />
-      </div>
-
-      {/* Content */}
-      <div className="web-content auth-panel my-auto flex flex-none flex-col px-6 py-7 animate-slide-in-right md:px-9 md:py-9">
+    <AuthLayout
+      onBack={step === 1 ? () => { setError(null); setStep(0) } : undefined}
+      backLabel={t('Passo anterior', 'Previous step')}
+      step={{ current: step, total: 2 }}
+      footer={<div className="mx-auto max-w-md"><Button type="submit" form="onboarding-flow" size="lg" className="w-full" disabled={step === 0 ? !ageValid : !role || loading || meLoading || !!meError}>
+        {loading ? <><Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />{t('A guardar…', 'Saving…')}</> : step === 0 ? t('Continuar', 'Continue') : t('Começar', 'Get started')}
+      </Button></div>}
+    >
+      <form id="onboarding-flow" ref={stepContentRef} onSubmit={event => { event.preventDefault(); if (step === 0 && ageValid) setStep(1); else void finish() }} className="w-full max-w-md self-center">
         {step === 0 ? (
           <div className="space-y-6">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">One more thing</h1>
-              <p className="mt-1 text-sm text-muted-foreground">How old are you?</p>
+              <h1 tabIndex={-1} className="text-[2rem] font-semibold leading-tight tracking-[-.03em] text-foreground">{t('Qual é a sua idade?', 'How old are you?')}</h1>
+              <p className="mt-2 text-base leading-relaxed text-muted-foreground">{t('Tem de ter pelo menos 18 anos para utilizar a CRITERIA.', 'You must be 18 or older to use CRITERIA.')}</p>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="age" required>Age</Label>
+            <div className="space-y-2">
+              <Label htmlFor="age" required>{t('Idade', 'Age')}</Label>
               <Input
                 id="age"
                 type="number"
@@ -97,74 +105,33 @@ export default function Onboarding() {
                 placeholder="25"
                 min={18}
                 max={120}
+                required
                 value={age}
                 onChange={e => setAge(e.target.value)}
                 error={age !== '' && !ageValid}
+                aria-describedby={age !== '' && !ageValid ? 'onboarding-age-error' : undefined}
               />
               {age !== '' && !ageValid && (
-                <p className="text-xs text-destructive">Must be 18 or older.</p>
+                <p id="onboarding-age-error" role="alert" className="text-sm text-destructive">{t('Introduza uma idade entre 18 e 120 anos.', 'Enter an age between 18 and 120.')}</p>
               )}
             </div>
           </div>
         ) : (
           <div className="space-y-6">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">How will you use CRITERIA?</h1>
-              <p className="mt-1 text-sm text-muted-foreground">You can change this any time.</p>
+              <h1 tabIndex={-1} className="text-[2rem] font-semibold leading-tight tracking-[-.03em] text-foreground">{t('Como vai utilizar a CRITERIA?', 'How will you use CRITERIA?')}</h1>
+              <p className="mt-2 text-base leading-relaxed text-muted-foreground">{t('Escolha a opção que faz sentido agora. Pode alterá-la mais tarde.', 'Choose what fits today. You can change this later.')}</p>
             </div>
-            <div className="space-y-3">
-              {roles.map(({ value, icon: Icon, title, description }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setRole(value)}
-                  aria-pressed={role === value}
-                  className={cn(
-                    'flex w-full items-start gap-4 rounded-xl border-2 bg-surface p-4 text-left transition-all duration-150',
-                    role === value
-                      ? 'border-primary shadow-elevation-1'
-                      : 'border-border hover:border-primary-200',
-                  )}
-                >
-                  <div className={cn(
-                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors',
-                    role === value ? 'bg-primary text-white' : 'bg-overlay text-muted-foreground',
-                  )}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-foreground">{title}</p>
-                    <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
+            <RoleChoice value={role} onChange={setRole} />
+            {meError && <div className="space-y-2"><p role="alert" className="text-sm text-destructive">{t('Não foi possível carregar a sua conta. Verifique a ligação e tente novamente.', 'Could not load your account. Check your connection and try again.')}</p><Button type="button" variant="outline" onClick={() => { void refetchMe() }} className="min-h-11">{t('Tentar novamente', 'Try again')}</Button></div>}
             {error && (
-              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <p role="alert" className="rounded bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error}
               </p>
             )}
           </div>
         )}
-      </div>
-
-      {/* Footer */}
-      <div className="web-content px-6 pb-10 pb-safe">
-        <Button
-          size="lg"
-          className="w-full rounded-xl"
-          disabled={step === 0 ? !ageValid : !role || loading || meLoading}
-          onClick={() => {
-            if (step === 0) setStep(1)
-            else finish()
-          }}
-        >
-          {loading
-            ? <Loader2 className="h-5 w-5 animate-spin" />
-            : step === 0 ? 'Continue' : 'Get started'
-          }
-        </Button>
-      </div>
-    </div>
+      </form>
+    </AuthLayout>
   )
 }

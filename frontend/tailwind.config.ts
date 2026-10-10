@@ -12,18 +12,18 @@ export default {
   theme: {
     // ── Base overrides (replace, not extend) ──────────────────────────────
     fontFamily: {
-      sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+      sans: ['var(--font-ui)'],
       mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
     },
     borderRadius: {
       none: '0',
-      xs: '4px',
-      sm: '6px',     // chips, small tags
-      DEFAULT: '8px', // inputs, small buttons
-      md: '8px',
-      lg: '12px',    // cards
-      xl: '16px',    // large cards, sheets
-      '2xl': '20px', // modals, bottom sheets
+      xs: 'var(--radius-micro)',
+      sm: 'var(--radius-small)',
+      DEFAULT: 'var(--radius-control)',
+      md: 'var(--radius-control)',
+      lg: 'var(--radius-control)',
+      xl: 'var(--radius-card)',
+      '2xl': 'var(--radius-panel)',
       full: '9999px', // pills, avatars
     },
 

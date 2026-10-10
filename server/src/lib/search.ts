@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import { and, gte, ilike, lte, or, sql, type AnyColumn, type SQL } from 'drizzle-orm'
-import { publicLocalitySearchAliases } from './publicLocation.js'
+import { PORTUGAL_AREAS, normalizedPlaceName, publicLocalitySearchAliases } from './publicLocation.js'
 
 export type MapBounds = { north: number; south: number; east: number; west: number }
 
@@ -52,12 +52,85 @@ export function textCondition(search: string | null | undefined, ...columns: Any
   return or(...columns.map((column) => ilike(column, pattern)), sql`false`)
 }
 
-/** Match only a public city segment, never arbitrary address text. */
+/** Match only a known public locality segment, never arbitrary address text. */
 export function publicLocalitySearchCondition(search: string | null | undefined, locationText: AnyColumn): SQL | undefined {
   const aliases = search ? publicLocalitySearchAliases(search) : undefined
   if (!aliases) return undefined
-  return or(...aliases.map((alias) => {
-    const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    return sql`${locationText} ~* ${`(^|,)[[:space:]]*${escaped}[[:space:]]*(,|$)`}`
-  }))
+  return exactLocationSegments(aliases, locationText)
+}
+
+const municipalitiesByArea = PORTUGAL_AREAS.municipalitiesByArea as Record<string, string[]>
+const islandRegions = PORTUGAL_AREAS.islandRegions as Record<string, string>
+const administrativeRegions = [...PORTUGAL_AREAS.districts, ...PORTUGAL_AREAS.autonomousRegions]
+const allMunicipalities = Object.values(municipalitiesByArea).flat()
+const municipalityAreas = new Map<string, string[]>()
+
+for (const [area, municipalities] of Object.entries(municipalitiesByArea)) {
+  for (const municipality of municipalities) {
+    const key = normalizedPlaceName(municipality)
+    municipalityAreas.set(key, [...(municipalityAreas.get(key) ?? []), area])
+  }
+}
+
+function regionForArea(area: string): string {
+  return islandRegions[area] ?? area
+}
+
+function regionMarkers(region: string): string[] {
+  return [region, ...Object.keys(islandRegions).filter((area) => islandRegions[area] === region)]
+}
+
+/** Match complete comma-delimited geocoder segments, never an arbitrary street substring. */
+function exactLocationSegments(names: readonly string[], locationText: AnyColumn): SQL {
+  const aliases = [...new Set(names.flatMap((name) => {
+    const ascii = name.normalize('NFD').replace(/\p{M}/gu, '')
+    return name === ascii ? [name] : [name, ascii]
+  }))]
+  const escaped = aliases.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  return sql`${locationText} ~* ${`(^|,)[[:space:]]*(${escaped.join('|')})[[:space:]]*(,|$)`}`
+}
+
+/** Validated district/municipality search over public location names only. */
+export function publicAdministrativeLocationCondition(
+  district: string | null | undefined,
+  municipality: string | null | undefined,
+  locationText: AnyColumn,
+): SQL | undefined {
+  if (district == null && municipality == null) return undefined
+  const region = district == null ? undefined : administrativeRegions.find((name) =>
+    normalizedPlaceName(name) === normalizedPlaceName(district)
+  )
+  if (district != null && !region) {
+    throw new GraphQLError('Unknown district or autonomous region', { extensions: { code: 'BAD_USER_INPUT' } })
+  }
+
+  const selectedMunicipality = municipality == null ? undefined : allMunicipalities.find((name) =>
+    normalizedPlaceName(name) === normalizedPlaceName(municipality)
+  )
+  if (municipality != null && !selectedMunicipality) {
+    throw new GraphQLError('Unknown municipality', { extensions: { code: 'BAD_USER_INPUT' } })
+  }
+
+  if (selectedMunicipality) {
+    const areas = municipalityAreas.get(normalizedPlaceName(selectedMunicipality)) ?? []
+    if (region && !areas.some((area) => regionForArea(area) === region)) {
+      throw new GraphQLError('Municipality is outside the selected region', { extensions: { code: 'BAD_USER_INPUT' } })
+    }
+    if (areas.length > 1 && !region) {
+      throw new GraphQLError('Select a district or region for this municipality', { extensions: { code: 'BAD_USER_INPUT' } })
+    }
+    const municipalityCondition = exactLocationSegments([selectedMunicipality], locationText)
+    return areas.length > 1 && region
+      ? and(municipalityCondition, exactLocationSegments(regionMarkers(region), locationText))!
+      : municipalityCondition
+  }
+
+  if (!region) return undefined
+  const includedAreas = Object.keys(municipalitiesByArea).filter((area) => regionForArea(area) === region)
+  const allNames = includedAreas.flatMap((area) => municipalitiesByArea[area])
+  const uniqueNames = allNames.filter((name) => (municipalityAreas.get(normalizedPlaceName(name))?.length ?? 0) === 1)
+  const markerCondition = exactLocationSegments(regionMarkers(region), locationText)
+  // Shared municipality names (Lagoa and Calheta) require the region marker;
+  // otherwise a district search could include a listing from another region.
+  return or(markerCondition, exactLocationSegments(uniqueNames, locationText))!
 }

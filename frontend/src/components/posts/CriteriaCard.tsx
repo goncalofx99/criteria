@@ -1,8 +1,10 @@
 import { Link, useLocation } from 'react-router-dom'
-import { ArrowUpRight, BedDouble, Bath, Maximize2, MapPin, Search } from 'lucide-react'
+import { BedDouble, Bath, Maximize2, MapPin } from 'lucide-react'
 import { formatPriceRange, timeAgo } from '@/lib/format'
 import { MemberAvatar } from '@/components/ui/member-avatar'
 import { PROPERTY_TYPE_LABEL, type PropertyType } from '@/lib/propertyType'
+import { useLanguage, languageTag } from '@/lib/language'
+import { publicLocationLabel } from '@/lib/locations'
 
 export interface CriteriaCardData {
   id: string
@@ -34,6 +36,7 @@ export interface CriteriaCardData {
 }
 
 export function CriteriaCard({ criteria }: { criteria: CriteriaCardData }) {
+  const { t, language } = useLanguage()
   const location = useLocation()
   const residential = criteria.propertyType === 'apartment' || criteria.propertyType === 'house'
 
@@ -41,78 +44,47 @@ export function CriteriaCard({ criteria }: { criteria: CriteriaCardData }) {
     <Link
       to={`/criteria/${criteria.id}`}
       state={{ returnTo: `${location.pathname}${location.search}` }}
-      className="criteria-card group block h-full w-full active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      className="criteria-card group flex h-full w-full flex-col active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-reduce:active:scale-100"
     >
-      <div className="relative flex h-24 items-center justify-between overflow-hidden bg-primary-900 px-5 text-white">
-        <div className="absolute -right-5 -top-16 h-40 w-40 rounded-full border border-white/10" />
-        <div className="absolute right-3 -top-9 h-32 w-32 rounded-full border border-white/15" />
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15"><Search size={18} /></span>
-          <span className="text-xs font-semibold uppercase tracking-[.17em]">Buyer request</span>
-        </div>
-        <ArrowUpRight size={20} className="relative transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+      <div className="bg-accent px-4 pb-5 pt-4 sm:px-5 sm:pt-5">
+        <p className="price-display text-[clamp(1.35rem,6vw,1.6875rem)] font-semibold leading-tight tracking-[-.025em] tabular-nums text-foreground">
+          {formatPriceRange(criteria.priceMin, criteria.priceMax)}
+        </p>
+        <h3 className="mt-2 line-clamp-2 text-base font-semibold leading-snug tracking-[-.012em] text-foreground">
+          {criteria.title || t(`${PROPERTY_TYPE_LABEL[criteria.propertyType]} em ${publicLocationLabel(criteria.locationText, language)}`, `${PROPERTY_TYPE_LABEL[criteria.propertyType]} in ${publicLocationLabel(criteria.locationText, language)}`)}
+        </h3>
       </div>
 
-      <div className="p-5">
-        {/* Header */}
-        <div className="mb-4 flex items-center gap-3">
-          <MemberAvatar member={criteria.buyer} className="h-11 w-11 text-sm" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-semibold text-foreground">
-              {criteria.buyer.fullName ?? 'Anonymous buyer'}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {criteria.isActive ? 'Buyer request' : 'Archived request'} · {timeAgo(criteria.createdAt)}
-            </p>
-          </div>
-          <span className="shrink-0 rounded-full bg-primary-100 px-2.5 py-1 text-[11px] font-semibold text-primary">
-            {criteria.isActive ? 'Looking now' : 'Archived'}
-          </span>
+      <div className="flex flex-1 flex-col px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
+        <p className="flex min-w-0 items-start gap-1.5 text-sm leading-snug text-muted-foreground">
+          <MapPin size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span className="line-clamp-2">{publicLocationLabel(criteria.locationText, language)} ({t(`raio de ${criteria.radiusKm} km`, `${criteria.radiusKm} km radius`)})</span>
+        </p>
+        <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-primary">
+          <span>{t(`Critérios para ${PROPERTY_TYPE_LABEL[criteria.propertyType].toLowerCase()}`, `${PROPERTY_TYPE_LABEL[criteria.propertyType]} criteria`)}</span>
+          {!criteria.isActive && <span className="text-muted-foreground">{t('Arquivado', 'Archived')}</span>}
         </div>
 
-        {/* Budget */}
-        <div className="mb-3">
-          <p className="editorial-kicker">Budget</p>
-          <p className="mt-1 text-[25px] font-semibold tracking-[-.045em] text-foreground">
-            {formatPriceRange(criteria.priceMin, criteria.priceMax)}
-          </p>
-        </div>
-
-        {/* Title */}
-        {criteria.title && (
-          <p className="mb-3 line-clamp-2 text-[15px] font-semibold text-foreground">{criteria.title}</p>
-        )}
-
-        {/* Location + radius */}
-        <div className="mb-3 flex items-center gap-1.5 text-sm text-foreground/70">
-          <MapPin size={13} className="text-muted-foreground/70" />
-          {criteria.locationText}
-          <span className="text-muted-foreground/70">· {criteria.radiusKm}km radius</span>
-        </div>
-
-        {/* Type chip */}
-        <div className="mb-4 flex flex-wrap gap-1.5">
-          <span className="quiet-chip">
-            {PROPERTY_TYPE_LABEL[criteria.propertyType]}
-          </span>
-        </div>
-
-        {/* Specs */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border/80 pt-3 text-[13px] font-medium text-foreground/75">
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-3 text-[13px] font-medium text-foreground">
           {residential && <span className="flex items-center gap-1.5">
-            <BedDouble size={14} className="text-muted-foreground/70" />
-            {criteria.bedroomsMin}+ bed
+            <BedDouble size={16} aria-hidden="true" />
+            {criteria.bedroomsMin}+ {t(criteria.bedroomsMin === 1 ? 'quarto' : 'quartos', 'bed')}
           </span>}
           {residential && <span className="flex items-center gap-1.5">
-            <Bath size={14} className="text-muted-foreground/70" />
-            {criteria.bathroomsMin}+ bath
+            <Bath size={16} aria-hidden="true" />
+            {criteria.bathroomsMin}+ {t(criteria.bathroomsMin === 1 ? 'casa de banho' : 'casas de banho', 'bath')}
           </span>}
           {criteria.areaSqmMin != null && (
             <span className="flex items-center gap-1.5">
-              <Maximize2 size={14} className="text-muted-foreground/70" />
-              {criteria.areaSqmMin.toLocaleString()}+ m²
+              <Maximize2 size={16} aria-hidden="true" />
+              {criteria.areaSqmMin.toLocaleString(languageTag(language))}+ m²
             </span>
           )}
+        </div>
+        <div className="mt-auto flex items-center gap-2 pt-4 text-xs text-muted-foreground">
+          <MemberAvatar member={criteria.buyer} className="h-7 w-7" />
+          <span className="min-w-0 truncate">{criteria.buyer.fullName ?? t('Comprador', 'Buyer')}</span>
+          <span className="ml-auto shrink-0">{timeAgo(criteria.createdAt)}</span>
         </div>
       </div>
     </Link>

@@ -80,7 +80,7 @@ async function requireSellerView(ctx: Context) {
     where: eq(users.id, userId), columns: { role: true, onboardingCompletedAt: true },
   })
   if (!user?.onboardingCompletedAt || (user.role !== 'seller' && user.role !== 'both')) {
-    throw new GraphQLError('Your account role cannot browse buyer requests', {
+    throw new GraphQLError('Your account role cannot browse criteria', {
       extensions: { code: 'FORBIDDEN' },
     })
   }

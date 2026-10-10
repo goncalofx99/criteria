@@ -1,29 +1,30 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-PT">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-    <title>Page not found | CRITERIA</title>
+    <title>Página não encontrada | CRITERIA</title>
     <style>
+      @font-face { font-family:'IBM Plex Sans'; font-style:normal; font-weight:100 700; font-display:swap; src:url('/fonts/ibm-plex-sans-var-roman-latin1.woff2') format('woff2'); }
       :root { color-scheme: light; --paper:#faf8f4; --surface:#fff; --ink:#1a2e22; --muted:#56665b; --line:#dcd9cf; --action:#344e41; --action-text:#fff; }
       :root.dark { color-scheme: dark; --paper:#0f1a15; --surface:#1a2e22; --ink:#f1eee7; --muted:#c3d2c5; --line:#42594b; --action:#385f4d; --action-text:#fff; }
       * { box-sizing:border-box; }
-      body { min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; margin:0; background:var(--paper); color:var(--ink); font-family:Inter,system-ui,-apple-system,sans-serif; }
+      body { min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; margin:0; background:var(--paper); color:var(--ink); font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif; }
       a { color:inherit; }
       a:focus-visible { outline:3px solid #84a98c; outline-offset:3px; }
       main { width:min(100%,1040px); flex:1; margin:auto; padding:7vw 28px; }
       .brand { display:inline-flex; align-items:center; gap:11px; text-decoration:none; font-size:14px; font-weight:750; letter-spacing:.16em; }
-      .brand img { width:36px; height:36px; border-radius:7px; }
+      .brand img { width:36px; height:36px; border-radius:3px; }
       .crumb { margin:80px 0 42px; color:var(--muted); font-size:13px; }
       .crumb a { text-underline-offset:4px; }
       .eyebrow { color:#9b513c; font-size:12px; font-weight:750; letter-spacing:.16em; text-transform:uppercase; }
       h1 { max-width:880px; margin:16px 0 24px; font-size:clamp(3.2rem,9vw,7.5rem); line-height:.95; letter-spacing:-.045em; }
       p { max-width:480px; color:var(--muted); font-size:16px; line-height:1.6; }
       .actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:28px; }
-      .actions a { display:inline-flex; min-height:48px; align-items:center; padding:0 20px; border:1px solid var(--line); border-radius:8px; background:var(--surface); font-size:14px; font-weight:700; text-decoration:none; }
+      .actions a { display:inline-flex; min-height:48px; align-items:center; padding:0 20px; border:1px solid var(--line); border-radius:4px; background:var(--surface); font-size:14px; font-weight:700; text-decoration:none; }
       .actions a:first-child { border-color:var(--action); background:var(--action); color:var(--action-text); }
       footer { border-top:1px solid var(--line); padding:26px 28px; background:var(--surface); }
       footer div { display:flex; flex-wrap:wrap; gap:12px 24px; width:min(100%,984px); margin:auto; color:var(--muted); font-size:13px; }
@@ -36,17 +37,35 @@
         const dark = theme === 'dark' || ((!theme || theme === 'system') && matchMedia('(prefers-color-scheme: dark)').matches)
         document.documentElement.classList.toggle('dark', dark)
       } catch { /* storage can be unavailable */ }
+      document.addEventListener('DOMContentLoaded', () => {
+        try {
+          if (localStorage.getItem('criteria-language') !== 'en') return
+          document.documentElement.lang = 'en-GB'
+          document.title = 'Page not found | CRITERIA'
+          document.querySelector('[data-i18n-aria="breadcrumb"]').setAttribute('aria-label', 'Breadcrumb')
+          const english = {
+            home: 'Home', missing: 'Page not found',
+            eyebrow: '404 · Wrong turn', heading: 'No match for this address.',
+            description: 'This page may have moved, or the link may be incomplete. Return to CRITERIA to continue.',
+            homeAction: 'Go to CRITERIA home', signIn: 'Sign in', faq: 'Frequently asked questions',
+            privacy: 'Privacy policy', terms: 'Terms and conditions', contact: 'Contact'
+          }
+          for (const [key, value] of Object.entries(english)) {
+            document.querySelector(`[data-i18n="${key}"]`).textContent = value
+          }
+        } catch { /* storage can be unavailable */ }
+      })
     </script>
   </head>
   <body>
     <main>
       <a href="/" class="brand"><img src="/icon-192.png" alt="" width="36" height="36" />CRITERIA</a>
-      <nav class="crumb" aria-label="Breadcrumb"><a href="/">Home</a> / <span aria-current="page">Page not found</span></nav>
-      <span class="eyebrow">404 · Wrong turn</span>
-      <h1>No match for this address.</h1>
-      <p>This page may have moved, or the link may be incomplete. Return to CRITERIA to continue.</p>
-      <div class="actions"><a href="/">Go to CRITERIA home</a><a href="/sign-in">Sign in</a></div>
+      <nav class="crumb" aria-label="Navegação" data-i18n-aria="breadcrumb"><a href="/" data-i18n="home">Início</a> / <span aria-current="page" data-i18n="missing">Página não encontrada</span></nav>
+      <span class="eyebrow" data-i18n="eyebrow">404 · Caminho errado</span>
+      <h1 data-i18n="heading">Não encontrámos esta página.</h1>
+      <p data-i18n="description">Esta página pode ter mudado de endereço ou o link pode estar incompleto. Volte à CRITERIA para continuar.</p>
+      <div class="actions"><a href="/" data-i18n="homeAction">Ir para a página inicial</a><a href="/sign-in" data-i18n="signIn">Iniciar sessão</a></div>
     </main>
-    <footer><div><span>© CRITERIA</span><a href="/#faq">Frequently asked questions</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms and conditions</a><a href="mailto:criteriaappportugal@gmail.com">Contact</a></div></footer>
+    <footer><div><span>© CRITERIA</span><a href="/#faq" data-i18n="faq">Perguntas frequentes</a><a href="/privacy" data-i18n="privacy">Política de privacidade</a><a href="/terms" data-i18n="terms">Termos e condições</a><a href="mailto:criteriaappportugal@gmail.com" data-i18n="contact">Contacto</a></div></footer>
   </body>
 </html>

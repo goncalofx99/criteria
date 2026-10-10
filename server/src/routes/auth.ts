@@ -8,19 +8,15 @@ import { env } from '../lib/env.js'
 import { db } from '../db/index.js'
 import { users, sessions, passwordResetTokens, accountActionTokens } from '../db/schema.js'
 import { signAccessToken } from '../middleware/auth.js'
-import { resolveOAuthRedirect } from '../lib/oauthRedirect.js'
+import { googleOAuthCallbackUrl, resolveOAuthRedirect } from '../lib/oauthRedirect.js'
 
 // ─── Google OAuth client ─────────────────────────────────────────────────────
 
 const frontendUrl = env.FRONTEND_URL ?? 'http://localhost:5173'
-const serverUrl = env.NODE_ENV === 'production'
-  ? 'https://criteria-newn.onrender.com'
-  : `http://localhost:${env.PORT}`
-
 const google = new Google(
   env.GOOGLE_CLIENT_ID,
   env.GOOGLE_CLIENT_SECRET,
-  `${serverUrl}/auth/google/callback`,
+  googleOAuthCallbackUrl(env.PORT, env.NODE_ENV === 'production', env.PUBLIC_API_URL),
 )
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -278,8 +274,8 @@ authRoutes.post('/auth/password-reset/request', async (c) => {
       body: JSON.stringify({
         from: env.PASSWORD_RESET_FROM,
         to: [user.email],
-        subject: 'Reset your CRITERIA password',
-        text: `Use this link to reset your CRITERIA password. It expires in 30 minutes:\n\n${resetUrl.toString()}\n\nIf you did not request this, you can ignore this email.`,
+        subject: 'Repor a palavra-passe da CRITERIA',
+        text: `Use esta ligação para definir uma nova palavra-passe da sua conta CRITERIA. A ligação expira dentro de 30 minutos:\n\n${resetUrl.toString()}\n\nSe não pediu a reposição da palavra-passe, ignore este email.`,
       }),
     })
     if (!response.ok) throw new Error(`Email provider returned ${response.status}`)
@@ -322,7 +318,7 @@ authRoutes.post('/auth/password-reset/confirm', async (c) => {
 // ── Google OAuth — initiate ───────────────────────────────────────────────────
 
 authRoutes.get('/auth/google', async (c) => {
-  const redirect = resolveOAuthRedirect(frontendUrl, c.req.query('redirect'))
+  const redirect = resolveOAuthRedirect(frontendUrl, c.req.query('redirect'), env.NODE_ENV !== 'production')
   if (!redirect) return c.json({ error: 'Invalid OAuth redirect' }, 400)
   const state = generateState()
   const codeVerifier = generateCodeVerifier()

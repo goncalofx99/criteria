@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useMutation } from '@apollo/client'
 import { ArrowLeft, Building2, Search, Check } from 'lucide-react'
@@ -16,22 +16,17 @@ import { CriteriaForm, type CriteriaFormValues } from '@/components/posts/Criter
 import { EditFormSkeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { safeInternalPath } from '@/lib/returnTo'
+import { useLanguage } from '@/lib/language'
 
 type Mode = 'property' | 'criteria'
 
 export default function CreatePostPage() {
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const location = useLocation()
   const returnTo = safeInternalPath((location.state as { returnTo?: string } | null)?.returnTo, '/feed')
   const { me, canCreateProperty, canCreateCriteria, loading: meLoading, refetch } = useMe()
-  const [mode, setMode] = useState<Mode | null>(null)
-
-  // Sync mode once role loads, avoiding stale useState initial value
-  useEffect(() => {
-    if (!meLoading && mode === null) {
-      setMode(canCreateProperty ? 'property' : 'criteria')
-    }
-  }, [meLoading, canCreateProperty, mode])
+  const [modeSelection, setModeSelection] = useState<{ search: string; mode: Mode } | null>(null)
   const [createdPath, setCreatedPath] = useState<string | null>(null)
 
   const [createSellerPost] = useMutation(CREATE_SELLER_POST, {
@@ -45,7 +40,7 @@ export default function CreatePostPage() {
     return (
       <div>
         <Header onBack={() => navigate(returnTo)} />
-        {meLoading ? <EditFormSkeleton /> : <div className="px-6 py-16 text-center text-sm text-muted-foreground"><p>Couldn’t load your account.</p><Button type="button" variant="outline" onClick={() => void refetch()} className="mt-4 min-h-11">Try again</Button></div>}
+        {meLoading ? <EditFormSkeleton /> : <div className="px-6 py-16 text-center text-sm text-muted-foreground"><p>{t('Não foi possível carregar a sua conta.', 'Couldn’t load your account.')}</p><Button type="button" variant="outline" onClick={() => void refetch()} className="mt-4 min-h-11">{t('Tentar novamente', 'Try again')}</Button></div>}
       </div>
     )
   }
@@ -54,16 +49,17 @@ export default function CreatePostPage() {
     return (
       <div>
         <Header onBack={() => navigate(returnTo)} />
-        <p className="px-6 py-10 text-center text-sm text-muted-foreground">
-          Your account doesn't have a posting role yet.
-        </p>
+        <div className="screen-wrap max-w-xl"><p className="screen-intro">{t('Escolha o papel de comprador ou vendedor para publicar.', 'Choose a buyer or seller role to publish a post.')}</p><Button className="mt-5" onClick={() => navigate('/profile')}>{t('Escolher papel', 'Choose your role')}</Button></div>
       </div>
     )
   }
 
   const showToggle = canCreateProperty && canCreateCriteria
+  // A route change resets the manual selection, so /create?type=criteria also
+  // works when navigating to it from another part of the app without remounting.
+  const requestedMode = new URLSearchParams(location.search).get('type') === 'criteria' ? 'criteria' : 'property'
   const activeMode: Mode = showToggle
-    ? (mode ?? 'property')
+    ? (modeSelection?.search === location.search ? modeSelection.mode : requestedMode)
     : canCreateProperty
       ? 'property'
       : 'criteria'
@@ -77,21 +73,21 @@ export default function CreatePostPage() {
           paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)',
         }}
       >
-        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary bg-primary-100">
-          <Check size={36} strokeWidth={2.5} className="text-primary" />
+        <div className="mb-7 flex h-16 w-16 items-center justify-center rounded bg-primary-100">
+          <Check size={30} strokeWidth={2} className="text-primary" />
         </div>
-        <h2 className="text-2xl font-bold text-foreground">
-          {activeMode === 'property' ? 'Property listed' : 'Criteria published'}
-        </h2>
+        <h1 className="screen-heading text-foreground">
+          {activeMode === 'property' ? t('Imóvel publicado', 'Property listed') : t('Critérios publicados', 'Criteria published')}
+        </h1>
         <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">
           {activeMode === 'property'
-            ? 'Your property is now live and visible to buyers.'
-            : 'Sellers can now find you and reach out directly.'}
+            ? t('O seu imóvel está publicado e visível para todos.', 'Your property is now live and visible to everyone.')
+            : t('Os vendedores já podem encontrá-lo e entrar em contacto.', 'Sellers can now find you and reach out directly.')}
         </p>
-        <Button className="mt-8 rounded-xl" onClick={() => navigate(createdPath, { replace: true })}>
-          View your post
+        <Button className="mt-8 min-h-12 rounded px-7" onClick={() => navigate(createdPath, { replace: true })}>
+          {t('Ver publicação', 'View your post')}
         </Button>
-        <Button variant="ghost" className="mt-2" onClick={() => navigate('/profile', { replace: true })}>Your profile</Button>
+        <Button variant="ghost" className="mt-2" onClick={() => navigate('/profile', { replace: true })}>{t('O seu perfil', 'Your profile')}</Button>
       </div>
     )
   }
@@ -109,45 +105,47 @@ export default function CreatePostPage() {
   }
 
   return (
-    <div className="min-h-dvh">
+    <div>
       <Header onBack={() => navigate(returnTo)} />
 
-      <div className="mx-auto max-w-[1160px] px-5 py-7 md:px-8 md:py-10 lg:grid lg:grid-cols-[minmax(220px,290px)_minmax(0,1fr)] lg:items-start lg:gap-12 xl:gap-16">
-        <div className="lg:sticky lg:top-28">
-        <p className="editorial-kicker">Make your move</p>
-        <h2 className="editorial-title mt-2">Put it out there.</h2>
-        <p className="editorial-subtitle mt-2 mb-7 max-w-xl text-sm md:text-base lg:mb-0">
-          A clear post helps the right person find you, whether you're offering a home or searching for one.
-        </p>
+      <div className="mx-auto max-w-[1160px] px-5 pb-14 pt-5 md:px-8 md:pt-10 lg:grid lg:grid-cols-[minmax(220px,300px)_minmax(0,720px)] lg:items-start lg:gap-12 xl:gap-20">
+        <div className="mb-4 lg:sticky lg:top-28 lg:mb-0">
+          <h2 className="hidden max-w-[480px] text-[clamp(2rem,5vw,3.25rem)] font-semibold leading-[1.06] tracking-[-.035em] text-foreground lg:block">{t('Dê visibilidade ao seu próximo passo.', 'Make your next move visible.')}</h2>
+          <p className="screen-intro max-w-md lg:mt-4">
+            {t('Partilhe os detalhes que ajudam a encontrar a combinação certa.', 'Share the details that help someone find a good fit.')}
+          </p>
+          <div className="mt-8 hidden border-t border-border pt-5 text-sm leading-relaxed text-muted-foreground lg:block">
+            {t('Partilhe informações corretas. Pode editar ou arquivar a publicação mais tarde no seu perfil.', 'Share accurate details now. You can edit your post or archive it later from your profile.')}
+          </div>
         </div>
         <div className="min-w-0">
         {showToggle && (
-          <div className="segmented-control mb-7 flex w-full" role="group" aria-label="Post type">
+          <div className="mb-5 grid w-full grid-cols-2 gap-2 border-b border-border pb-5" role="group" aria-label={t('Tipo de publicação', 'Post type')}>
             <ModeButton
               icon={<Building2 size={16} />}
-              label="List a Property"
+              label={t('Anunciar imóvel', 'List property')}
               active={activeMode === 'property'}
-              onClick={() => setMode('property')}
+              onClick={() => setModeSelection({ search: location.search, mode: 'property' })}
             />
             <ModeButton
               icon={<Search size={16} />}
-              label="Post Criteria"
+              label="Criteria"
               active={activeMode === 'criteria'}
-              onClick={() => setMode('criteria')}
+              onClick={() => setModeSelection({ search: location.search, mode: 'criteria' })}
             />
           </div>
         )}
 
         <div hidden={activeMode !== 'property'}>
-          <PropertyForm submitLabel="Publish listing" uploadOwnerId={me.id} onSubmit={handleProperty} />
+          <PropertyForm submitLabel={t('Publicar imóvel', 'Publish listing')} uploadOwnerId={me.id} onSubmit={handleProperty} />
         </div>
         <div hidden={activeMode !== 'criteria'}>
           <CriteriaForm
-            submitLabel="Post my criteria"
+            submitLabel={t('Publicar critérios', 'Post my criteria')}
             intro={
-              <div className="rounded-[20px] border border-primary-200 bg-primary-100/60 p-5">
+              <div className="rounded bg-primary-100/60 px-4 py-3">
                 <p className="text-sm leading-relaxed text-primary-700">
-                  <strong>How it works:</strong> share your search with eligible sellers. Sellers with matching properties can reach out directly.
+                  <strong>{t('Como funciona:', 'How it works:')}</strong> {t('Partilhe a sua pesquisa com vendedores elegíveis. Quem tiver imóveis compatíveis pode contactá-lo diretamente.', 'Share your search with eligible sellers. Sellers with matching properties can reach out directly.')}
                 </p>
               </div>
             }
@@ -155,8 +153,8 @@ export default function CreatePostPage() {
           />
         </div>
 
-        <p className="mt-3 text-center text-xs text-muted-foreground">
-          Listings are visible to signed-in members. Buyer requests are visible to sellers, and exact addresses stay private.
+        <p className="mt-5 max-w-xl text-xs leading-relaxed text-muted-foreground">
+          {t('Os anúncios ativos são públicos. Os critérios são visíveis para vendedores elegíveis. As páginas dos imóveis mostram uma localização aproximada: não inclua moradas exatas em textos ou fotografias.', 'Active listings are public. Criteria are visible to eligible sellers. Listing pages show an approximate location, so leave exact addresses out of text and photos.')}
         </p>
         </div>
       </div>
@@ -165,18 +163,19 @@ export default function CreatePostPage() {
 }
 
 function Header({ onBack }: { onBack: () => void }) {
+  const { t } = useLanguage()
   return (
     <PageHeader>
       <div className="workspace-content flex items-center gap-3 px-5 py-4 md:px-8 lg:px-10">
         <button
           type="button"
           onClick={onBack}
-          aria-label="Go back"
-          className="flex h-11 w-11 items-center justify-center rounded-full text-foreground/70 hover:bg-overlay"
+          aria-label={t('Voltar', 'Go back')}
+          className="flex h-11 w-11 items-center justify-center rounded text-foreground/70 hover:bg-overlay"
         >
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-lg font-semibold text-foreground">Create post</h1>
+        <h1 className="text-base font-semibold text-foreground">{t('Criar publicação', 'Create a post')}</h1>
       </div>
     </PageHeader>
   )
@@ -191,11 +190,11 @@ function ModeButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'flex h-11 flex-1 items-center justify-center gap-2 rounded-full text-sm transition-all',
-        active ? 'bg-primary text-white font-semibold shadow-elevation-1' : 'text-muted-foreground',
+        'flex min-h-12 min-w-0 items-center justify-center gap-2 rounded border px-2 text-sm font-semibold transition-colors max-[359px]:gap-1 max-[359px]:px-1 max-[359px]:text-[13px] max-[359px]:whitespace-nowrap',
+        active ? 'border-primary bg-primary text-white' : 'border-border bg-surface text-foreground hover:border-primary-400',
       )}
     >
-      {icon}
+      <span className="shrink-0" aria-hidden="true">{icon}</span>
       {label}
     </button>
   )

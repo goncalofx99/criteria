@@ -1,4 +1,5 @@
-import { cn } from '@/lib/utils'
+import { Check, Square } from 'lucide-react'
+import { useLanguage } from '@/lib/language'
 
 interface PasswordStrengthProps {
   password: string
@@ -27,46 +28,21 @@ export function getPasswordStrength(password: string): 0 | 1 | 2 | 3 {
   return 3
 }
 
-const strengthConfig = {
-  0: { label: 'Too weak',  color: 'bg-destructive' },
-  1: { label: 'Weak',      color: 'bg-warning' },
-  2: { label: 'Good',      color: 'bg-primary-400' },
-  3: { label: 'Strong',    color: 'bg-success' },
-}
-
 export function PasswordStrength({ password }: PasswordStrengthProps) {
+  const { t } = useLanguage()
   if (!password) return null
 
-  const strength = getPasswordStrength(password)
   const checks = getPasswordChecks(password)
-  const { label, color } = strengthConfig[strength]
+  const passed = checks.filter(check => check.passed).length
 
   return (
-    <div className="mt-2 space-y-2">
-      {/* Bar */}
-      <div className="flex items-center gap-1.5">
-        {[0, 1, 2, 3].map(i => (
-          <div
-            key={i}
-            className={cn(
-              'h-1 flex-1 rounded-full transition-colors duration-200',
-              i <= strength ? color : 'bg-border',
-            )}
-          />
-        ))}
-        <span className="ml-1 text-xs text-muted-foreground w-16 text-right">{label}</span>
-      </div>
-
-      {/* Checklist */}
-      <ul className="space-y-1">
-        {checks.map(({ label, passed }) => (
-          <li key={label} className="flex items-center gap-2 text-xs">
-            <span className={cn('text-base leading-none', passed ? 'text-success' : 'text-border')}>
-              {passed ? '✓' : '○'}
-            </span>
-            <span className={passed ? 'text-muted-foreground' : 'text-muted-foreground/60'}>
-              {label}
-            </span>
+    <div className="mt-3 rounded bg-overlay px-4 py-3">
+      <p className="text-xs font-semibold text-foreground">{t('Requisitos da palavra-passe', 'Password requirements')} <span className="font-normal text-muted-foreground">({passed} {t('de', 'of')} {checks.length})</span></p>
+      <ul className="mt-2 space-y-1.5">
+        {checks.map(({ label, passed: complete }) => (
+          <li key={label} className="flex items-center gap-2 text-xs leading-snug text-muted-foreground">
+            {complete ? <Check aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-primary-600" /> : <Square aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />}
+            <span>{label === 'At least 8 characters' ? t('Pelo menos 8 caracteres', label) : label === 'Uppercase letter' ? t('Uma letra maiúscula', label) : label === 'Number' ? t('Um número', label) : t('Um carácter especial', label)}</span>
           </li>
         ))}
       </ul>

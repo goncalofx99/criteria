@@ -91,10 +91,12 @@ export const SEARCH_SELLER_POSTS = gql`
     $offset: Int
     $filters: SellerPostFilters
     $search: String
+    $district: String
+    $municipality: String
     $bounds: MapBoundsInput
     $sort: SellerPostSort
   ) {
-    sellerPostSearch(limit: $limit, offset: $offset, filters: $filters, search: $search, bounds: $bounds, sort: $sort) {
+    sellerPostSearch(limit: $limit, offset: $offset, filters: $filters, search: $search, district: $district, municipality: $municipality, bounds: $bounds, sort: $sort) {
       items { ...SellerPostFields }
       totalCount
       hasNextPage

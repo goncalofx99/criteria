@@ -1,10 +1,26 @@
-import { Compass, MessageCircle, Plus } from 'lucide-react'
+import { ClipboardList, House, MessageCircle, Plus } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
-export const tabs = [
-  { to: '/feed', icon: Compass, label: 'Explore' },
-  { to: '/create', icon: Plus, label: 'Create', primary: true },
-  { to: '/inbox', icon: MessageCircle, label: 'Inbox' },
+interface NavigationTab {
+  to: string
+  icon: LucideIcon
+  label: string
+  labelPt: string
+  desktopLabel?: string
+  primary?: boolean
+}
+
+const commonTabs: NavigationTab[] = [
+  { to: '/', icon: House, label: 'Home', labelPt: 'Início' },
+  { to: '/create', icon: Plus, label: 'Create', labelPt: 'Criar', primary: true },
+  { to: '/inbox', icon: MessageCircle, label: 'Inbox', labelPt: 'Mensagens' },
 ]
 
-// Profile is the account action in the header on every screen size.
-export const mobileTabs = tabs
+export const mobileTabs = commonTabs
+
+/** Criteria are only discoverable by members with a seller role. */
+export function navigationTabs(canViewCriteria: boolean) {
+  return canViewCriteria
+    ? [commonTabs[0], { to: '/requests', icon: ClipboardList, label: 'Criteria', labelPt: 'Critérios', desktopLabel: 'Criteria' }, ...commonTabs.slice(1)]
+    : commonTabs
+}

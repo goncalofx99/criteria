@@ -6,6 +6,7 @@ import { apolloClient } from '@/lib/apollo'
 import { ReviewControls } from '@/review/ReviewControls'
 import { installReviewNetworkGuard } from '@/review/networkGuard'
 import { PrivacyNotice } from '@/components/privacy/PrivacyNotice'
+import { LanguageProvider } from '@/lib/language'
 import App from './App'
 import './fonts.css'
 import './index.css'
@@ -42,10 +43,12 @@ if (Capacitor.isNativePlatform()) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ApolloProvider client={apolloClient}>
-      <App />
-      <ReviewControls />
-      {!Capacitor.isNativePlatform() && <PrivacyNotice />}
-    </ApolloProvider>
+    <LanguageProvider>
+      <ApolloProvider client={apolloClient}>
+        <App />
+        <ReviewControls />
+        {!Capacitor.isNativePlatform() && <PrivacyNotice />}
+      </ApolloProvider>
+    </LanguageProvider>
   </StrictMode>,
 )

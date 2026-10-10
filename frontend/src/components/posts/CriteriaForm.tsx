@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,6 +22,7 @@ import { AddressAutocomplete } from '@/components/map/AddressAutocomplete'
 import { LazyPostsMap } from '@/components/map/LazyPostsMap'
 import type { GeocodeResult } from '@/lib/geocoding'
 import { cn } from '@/lib/utils'
+import { localizedError, useLanguage } from '@/lib/language'
 
 export interface CriteriaFormValues {
   title: string
@@ -60,6 +61,7 @@ function findPreset(label: string | undefined): LocationPreset | null {
 const CURRENT_YEAR = new Date().getFullYear()
 
 export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: CriteriaFormProps) {
+  const { t, language } = useLanguage()
   const [title, setTitle] = useState(initial?.title ?? '')
   const [type, setType] = useState<PropertyType>(initial?.propertyType ?? 'apartment')
   const [location, setLocation] = useState<LocationPreset | null>(
@@ -91,6 +93,7 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
   )
   const [description, setDescription] = useState(initial?.description ?? '')
   const [error, setError] = useState<string | null>(null)
+  const errorRef = useRef<HTMLParagraphElement>(null)
   const [submitting, setSubmitting] = useState(false)
 
   const min = priceMin ? Number(priceMin) : NaN
@@ -135,15 +138,16 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
     e.preventDefault()
     if (!canSubmit || !location) {
       const issues = [
-        !title.trim() && 'title',
-        !location && 'preferred location',
-        (!Number.isFinite(radius) || radius < 1 || radius > 500) && 'search radius',
-        (!Number.isFinite(min) || min < 0 || !Number.isFinite(max) || max <= 0 || min >= max) && 'budget range',
-        areaNum !== null && (!Number.isFinite(areaNum) || areaNum <= 0) && 'minimum area',
-        isResidential && yearMin !== null && (!Number.isInteger(yearMin) || yearMin < 1500 || yearMin > CURRENT_YEAR + 5) && 'year built',
-        isApartment && (!floorRangeOk || !floorValuesOk) && 'floor range',
+        !title.trim() && t('título', 'title'),
+        !location && t('localização pretendida', 'preferred location'),
+        (!Number.isFinite(radius) || radius < 1 || radius > 500) && t('raio de pesquisa', 'search radius'),
+        (!Number.isFinite(min) || min < 0 || !Number.isFinite(max) || max <= 0 || min >= max) && t('intervalo de orçamento', 'budget range'),
+        areaNum !== null && (!Number.isFinite(areaNum) || areaNum <= 0) && t('área mínima', 'minimum area'),
+        isResidential && yearMin !== null && (!Number.isInteger(yearMin) || yearMin < 1500 || yearMin > CURRENT_YEAR + 5) && t('ano de construção', 'year built'),
+        isApartment && (!floorRangeOk || !floorValuesOk) && t('intervalo de andares', 'floor range'),
       ].filter(Boolean)
-      setError(`Please check ${issues.join(', ') || 'the highlighted fields'} before continuing.`)
+      setError(t(`Verifique ${issues.join(', ') || 'os campos assinalados'} antes de continuar.`, `Please check ${issues.join(', ') || 'the highlighted fields'} before continuing.`))
+      requestAnimationFrame(() => errorRef.current?.focus())
       return
     }
     setError(null)
@@ -171,39 +175,42 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
         requiredAmenities: requiredAmenities.filter(key => amenitiesForPropertyType(type).some(item => item.key === key)),
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(localizedError(err, language, 'Não foi possível publicar os critérios. Tente novamente.', 'Something went wrong'))
       setSubmitting(false)
     }
   }
 
   return (
-    <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
-      {intro}
+    <form className="flex flex-col gap-0" onSubmit={handleSubmit}>
+      {intro && <div className="mb-7">{intro}</div>}
+      {error && (
+        <p ref={errorRef} tabIndex={-1} role="alert" className="mb-5 rounded bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>
+      )}
 
-      <Section title="Basics">
-        <Field label="Title" required>
+      <Section title={t('Dados básicos', 'Basics')}>
+        <Field label={t('Título', 'Title')} required>
           <Input
             value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder="e.g. Family home in Cascais"
+            placeholder={t('ex.: Moradia familiar em Cascais', 'e.g. Family home in Cascais')}
             maxLength={200}
           />
         </Field>
 
-        <Field label="Property type" required>
+        <Field label={t('Tipo de imóvel', 'Property type')} required>
           <PropertyTypePicker value={type} onChange={setType} />
         </Field>
 
-        <Field label="Preferred location" required>
+        <Field label={t('Localização pretendida', 'Preferred location')} required>
           <div className="space-y-3">
             <LocationPicker value={location} onChange={setLocation} />
             <AddressAutocomplete
               value={location?.label ?? ''}
               onPick={(r: GeocodeResult) => setLocation({ label: r.label, lat: r.lat, lng: r.lng })}
               onEdit={() => setLocation(null)}
-              placeholder="Or type an address (e.g. Cascais)"
+              placeholder={t('Ou escreva uma localização (ex.: Cascais)', 'Or type an address (e.g. Cascais)')}
             />
-            <p className="text-xs leading-relaxed text-muted-foreground">Eligible sellers see an approximate area. Keep any private address out of the title and description.</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">{t('Os vendedores elegíveis veem uma área aproximada. Não inclua moradas privadas no título nem na descrição.', 'Eligible sellers see an approximate area. Keep any private address out of the title and description.')}</p>
             {location && Number(radiusKm) > 0 && (
               <LazyPostsMap
                 criteria={[{
@@ -219,7 +226,7 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
           </div>
         </Field>
 
-        <Field label="Search radius (km)" required>
+        <Field label={t('Raio de pesquisa (km)', 'Search radius (km)')} required>
           <Input
             type="number"
             inputMode="numeric"
@@ -230,60 +237,60 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
           />
         </Field>
 
-        <Field label="Budget (€)" required>
+        <Field label={t('Orçamento (€)', 'Budget (€)')} required>
           <div className="flex items-center gap-3">
             <Input
-              aria-label="Minimum budget in euros"
+              aria-label={t('Orçamento mínimo em euros', 'Minimum budget in euros')}
               type="number"
               inputMode="numeric"
               value={priceMin}
               onChange={e => setPriceMin(e.target.value)}
-              placeholder="Min"
+              placeholder={t('Mín.', 'Min')}
               min={0}
               required
             />
             <span className="text-muted-foreground">–</span>
             <Input
-              aria-label="Maximum budget in euros"
+              aria-label={t('Orçamento máximo em euros', 'Maximum budget in euros')}
               type="number"
               inputMode="numeric"
               value={priceMax}
               onChange={e => setPriceMax(e.target.value)}
-              placeholder="Max"
+              placeholder={t('Máx.', 'Max')}
               min={1}
               required
             />
           </div>
           {priceMin && priceMax && min >= max && (
-            <p className="mt-1 text-xs text-destructive">Min must be less than max.</p>
+            <p className="mt-1 text-xs text-destructive">{t('O mínimo deve ser inferior ao máximo.', 'Min must be less than max.')}</p>
           )}
         </Field>
       </Section>
 
-      <Section title={isResidential ? 'Rooms and area' : 'Area'}>
-        {isResidential && <div className="grid grid-cols-2 gap-4">
-          <Field label="Min bedrooms">
+      <Section title={isResidential ? t('Divisões e área', 'Rooms and area') : t('Área', 'Area')}>
+        {isResidential && <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
+          <Field label={t('Quartos, mínimo', 'Min bedrooms')}>
             <CountPicker options={['0', '1', '2', '3', '4', '5']} value={bedroomsMin} onChange={setBedroomsMin} />
           </Field>
-          <Field label="Min bathrooms">
+          <Field label={t('Casas de banho, mínimo', 'Min bathrooms')}>
             <CountPicker options={['1', '2', '3', '4']} value={bathroomsMin} onChange={setBathroomsMin} />
           </Field>
         </div>}
 
-        <Field label="Min area (m²)">
+        <Field label={t('Área mínima (m²)', 'Min area (m²)')}>
           <Input
             type="number"
             inputMode="numeric"
             value={areaSqmMin}
             onChange={e => setAreaSqmMin(e.target.value)}
-            placeholder="e.g. 90"
+            placeholder={t('ex.: 90', 'e.g. 90')}
             min={1}
           />
         </Field>
       </Section>
 
-      {isResidential && <Section title="Optional preferences" subtitle="Leave blank if you don't mind">
-        <Field label="Built no earlier than">
+      {isResidential && <Section title={t('Preferências opcionais', 'Optional preferences')} subtitle={t('Deixe em branco se não tiver preferência', "Leave blank if you don't mind")}>
+        <Field label={t('Construído a partir de', 'Built no earlier than')}>
           <Input
             type="number"
             inputMode="numeric"
@@ -295,7 +302,7 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
           />
         </Field>
 
-        <Field label="Acceptable conditions">
+        <Field label={t('Estados aceitáveis', 'Acceptable conditions')}>
           <div className="flex flex-wrap gap-2">
             {PROPERTY_CONDITIONS.map(c => {
               const active = conditions.includes(c)
@@ -306,10 +313,10 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
                   onClick={() => toggleCondition(c)}
                   aria-pressed={active}
                   className={cn(
-                    'min-h-11 rounded-full px-3.5 text-sm transition-all',
+                    'min-h-11 rounded px-3.5 text-sm transition-colors',
                     active
                       ? 'bg-primary text-white font-semibold'
-                      : 'border border-border bg-surface text-foreground/70',
+                      : 'border border-border bg-surface text-foreground hover:border-primary-400',
                   )}
                 >
                   {PROPERTY_CONDITION_LABEL[c]}
@@ -319,26 +326,26 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
           </div>
         </Field>
 
-        {isApartment && <div className="grid grid-cols-2 gap-4">
-          <Field label="Floor min">
+        {isApartment && <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
+          <Field label={t('Andar mínimo', 'Floor min')}>
             <Input
               type="number"
               inputMode="numeric"
               value={floorMin}
               onChange={e => setFloorMin(e.target.value)}
-              placeholder="e.g. 1"
+              placeholder={t('ex.: 1', 'e.g. 1')}
               min={-5}
               max={200}
               step={1}
             />
           </Field>
-          <Field label="Floor max">
+          <Field label={t('Andar máximo', 'Floor max')}>
             <Input
               type="number"
               inputMode="numeric"
               value={floorMax}
               onChange={e => setFloorMax(e.target.value)}
-              placeholder="e.g. 4"
+              placeholder={t('ex.: 4', 'e.g. 4')}
               min={-5}
               max={200}
               step={1}
@@ -346,22 +353,22 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
           </Field>
         </div>}
         {isApartment && !floorRangeOk && (
-          <p className="text-xs text-destructive">Floor min must be ≤ floor max.</p>
+          <p className="text-xs text-destructive">{t('O andar mínimo deve ser igual ou inferior ao máximo.', 'Floor min must be ≤ floor max.')}</p>
         )}
         {isApartment && !floorValuesOk && (
-          <p className="text-xs text-destructive">Floors must be whole numbers from −5 to 200.</p>
+          <p className="text-xs text-destructive">{t('Os andares devem ser números inteiros entre −5 e 200.', 'Floors must be whole numbers from −5 to 200.')}</p>
         )}
 
-        <Field label="Balcony">
+        <Field label={t('Varanda', 'Balcony')}>
           <RequirementPicker value={requiresBalcony} onChange={setRequiresBalcony} />
         </Field>
-        <Field label="Central heating">
+        <Field label={t('Aquecimento central', 'Central heating')}>
           <RequirementPicker value={requiresCentralHeating} onChange={setRequiresCentralHeating} />
         </Field>
 
       </Section>}
 
-      <Section title="Required amenities" subtitle="Select only your deal-breakers">
+      <Section title={t('Comodidades essenciais', 'Required amenities')} subtitle={t('Selecione apenas o que é indispensável', 'Select only your deal-breakers')}>
         <div className="flex flex-wrap gap-2">
           {amenitiesForPropertyType(type).map(a => {
             const active = requiredAmenities.includes(a.key)
@@ -372,10 +379,10 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
                 onClick={() => toggleAmenity(a.key)}
                 aria-pressed={active}
                 className={cn(
-                  'h-10 rounded-full px-3.5 text-sm transition-all',
+                  'min-h-11 rounded px-3.5 text-sm transition-colors',
                   active
                     ? 'bg-primary text-white font-semibold'
-                    : 'border border-border bg-surface text-foreground/70',
+                    : 'border border-border bg-surface text-foreground hover:border-primary-400',
                 )}
               >
                 {a.label}
@@ -385,26 +392,22 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
         </div>
       </Section>
 
-      <Section title="Notes">
-        <Field label="Anything else sellers should know?">
+      <Section title={t('Notas', 'Notes')}>
+        <Field label={t('Há mais alguma coisa que os vendedores devam saber?', 'Anything else sellers should know?')}>
           <Textarea
             rows={4}
             value={description}
             onChange={e => setDescription(e.target.value)}
-            placeholder="Schools, parking, timeline, deal-breakers…"
+            placeholder={t('Escolas, estacionamento, prazo, necessidades…', 'Schools, parking, timeline, deal-breakers…')}
             maxLength={2000}
           />
         </Field>
       </Section>
 
-      {error && (
-        <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
-      )}
-
       <Button
         type="submit"
         size="lg"
-        className="rounded-xl mt-2"
+        className="mt-7 min-h-12 w-full sm:w-auto sm:min-w-48"
         disabled={submitting}
       >
         {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : submitLabel}
@@ -416,11 +419,12 @@ export function CriteriaForm({ initial, submitLabel, intro, onSubmit }: Criteria
 function RequirementPicker({
   value, onChange,
 }: { value: boolean | null; onChange: (v: boolean | null) => void }) {
+  const { t } = useLanguage()
   return (
     <div className="flex gap-2">
       {([
-        { v: null, label: "Don't mind" },
-        { v: true, label: 'Must have' },
+        { v: null, label: t('Indiferente', "Don't mind") },
+        { v: true, label: t('Indispensável', 'Must have') },
       ] as const).map(opt => {
         const active = value === opt.v
         return (
@@ -430,10 +434,10 @@ function RequirementPicker({
             onClick={() => onChange(opt.v)}
           aria-pressed={active}
             className={cn(
-              'h-10 flex-1 rounded-md text-sm transition-all border-[1.5px]',
+              'min-h-11 flex-1 rounded border text-sm transition-colors',
               active
                 ? 'border-primary bg-primary-100 text-primary font-semibold'
-                : 'border-border bg-surface text-foreground/70',
+                : 'border-border bg-surface text-foreground hover:border-primary-400',
             )}
           >
             {opt.label}
