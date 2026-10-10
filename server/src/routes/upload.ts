@@ -9,10 +9,11 @@ import { r2 } from '../lib/r2.js'
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 export const uploadRoutes = new Hono()
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 /**
  * POST /upload/presign
- * Body: { key: "avatars/abc.jpg", contentType: "image/jpeg" }
+ * Body: { key: "avatars/abc.jpg", contentType: "image/jpeg", size: 12345 }
  * Returns: { uploadUrl: "...", publicUrl: "..." }
  *
  * The frontend uploads directly to R2 via the presigned URL,
@@ -29,17 +30,20 @@ uploadRoutes.post('/upload/presign', async (c) => {
     return c.json({ error: 'Unauthorized' }, 401)
   }
 
-  const body = await c.req.json<{ key: string; contentType: string }>()
-  const { key, contentType } = body
+  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
+  const key = body?.key
+  const contentType = body?.contentType
+  const size = body?.size
 
-  if (!key || !contentType) {
-    return c.json({ error: 'key and contentType are required' }, 400)
+  if (typeof key !== 'string' || typeof contentType !== 'string' ||
+      typeof size !== 'number' || !Number.isSafeInteger(size) || size < 1 || size > MAX_UPLOAD_BYTES) {
+    return c.json({ error: 'A valid key, content type and image size up to 10 MB are required' }, 400)
   }
 
   // Validate content type
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
   if (!allowedTypes.includes(contentType)) {
-    return c.json({ error: 'Invalid content type. Allowed: jpeg, png, webp, gif' }, 400)
+    return c.json({ error: 'Invalid content type. Allowed: jpeg, png, webp' }, 400)
   }
 
   // Keep every object in a namespace owned by the authenticated user.
@@ -52,6 +56,9 @@ uploadRoutes.post('/upload/presign', async (c) => {
     Bucket: env.R2_BUCKET,
     Key: key,
     ContentType: contentType,
+    // SigV4 includes content-length in SignedHeaders, so R2 rejects a PUT
+    // whose byte count differs from the validated size.
+    ContentLength: size,
   })
 
   const uploadUrl = await getSignedUrl(r2, command, { expiresIn: 300 }) // 5 min

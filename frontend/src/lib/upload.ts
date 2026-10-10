@@ -63,7 +63,7 @@ export async function uploadFile(file: File, keyPrefix: string): Promise<string>
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ key, contentType }),
+    body: JSON.stringify({ key, contentType, size: prepared.size }),
   })
 
   if (!res.ok) {
